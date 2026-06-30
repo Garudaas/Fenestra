@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alumni Inner Circle</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col">
+
+    <div id="camera-modal" class="hidden fixed inset-0 bg-black/80 flex flex-col items-center justify-center p-4 z-50">
+        <div class="bg-gray-800 border border-gray-700 p-4 rounded-xl max-w-sm w-full space-y-3">
+            <h3 class="text-sm font-bold text-blue-400">Live Device Capture</h3>
+            <video id="camera-stream" autoplay playsinline class="w-full rounded bg-black aspect-video object-cover"></video>
+            <div class="flex justify-end space-x-2">
+                <button onclick="closeCameraEngine()" class="px-3 py-1.5 bg-gray-700 rounded text-xs">Cancel</button>
+                <button onclick="captureFrameToDestination()" class="px-3 py-1.5 bg-blue-600 rounded text-xs font-bold">🔴 Capture Frame</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-landing" class="flex-1 flex flex-col items-center justify-center p-6 text-center">
+        <div class="max-w-md w-full bg-gray-800 p-8 rounded-xl border border-gray-700 shadow-2xl space-y-6">
+            <h1 class="text-3xl font-extrabold text-blue-400 tracking-tight">Alumni Network</h1>
+            <p class="text-gray-400 text-sm">Private and secure ecosystem for classmates.</p>
+            <div class="space-y-3 pt-4">
+                <button onclick="showView('signup')" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded transition duration-200">Claim Placeholder (First Time)</button>
+                <button onclick="showView('member-login')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded transition duration-200">Member Log In</button>
+            </div>
+            <div class="pt-4 border-t border-gray-700">
+                <button onclick="showView('admin-login')" class="text-xs text-gray-500 hover:text-red-400 transition">Admin Access Dashboard</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-signup" class="hidden flex-1 flex items-center justify-center p-6">
+        <div class="max-w-md w-full bg-gray-800 p-8 rounded-xl border border-gray-700 shadow-xl space-y-4">
+            <h2 class="text-xl font-bold text-green-400 text-center">First Time Registration</h2>
+            <div class="space-y-3">
+                <div class="relative w-full">
+                    <input id="reg-code" type="password" placeholder="Temporary Secret Code *" class="w-full p-3 pr-14 bg-gray-700 rounded border border-gray-600 text-sm">
+                    <button type="button" onclick="togglePasswordVisibility('reg-code', this)" class="absolute right-3 top-3 text-xs text-gray-400 hover:text-blue-400 font-semibold focus:outline-none">Show</button>
+                </div>
+                <input id="reg-user" type="text" placeholder="Create Unique Username/ID *" class="w-full p-3 bg-gray-700 rounded border border-gray-600 text-sm">
+                <div class="relative w-full">
+                    <input id="reg-pass" type="password" placeholder="Create Secret Password *" class="w-full p-3 pr-14 bg-gray-700 rounded border border-gray-600 text-sm">
+                    <button type="button" onclick="togglePasswordVisibility('reg-pass', this)" class="absolute right-3 top-3 text-xs text-gray-400 hover:text-blue-400 font-semibold focus:outline-none">Show</button>
+                </div>
+                <hr class="border-gray-700 my-2">
+                <input id="reg-name" type="text" placeholder="Full Name *" class="w-full p-3 bg-gray-700 rounded border border-gray-600 text-sm">
+                <select id="reg-gender" class="w-full p-3 bg-gray-700 rounded border border-gray-600 text-sm text-gray-400">
+                    <option value="">Select Gender *</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                </select>
+                <input id="reg-dob" type="date" placeholder="Date of Birth *" class="w-full p-3 bg-gray-700 rounded border border-gray-600 text-sm text-gray-400">
+                <input id="reg-email" type="email" placeholder="Email Address *" class="w-full p-3 bg-gray-700 rounded border border-gray-600 text-sm">
+                <input id="reg-phone" type="text" placeholder="Contact Number *" class="w-full p-3 bg-gray-700 rounded border border-gray-600 text-sm">
+                <button onclick="executeProfileClaim()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded">Initialize Account</button>
+                <button onclick="showView('landing')" class="w-full text-xs text-gray-400 hover:text-white text-center">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-member-login" class="hidden flex-1 flex items-center justify-center p-6">
+        <div class="max-w-md w-full bg-gray-800 p-8 rounded-xl border border-gray-700 shadow-xl space-y-4">
+            <h2 class="text-xl font-bold text-blue-400 text-center">Member Authentication</h2>
+            <div class="space-y-3">
+                <input id="log-user" type="text" placeholder="Your Custom Username/ID" class="w-full p-3 bg-gray-700 rounded border border-gray-600 text-sm">
+                <div class="relative w-full">
+                    <input id="log-pass" type="password" placeholder="Your Password" class="w-full p-3 pr-14 bg-gray-700 rounded border border-gray-600 text-sm">
+                    <button type="button" onclick="togglePasswordVisibility('log-pass', this)" class="absolute right-3 top-3 text-xs text-gray-400 hover:text-blue-400 font-semibold focus:outline-none">Show</button>
+                </div>
+                <button onclick="executeMemberLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded">Enter Ecosystem</button>
+                <button onclick="showView('landing')" class="w-full text-xs text-gray-400 hover:text-white text-center block">Back</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-admin-login" class="hidden flex-1 flex items-center justify-center p-6">
+        <div class="max-w-md w-full bg-gray-800 p-8 rounded-xl border border-gray-700 shadow-xl space-y-4">
+            <h2 class="text-xl font-bold text-red-400 text-center">Admin Console Authorization</h2>
+            <input id="admin-auth-user" type="text" placeholder="Admin Username" class="w-full p-3 bg-gray-700 rounded border border-gray-600 text-sm">
+            <div class="relative w-full">
+                <input id="admin-auth-pass" type="password" placeholder="Admin Secret Password" class="w-full p-3 pr-14 bg-gray-700 rounded border border-gray-600 text-sm">
+                <button type="button" onclick="togglePasswordVisibility('admin-auth-pass', this)" class="absolute right-3 top-3 text-xs text-gray-400 hover:text-red-400 font-semibold focus:outline-none">Show</button>
+            </div>
+            <button onclick="executeAdminLogin()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded">Verify Authority</button>
+            <button onclick="showView('landing')" class="w-full text-xs text-gray-400 hover:text-white text-center block">Back</button>
+        </div>
+    </div>
+
+    <div id="view-admin-dash" class="hidden flex-1 flex flex-col">
+        <header class="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center shadow-md">
+            <h1 class="text-lg font-bold text-red-400">Master Control Board</h1>
+            <button onclick="exitSystemSession()" class="px-3 py-1 bg-gray-700 rounded text-xs">Exit</button>
+        </header>
+        <main class="flex-1 p-6 max-w-7xl w-full mx-auto grid md:grid-cols-3 gap-6">
+            <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 h-fit space-y-3">
+                <h2 class="text-sm font-bold text-blue-400 uppercase">Issue New Code Node</h2>
+                <input id="new-placeholder-code" type="text" placeholder="Generate Temp Passcode" class="w-full p-2.5 bg-gray-700 border border-gray-600 rounded text-xs">
+                <button onclick="executePlaceholderCreation()" class="w-full bg-green-600 py-2 rounded text-xs font-bold">Deploy Code Slot</button>
+            </div>
+            <div class="md:col-span-2 bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-4">
+                <h2 class="text-sm font-bold uppercase text-gray-400">Class Roster & Visibility Control</h2>
+                <div id="admin-roster-mount" class="space-y-3 overflow-y-auto max-h-[500px]"></div>
+            </div>
+        </main>
+    </div>
+
+    <div id="view-member-dash" class="hidden flex-1 flex flex-col">
+        <header class="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center shadow-sm">
+            <h1 class="text-md font-bold text-blue-400">Ecosystem Hub</h1>
+            <div class="flex space-x-1 text-xs flex-wrap gap-y-1">
+                <button onclick="switchTab('directory')" class="px-2.5 py-1.5 bg-gray-700 rounded">Directory</button>
+                <button onclick="switchTab('profile')" class="px-2.5 py-1.5 bg-gray-700 rounded">Edit Profile</button>
+                <button onclick="switchTab('family')" class="px-2.5 py-1.5 bg-gray-700 rounded">Family</button>
+                <button onclick="switchTab('gallery')" class="px-2.5 py-1.5 bg-gray-700 rounded">Gallery</button>
+                <button onclick="switchTab('calendar')" class="px-2.5 py-1.5 bg-yellow-600 font-bold text-white rounded">Fenestrian Calendar</button>
+                <button onclick="switchTab('chat')" class="px-2.5 py-1.5 bg-green-700 font-bold text-white rounded">Chat Hub</button>
+                <button onclick="switchTab('video')" class="px-2.5 py-1.5 bg-blue-600 font-bold text-white rounded">Video Chat</button>
+                <button onclick="exitSystemSession()" class="px-2.5 py-1.5 bg-red-900 rounded">Exit</button>
+            </div>
+        </header>
+
+        <div id="ecosystem-alert-banner-zone" class="bg-gradient-to-r from-blue-900/60 to-purple-900/60 max-w-5xl mx-auto w-full px-4 mt-2 empty:hidden space-y-1"></div>
+
+        <main class="flex-1 p-4 max-w-5xl w-full mx-auto">
+            <section id="tab-directory" class="space-y-4">
+                <div id="directory-cards-mount" class="grid gap-4 md:grid-cols-2"></div>
+            </section>
+
+            <section id="tab-profile" class="hidden bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-4 max-w-2xl mx-auto text-xs">
+                <h2 class="text-lg font-bold text-blue-400">Synchronize Core Records</h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="text-gray-400">Class Nickname</label><input id="p-nickname" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1"></div>
+                    <div><label class="text-gray-400">WhatsApp Line</label><input id="p-whatsapp" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1"></div>
+                    <div><label class="text-gray-400">Blood Group</label><input id="p-blood" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1"></div>
+                    <div>
+                        <label class="text-gray-400">Primary Career Status *</label>
+                        <select id="p-status" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1 text-gray-300">
+                            <option value="Noble Services">Noble Services</option>
+                            <option value="Freelancer">Freelancer</option>
+                            <option value="Business">Business</option>
+                            <option value="Self-Employed">Self-Employed</option>
+                            <option value="Employed">Employed</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <div>
+                        <label class="text-gray-400">Personal Profile Image URL / Data String</label>
+                        <input id="p-pic" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1 text-xs">
+                        <div class="mt-1.5 flex gap-2">
+                            <input type="file" accept="image/*" id="file-p-pic" class="hidden" onchange="loadLocalFileIntoField(this, 'p-pic')">
+                            <button type="button" onclick="document.getElementById('file-p-pic').click()" class="bg-gray-700 hover:bg-gray-600 text-[11px] px-2 py-1 rounded">📁 Upload Image File</button>
+                            <button type="button" onclick="openCameraEngine('p-pic')" class="bg-gray-700 hover:bg-gray-600 text-[11px] px-2 py-1 rounded">📷 Launch Camera Capture</button>
+                        </div>
+                    </div>
+                    <div><label class="text-gray-400">Permanent Address *</label><textarea id="p-perm-addr" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1 h-12"></textarea></div>
+                    <div><label class="text-gray-400">Permanent Google Map Link or Plus Code *</label><input id="p-perm-geo" placeholder="e.g., https://www.google.com/maps/... or 866X+PP Coimbatore" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1"></div>
+                    <div><label class="text-gray-400">Current Postal Address *</label><textarea id="p-curr-addr" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1 h-12"></textarea></div>
+                    <div><label class="text-gray-400">Current Google Map Link or Plus Code *</label><input id="p-curr-geo" placeholder="e.g., https://www.google.com/maps/... or 866X+PP Coimbatore" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1"></div>
+                </div>
+                <hr class="border-gray-700">
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="text-gray-400">Marital Matrix</label>
+                        <select id="p-marital" onchange="evaluateMaritalUI()" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1">
+                            <option value="Single">Single</option>
+                            <option value="Married">Married</option>
+                            <option value="Divorced">Divorced</option>
+                        </select>
+                    </div>
+                    <div id="meta-wedding" class="hidden"><label class="text-gray-400">Wedding Date</label><input id="p-wedding" type="date" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1 text-gray-400"></div>
+                    <div id="meta-divorce" class="hidden"><label class="text-gray-400">Divorce Date</label><input id="p-divorce" type="date" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1 text-gray-400"></div>
+                </div>
+                <div id="meta-spouse-block" class="hidden space-y-2 bg-gray-900 p-3 rounded border border-gray-700">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-gray-400">Spouse Name</label><input id="p-spouse-name" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1"></div>
+                        <div><label class="text-gray-400">Spouse DOB</label><input id="p-spouse-dob" type="date" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1 text-gray-400"></div>
+                    </div>
+                    <div><label class="text-gray-400">Spouse Special Notable Details</label><input id="p-spouse-details" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1"></div>
+                </div>
+                <div>
+                    <label class="text-gray-400">Notable Personal Life Incidents & Chronological Diary Logs</label>
+                    <textarea id="p-diary" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1 h-24 font-mono text-xs" 
+                              placeholder="Format: dd/mm/yyyy : incident description (One entry per line)
+Example:
+15/05/2024 : Graduated from College
+18/06/2026 : Started new business venture"></textarea>
+                </div>
+                <hr class="border-gray-700">
+                <h3 class="font-bold text-yellow-500">Ecosystem Visibility Locks</h3>
+                <div class="flex space-x-4">
+                    <label class="flex items-center space-x-2"><input id="p-hide-peers" type="checkbox"> <span>Hide completely from other classmates</span></label>
+                    <label class="flex items-center space-x-2"><input id="p-hide-admin" type="checkbox"> <span>Temporarily block Admin visibility</span></label>
+                </div>
+                <button onclick="executeProfileUpdateSync()" class="w-full bg-blue-600 py-2.5 rounded font-bold text-sm mt-2">Save Profile Scope</button>
+            </section>
+
+            <section id="tab-family" class="hidden max-w-2xl mx-auto space-y-4 text-xs">
+                <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-3">
+                    <h2 class="text-lg font-bold text-blue-400">Add Family Assembly Block</h2>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-gray-400">Relationship *</label>
+                            <select id="f-relationship" onchange="evaluateFamilyFormDynamics()" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1">
+                                <option value="Child">Child</option>
+                                <option value="Spouse">Spouse</option>
+                                <option value="Parent">Parent</option>
+                                <option value="Other">Other Relation</option>
+                            </select>
+                        </div>
+                        <div><label class="text-gray-400">Full Name *</label><input id="f-name" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1"></div>
+                    </div>
+                    <div id="meta-rel-other" class="hidden">
+                        <label class="text-yellow-500">Specify Custom Relationship Field *</label>
+                        <input id="f-relationship-custom" placeholder="e.g., Father-in-law, Cousin" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1">
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div><label class="text-gray-400">Gender</label><input id="f-gender" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1"></div>
+                        <div><label class="text-gray-400">DOB</label><input id="f-dob" type="date" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1 text-gray-400"></div>
+                        <div><label class="text-gray-400">Blood Group</label><input id="f-blood" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-gray-400">Education Track</label>
+                            <select id="f-edu" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1">
+                                <option value="Toddler">Toddler</option>
+                                <option value="At School">At School</option>
+                                <option value="Graduate">Graduate</option>
+                                <option value="Post Graduate">Post Graduate</option>
+                                <option value="PhD">PhD</option>
+                                <option value="Diploma">Diploma</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div><label class="text-gray-400">Specify Education Context</label><input id="f-edu-spec" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1"></div>
+                    </div>
+                    <div id="meta-fam-gradyear" class="hidden"><label class="text-gray-400">Graduation Year (Family Tracking Context)</label><input id="f-gradyear" type="number" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1"></div>
+                    <div><label class="text-gray-400">Career Timeline / Narrative Profile</label><textarea id="f-career" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1 h-12"></textarea></div>
+                    <div><label class="text-gray-400">Important Bio Details / Chronological Diary Info</label><textarea id="f-bio" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1 h-12"></textarea></div>
+                    <hr class="border-gray-700">
+                    <div class="p-3 bg-gray-900 rounded border border-red-950 space-y-2">
+                        <label class="flex items-center space-x-2 font-bold text-red-400"><input id="f-help" type="checkbox"> <span>Highlight: This member needs tracking/assistance context</span></label>
+                        <input id="f-help-details" placeholder="Describe assistance structure/logistics required..." class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-xs">
+                    </div>
+                    <button onclick="executeFamilyMemberInjection()" class="w-full bg-blue-600 py-2 rounded font-bold">Commit Member block</button>
+                </div>
+                <div id="family-roster-mount" class="space-y-2"></div>
+            </section>
+
+            <section id="tab-gallery" class="hidden max-w-2xl mx-auto space-y-4 text-xs">
+                <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-3">
+                    <h2 class="text-lg font-bold text-blue-400">Inject Shared Gallery Asset</h2>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input id="gal-url" placeholder="Resource URL or Image Data String" class="p-2.5 bg-gray-700 rounded border border-gray-600 text-xs">
+                        <input id="gal-desc" placeholder="Asset Context Description" class="p-2.5 bg-gray-700 rounded border border-gray-600">
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="file" accept="image/*" id="file-gal-url" class="hidden" onchange="loadLocalFileIntoField(this, 'gal-url')">
+                        <button type="button" onclick="document.getElementById('file-gal-url').click()" class="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded font-semibold">📁 Select Image File</button>
+                        <button type="button" onclick="openCameraEngine('gal-url')" class="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded font-semibold">📷 Capture From Camera</button>
+                    </div>
+                    <button onclick="executeGalleryAssetInjection()" class="w-full bg-blue-600 py-2 rounded font-bold mt-2">Upload to Common Vault</button>
+                </div>
+                <div id="gallery-grid-mount" class="grid grid-cols-2 sm:grid-cols-3 gap-4"></div>
+            </section>
+
+            <section id="tab-calendar" class="hidden text-xs max-w-5xl mx-auto">
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div class="md:col-span-2 bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-xl space-y-4">
+                        <div class="flex justify-between items-center border-b border-gray-700 pb-3 flex-wrap gap-2">
+                            <h2 class="text-xl font-bold text-yellow-500 flex items-center gap-2">🗓️ Fenestrian Perpetual Calendar</h2>
+                            <div class="flex items-center space-x-2 bg-gray-900 p-1.5 rounded border border-gray-700">
+                                <label class="text-[10px] uppercase text-gray-400 font-bold tracking-wider">Viewing Year:</label>
+                                <input id="cal-view-year" type="number" value="2026" oninput="loadFenestrianCalendarView()" class="w-20 bg-gray-800 border border-gray-600 rounded text-center text-yellow-400 font-bold font-mono focus:outline-none focus:border-yellow-500 text-xs p-1">
+                            </div>
+                        </div>
+                        <div id="calendar-months-mount" class="space-y-4 max-h-[600px] overflow-y-auto pr-1"></div>
+                    </div>
+                    
+                    <div class="space-y-4 h-fit">
+                        <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-xl space-y-3">
+                            <h3 class="text-sm font-bold text-blue-400 uppercase tracking-wider border-b border-gray-700 pb-2">📅 Broadcast Event / Invite</h3>
+                            <div class="space-y-2.5">
+                                <input id="cal-form-title" type="text" placeholder="Event Title *" class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs">
+                                <select id="cal-form-type" class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs text-gray-300">
+                                    <option value="Anniversary">💍 Anniversary Milestone</option>
+                                    <option value="Online Meeting">🎥 Online Video Chat Meeting</option>
+                                    <option value="Custom Event">📌 Custom Community Event</option>
+                                </select>
+                                <input id="cal-form-date" type="date" class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs text-gray-300">
+                                <textarea id="cal-form-desc" placeholder="Agenda or location metrics..." class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs h-12"></textarea>
+                                <button onclick="executeCalendarEventCreation()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded text-xs transition shadow-md">Broadcast Invite</button>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-xl space-y-3">
+                            <h3 class="text-sm font-bold text-green-400 uppercase tracking-wider border-b border-gray-700 pb-2">✅ Assign Task Node</h3>
+                            <div class="space-y-2.5">
+                                <input id="task-form-title" type="text" placeholder="Task Objective *" class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs">
+                                <select id="task-form-assignee" class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs text-gray-300">
+                                    <option value="">Select Assignee Target *</option>
+                                </select>
+                                <input id="task-form-deadline" type="date" class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs text-gray-300">
+                                <div class="flex items-center space-x-2 py-1">
+                                    <input id="task-form-private" type="checkbox" class="rounded bg-gray-700 border-gray-600 text-blue-600">
+                                    <label class="text-[11px] text-yellow-500 font-semibold">🔒 Personal Task (Assignee Only)</label>
+                                </div>
+                                <button onclick="executeTaskCreationSync()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded transition shadow-md">Commit Task Node</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-chat" class="hidden grid md:grid-cols-4 gap-4 text-xs h-[550px] max-w-5xl mx-auto">
+                <div class="bg-gray-800 rounded-xl border border-gray-700 p-3 flex flex-col space-y-3 overflow-y-auto">
+                    <div>
+                        <h2 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Channels</h2>
+                        <button onclick="switchChatRoom('global', '📢 Fenestrians Lounge')" class="w-full text-left p-2.5 bg-blue-950/40 border border-blue-900 rounded font-semibold text-blue-400 block hover:bg-blue-900/30">📢 Fenestrians Lounge</button>
+                    </div>
+                    <div class="pt-2 border-t border-gray-700">
+                        <div class="flex justify-between items-center mb-2">
+                            <h2 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Private Groups</h2>
+                            <button onclick="triggerGroupCreationFlow()" class="text-[10px] text-green-400 font-bold hover:underline">+ New</button>
+                        </div>
+                        <div id="chat-rooms-mount" class="space-y-1"></div>
+                    </div>
+                    <div class="pt-2 border-t border-gray-700 flex-1 flex flex-col min-h-0">
+                        <h2 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Direct Messages</h2>
+                        <div id="chat-dms-mount" class="space-y-1 overflow-y-auto flex-1"></div>
+                    </div>
+                </div>
+
+                <div class="md:col-span-3 bg-gray-800 rounded-xl border border-gray-700 flex flex-col overflow-hidden">
+                    <header class="bg-gray-950 p-3 border-b border-gray-700 font-bold text-blue-400 flex items-center justify-between shadow-sm">
+                        <span id="active-chat-title">📢 Fenestrians Lounge</span>
+                        <span class="text-[10px] bg-blue-900/40 px-2 py-0.5 rounded text-blue-300">Live Connection</span>
+                    </header>
+                    <div id="chat-messages-container" class="flex-1 p-4 overflow-y-auto space-y-2 font-mono"></div>
+                    <div class="p-3 bg-gray-950 border-t border-gray-700 flex gap-2 flex-col">
+                        <div class="flex gap-1">
+                            <input type="file" accept="image/*" id="chat-media-file" class="hidden" onchange="loadLocalFileIntoField(this, 'chat-hidden-payload-string'); setTimeout(executeSendChatImageMessage, 200)">
+                            <input type="hidden" id="chat-hidden-payload-string">
+                            <button onclick="document.getElementById('chat-media-file').click()" class="bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded border border-gray-700">📁 File Image</button>
+                            <button onclick="openCameraEngine('chat')" class="bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded border border-gray-700">📷 Snap Frame</button>
+                            <button onclick="triggerPollCreationFlow()" class="bg-gray-800 hover:bg-gray-700 text-green-400 px-2.5 py-1.5 rounded border border-gray-700 font-bold">📊 Launch Poll</button>
+                        </div>
+                        <div class="flex gap-2">
+                            <input id="chat-input-field" type="text" placeholder="Write message string..." onkeydown="if(event.key==='Enter') executeSendChatMessage()" class="flex-1 p-2.5 bg-gray-800 border border-gray-700 rounded text-xs text-white focus:outline-none focus:border-blue-500">
+                            <button onclick="executeSendChatMessage()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-bold transition">Send</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-video" class="hidden max-w-4xl mx-auto space-y-4 text-xs">
+                <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-3 shadow-xl">
+                    <h2 class="text-lg font-bold text-blue-400 flex items-center gap-2">🎥 Class Video Lounge</h2>
+                    <p class="text-gray-400 text-xs">Connect instantly with peer circles in secure group voice and video feeds. Type a room tag name below or keep default.</p>
+                    <div class="flex gap-2 items-center max-w-md">
+                        <input id="video-room-tag" type="text" value="Main-Lounge" placeholder="Room Name" class="p-2 bg-gray-700 rounded border border-gray-600 text-white w-full text-xs font-mono">
+                        <button onclick="initializeVideoRoomSession()" class="bg-green-600 hover:bg-green-700 font-bold px-4 py-2 rounded text-xs whitespace-nowrap">Enter Lounge</button>
+                    </div>
+                    <div id="video-canvas-container" class="w-full aspect-video bg-gray-950 rounded-xl overflow-hidden border border-gray-700 hidden shadow-inner relative mt-4">
+                        <iframe id="video-frame-node" src="" class="w-full h-full" allow="camera; microphone; fullscreen; display-capture; autoplay"></iframe>
+                    </div>
+                    <div class="pt-4 border-t border-gray-700 mt-2 space-y-2">
+                        <h3 class="font-bold text-gray-300">📸 Lounge Quick-Share Portal</h3>
+                        <p class="text-gray-400 text-[11px]">Share pictures, screenshots, or live camera captures to the common gallery immediately during this call session.</p>
+                        <div class="flex flex-wrap gap-2">
+                            <input type="file" accept="image/*" id="video-lounge-file" class="hidden" onchange="loadLocalFileIntoField(this, 'video-lounge-hidden-string')">
+                            <input type="hidden" id="video-lounge-hidden-string">
+                            <button onclick="document.getElementById('video-lounge-file').click()" class="bg-gray-700 px-3 py-1.5 rounded hover:bg-gray-600">📁 Choose Call Asset</button>
+                            <button onclick="openCameraEngine('video-lounge-hidden-string')" class="bg-gray-700 px-3 py-1.5 rounded hover:bg-gray-600">📷 Capture Live Snap</button>
+                            <button onclick="executeVideoLoungeGalleryInjection()" class="bg-blue-600 px-4 py-1.5 rounded font-bold text-white">Post to Common Gallery</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://dojlbfnfhkfltlxggxiy.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_CmCFzsQ_L8dk7NxUmIVZ0g_pl_jq0fV';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let sessionUserObj = null;
+        let activeRoomId = 'global';
+        let chatSubscriptionRealtime = null;
+        
+        let mediaStreamTrackInstance = null;
+        let activeCameraTargetFieldId = '';
+
+        const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+        function showView(id) {
+            ['landing', 'signup', 'member-login', 'admin-login', 'admin-dash', 'member-dash'].forEach(v => document.getElementById(`view-${v}`).classList.add('hidden'));
+            document.getElementById(`view-${id}`).classList.remove('hidden');
+        }
+
+        function switchTab(name) {
+            ['directory', 'profile', 'family', 'gallery', 'video', 'chat', 'calendar'].forEach(t => document.getElementById(`tab-${t}`).classList.add('hidden'));
+            document.getElementById(`tab-${name}`).classList.remove('hidden');
+            
+            if (name !== 'video') {
+                document.getElementById('video-frame-node').src = '';
+                document.getElementById('video-canvas-container').classList.add('hidden');
+            }
+            
+            if (name === 'directory') loadMemberDirectoryView();
+            if (name === 'family') loadFamilyRosterView();
+            if (name === 'gallery') loadGalleryVaultView();
+            if (name === 'calendar') loadFenestrianCalendarView();
+            if (name === 'video') initializeVideoRoomSession();
+            if (name === 'chat') initializeChatHubView();
+        }
+
+        function exitSystemSession() {
+            sessionUserObj = null;
+            document.getElementById('video-frame-node').src = '';
+            document.getElementById('ecosystem-alert-banner-zone').innerHTML = '';
+            if (chatSubscriptionRealtime) _supabase.removeChannel(chatSubscriptionRealtime);
+            showView('landing');
+        }
+
+        // --- PASSWORD VISIBILITY ENGINE ---
+        function togglePasswordVisibility(inputId, buttonEl) {
+            const field = document.getElementById(inputId);
+            if (field.type === "password") {
+                field.type = "text";
+                buttonEl.textContent = "Hide";
+            } else {
+                field.type = "password";
+                buttonEl.textContent = "Show";
+            }
+        }
+
+        // --- FILE INPUT HANDLERS & WEBCAM LOGIC ---
+        function loadLocalFileIntoField(inputElement, targetFieldId) {
+            const file = inputElement.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById(targetFieldId).value = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function openCameraEngine(targetFieldId) {
+            activeCameraTargetFieldId = targetFieldId;
+            const modal = document.getElementById('camera-modal');
+            const video = document.getElementById('camera-stream');
+            modal.classList.remove('hidden');
+            try {
+                mediaStreamTrackInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+                video.srcObject = mediaStreamTrackInstance;
+            } catch (err) {
+                alert('Device hardware acquisition failure: ' + err.message);
+                modal.classList.add('hidden');
+            }
+        }
+
+        function closeCameraEngine() {
+            if (mediaStreamTrackInstance) {
+                mediaStreamTrackInstance.getTracks().forEach(track => track.stop());
+            }
+            document.getElementById('camera-modal').classList.add('hidden');
+        }
+
+        function captureFrameToDestination() {
+            const video = document.getElementById('camera-stream');
+            const realCanvas = document.createElement('canvas');
+            realCanvas.width = video.videoWidth || 640;
+            realCanvas.height = video.videoHeight || 480;
+            realCanvas.getContext('2d').drawImage(video, 0, 0, realCanvas.width, realCanvas.height);
+            const dataUrlString = realCanvas.toDataURL('image/jpeg');
+
+            if (activeCameraTargetFieldId === 'chat') {
+                injectAsMediaPayloadToChatStream(dataUrlString);
+            } else {
+                document.getElementById(activeCameraTargetFieldId).value = dataUrlString;
+            }
+            closeCameraEngine();
+        }
+
+        // --- VISUAL SCHEDULERS ---
+        function evaluateMaritalUI() {
+            const mode = document.getElementById('p-marital').value;
+            document.getElementById('meta-wedding').classList.toggle('hidden', mode === 'Single');
+            document.getElementById('meta-divorce').classList.toggle('hidden', mode !== 'Divorced');
+            document.getElementById('meta-spouse-block').classList.toggle('hidden', mode !== 'Married');
+        }
+
+        function evaluateFamilyFormDynamics() {
+            const rel = document.getElementById('f-relationship').value;
+            document.getElementById('meta-fam-gradyear').classList.toggle('hidden', rel === 'Child' || rel === 'Spouse');
+            document.getElementById('meta-rel-other').classList.toggle('hidden', rel !== 'Other');
+        }
+
+        // --- GEOTAG LINK NORMALIZER ENGINE ---
+        function generateMapLinkHTML(locationString) {
+            if (!locationString) return `<span class="text-gray-600">No data mapped</span>`;
+            const cleanStr = locationString.trim();
+            if (cleanStr.startsWith('http://') || cleanStr.startsWith('https://')) {
+                return `<a href="${cleanStr}" target="_blank" class="text-blue-400 hover:underline font-semibold">🌐 Maps</a>`;
+            }
+            const queryUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cleanStr)}`;
+            return `<a href="${queryUrl}" target="_blank" class="text-blue-400 hover:underline font-semibold">📍 Link</a>`;
+        }
+
+        // --- DYNAMIC DNL .ICS EVENT GENERATOR ---
+        function triggerCalendarEventDownload(name, lineItem) {
+            const splitIndex = lineItem.indexOf(':');
+            if (splitIndex === -1) return;
+
+            const datePart = lineItem.substring(0, splitIndex).trim();
+            const incidentPart = lineItem.substring(splitIndex + 1).trim();
+            const dateTokens = datePart.split('/');
+            if (dateTokens.length !== 3) return;
+
+            const timestampFormatted = `${dateTokens[2]}${dateTokens[1].padStart(2,'0')}${dateTokens[0].padStart(2,'0')}`;
+            const icsContent = ["BEGIN:VCALENDAR","VERSION:2.0","BEGIN:VEVENT",`SUMMARY:${name}'s ${incidentPart}`,`DTSTART;VALUE=DATE:${timestampFormatted}`,`DTEND;VALUE=DATE:${timestampFormatted}`,"END:VEVENT","END:VCALENDAR"].join("\n");
+
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8;' });
+            const downloader = document.createElement('a');
+            downloader.href = URL.createObjectURL(blob);
+            downloader.setAttribute('download', `event.ics`);
+            document.body.appendChild(downloader);
+            downloader.click();
+            document.body.removeChild(downloader);
+        }
+
+        function routeDirectToLoungeCall(customRoomNameString) {
+            document.getElementById('video-room-tag').value = customRoomNameString;
+            switchTab('video');
+        }
+
+        // --- REAL-TIME WHATSAPP-STYLE CHAT HUB ---
+        async function initializeChatHubView() {
+            await syncChatSidebarRoster();
+            await switchChatRoom('global', '📢 Fenestrians Lounge');
+            
+            if (!chatSubscriptionRealtime) {
+                chatSubscriptionRealtime = _supabase
+                    .channel('realtime-chat-channel')
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
+                        if (payload.new.room_id === activeRoomId) {
+                            appendMessageStringToStream(payload.new);
+                        }
+                    })
+                    .subscribe();
+            }
+        }
+
+        async function syncChatSidebarRoster() {
+            const { data: globalRoster } = await _supabase.from('alumni').select('*').eq('is_placeholder', false);
+            const { data: groups } = await _supabase.from('chat_rooms').select('*');
+            
+            const groupMount = document.getElementById('chat-rooms-mount');
+            const dmMount = document.getElementById('chat-dms-mount');
+            const formAssigneeDropdown = document.getElementById('task-form-assignee');
+            
+            groupMount.innerHTML = '';
+            dmMount.innerHTML = '';
+            if (formAssigneeDropdown) formAssigneeDropdown.innerHTML = '<option value="">Select Assignee Target *</option>';
+
+            if (groups) {
+                groups.forEach(g => {
+                    const accessList = g.allowed_members ? g.allowed_members.split(',') : [];
+                    if (!g.is_private || g.created_by == sessionUserObj.id || accessList.includes(String(sessionUserObj.id))) {
+                        groupMount.innerHTML += `<button onclick="switchChatRoom('${g.id}', '🔒 ${g.name}')" class="w-full text-left p-2 rounded hover:bg-gray-700/50 block text-gray-300 truncate">🔒 ${g.name}</button>`;
+                    }
+                });
+            }
+
+            if (globalRoster) {
+                globalRoster.forEach(u => {
+                    if (formAssigneeDropdown) {
+                        formAssigneeDropdown.innerHTML += `<option value="${u.id}">${u.full_name}</option>`;
+                    }
+                    if (u.id !== sessionUserObj.id) {
+                        const dmId = ['dm', sessionUserObj.id, u.id].sort().join('_');
+                        dmMount.innerHTML += `<button onclick="switchChatRoom('${dmId}', '👤 ${u.full_name}')" class="w-full text-left p-2 rounded hover:bg-gray-700/50 block text-gray-400 truncate">👤 ${u.full_name}</button>`;
+                    }
+                });
+            }
+        }
+
+        async function switchChatRoom(roomId, roomTitle) {
+            activeRoomId = roomId;
+            document.getElementById('active-chat-title').textContent = roomTitle;
+            
+            const container = document.getElementById('chat-messages-container');
+            container.innerHTML = '<div class="text-gray-600 italic animate-pulse">Syncing feed parameters...</div>';
+
+            const { data: logs } = await _supabase
+                .from('chat_messages')
+                .select('*')
+                .eq('room_id', roomId)
+                .order('created_at', { ascending: true });
+
+            container.innerHTML = '';
+            if (logs) {
+                for (const msg of logs) {
+                    await appendMessageStringToStream(msg);
+                }
+            }
+        }
+
+        async function appendMessageStringToStream(msg) {
+            const container = document.getElementById('chat-messages-container');
+            const isMe = msg.sender_id == sessionUserObj.id;
+            
+            let coreBubbleContentHTML = msg.message_text;
+
+            if (msg.message_text.startsWith('data:image/') || /\.(jpeg|jpg|gif|png|webp)$/i.test(msg.message_text)) {
+                coreBubbleContentHTML = `<img src="${msg.message_text}" class="max-w-xs rounded border border-gray-600 max-h-48 object-cover cursor-pointer hover:opacity-90" onclick="window.open('${msg.message_text}')">`;
+            } 
+            else if (msg.message_text.startsWith('🎟️ INVITATION:')) {
+                const eventTitleToken = msg.message_text.split('\n')[1]?.replace('📍 Event: ', '').trim() || '';
+                const { data: eventNode } = await _supabase.from('calendar_events').select('*').eq('title', eventTitleToken).single();
+                
+                let rsvpControlHTML = '';
+                if (eventNode) {
+                    const { data: totals } = await _supabase.from('event_rsvps').select('status').eq('event_id', eventNode.id);
+                    const goingCount = totals ? totals.filter(r => r.status === 'Going').length : 0;
+                    
+                    rsvpControlHTML = `
+                        <div class="mt-3 pt-2 border-t border-gray-800 space-y-2">
+                            <div class="flex gap-1">
+                                <button onclick="executeRsvpSubmission('${eventNode.id}', 'Going')" class="bg-green-700/80 hover:bg-green-600 px-2 py-1 rounded text-[10px] font-bold">Going</button>
+                                <button onclick="executeRsvpSubmission('${eventNode.id}', 'Maybe')" class="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-[10px] font-bold">Maybe</button>
+                                <button onclick="executeRsvpSubmission('${eventNode.id}', 'Declined')" class="bg-red-950 hover:bg-red-900 px-2 py-1 rounded text-[10px] font-bold">Decline</button>
+                            </div>
+                            <div class="text-[10px] text-gray-400 font-sans">📈 Confirmed Going: <b class="text-green-400">${goingCount}</b></div>
+                        </div>`;
+                }
+                
+                coreBubbleContentHTML = `
+                    <div class="bg-gray-900 border border-yellow-600/40 p-3 rounded-xl text-yellow-400 max-w-xs font-sans text-xs">
+                        <div class="font-medium whitespace-pre-line">${msg.message_text}</div>
+                        ${rsvpControlHTML}
+                    </div>`;
+            } 
+            else if (msg.message_text.startsWith('📊 POLL:')) {
+                const cleanMeta = msg.message_text.replace('📊 POLL:', '');
+                const tokens = cleanMeta.split('|');
+                const question = tokens[0];
+                const options = tokens[1]?.split(',') || [];
+                
+                const { data: votes } = await _supabase.from('poll_votes').select('*').eq('message_id', msg.id);
+                
+                let optionsMarkupHTML = '';
+                options.forEach((opt, idx) => {
+                    const optionVotesCount = votes ? votes.filter(v => v.option_index === idx).length : 0;
+                    optionsMarkupHTML += `
+                        <button onclick="executePollVoteCast(${msg.id}, ${idx})" class="w-full text-left bg-gray-800 hover:bg-gray-700 p-2 rounded border border-gray-700 flex justify-between items-center transition group">
+                            <span class="text-gray-200 group-hover:text-white font-sans">${opt}</span>
+                            <span class="bg-gray-950 px-2 py-0.5 rounded font-mono text-[10px] text-blue-400 font-bold">${optionVotesCount} votes</span>
+                        </button>`;
+                });
+
+                coreBubbleContentHTML = `
+                    <div class="bg-gray-950 border border-purple-900/50 p-4 rounded-xl max-w-xs w-full space-y-3 shadow-xl">
+                        <h4 class="font-bold text-purple-400 font-sans tracking-wide">📊 Poll: ${question}</h4>
+                        <div class="space-y-1.5">${optionsMarkupHTML}</div>
+                    </div>`;
+            }
+            
+            container.innerHTML += `
+                <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-0.5">
+                    <span class="text-[10px] text-gray-500 font-sans">${msg.sender_name}</span>
+                    <div class="p-2.5 rounded-lg max-w-[75%] break-words ${isMe ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}">
+                        ${coreBubbleContentHTML}
+                    </div>
+                </div>`;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function executeSendChatMessage() {
+            const input = document.getElementById('chat-input-field');
+            const str = input.value.trim();
+            if (!str) return;
+
+            await _supabase.from('chat_messages').insert([{
+                room_id: activeRoomId,
+                sender_id: sessionUserObj.id,
+                sender_name: sessionUserObj.full_name,
+                message_text: str
+            }]);
+            input.value = '';
+        }
+
+        function executeSendChatImageMessage() {
+            const base64String = document.getElementById('chat-hidden-payload-string').value;
+            if (!base64String) return;
+            injectAsMediaPayloadToChatStream(base64String);
+            document.getElementById('chat-hidden-payload-string').value = '';
+        }
+
+        async function injectAsMediaPayloadToChatStream(base64PayloadString) {
+            await _supabase.from('photo_gallery').insert([{ alumni_id: sessionUserObj.id, image_url: base64PayloadString, description: `${sessionUserObj.full_name}: Shared via Inline Chat Feed Node` }]);
+            await _supabase.from('chat_messages').insert([{ room_id: activeRoomId, sender_id: sessionUserObj.id, sender_name: sessionUserObj.full_name, message_text: base64PayloadString }]);
+        }
+
+        async function triggerPollCreationFlow() {
+            const question = prompt("Enter Poll Question Metric:");
+            if (!question) return;
+            const optionsCsv = prompt("Enter comma-separated options mapping tokens:\nExample: Yes, No, Undecided");
+            if (!optionsCsv) return;
+
+            await _supabase.from('chat_messages').insert([{ room_id: activeRoomId, sender_id: sessionUserObj.id, sender_name: sessionUserObj.full_name, message_text: `📊 POLL:${question}|${optionsCsv}` }]);
+        }
+
+        async function executePollVoteCast(messageId, optionIndex) {
+            await _supabase.from('poll_votes').delete().eq('message_id', messageId).eq('user_id', sessionUserObj.id);
+            await _supabase.from('poll_votes').insert([{ message_id: messageId, user_id: sessionUserObj.id, option_index: optionIndex }]);
+            await switchChatRoom(activeRoomId, document.getElementById('active-chat-title').textContent);
+        }
+
+        async function executeRsvpSubmission(eventId, statusValue) {
+            await _supabase.from('event_rsvps').delete().eq('event_id', eventId).eq('alumni_id', sessionUserObj.id);
+            await _supabase.from('event_rsvps').insert([{ event_id: eventId, alumni_id: sessionUserObj.id, status: statusValue }]);
+            alert(`RSVP locked: ${statusValue}`);
+            await switchChatRoom(activeRoomId, document.getElementById('active-chat-title').textContent);
+        }
+
+        // --- ORDINAL SUFFIX FORMATTER HELPER ---
+        function getOrdinalSuffix(i) {
+            if (i <= 0) return "Initial";
+            var j = i % 10, k = i % 100;
+            if (j == 1 && k != 11) return i + "st";
+            if (j == 2 && k != 12) return i + "nd";
+            if (j == 3 && k != 13) return i + "rd";
+            return i + "th";
+        }
+
+        // --- DIRECTORY COLLAPSIBLE ACCORDION ENGINE ---
+        async function loadMemberDirectoryView() {
+            const { data: users } = await _supabase.from('alumni').select('*').eq('is_placeholder', false).eq('hide_from_peers', false);
+            const { data: family } = await _supabase.from('family_members').select('*');
+            const mount = document.getElementById('directory-cards-mount'); 
+            mount.innerHTML = '';
+            
+            if (users) {
+                users.forEach(m => {
+                    const memberFamily = family ? family.filter(f => f.alumni_id == m.id) : [];
+                    let familyMarkup = '';
+                    if (memberFamily.length > 0) {
+                        familyMarkup = `<div class="mt-2 pt-2 border-t border-gray-700/60"><h4 class="text-[11px] font-bold text-blue-400 mb-1">Family Assemblies:</h4><div class="space-y-1">`;
+                        memberFamily.forEach(f => {
+                            familyMarkup += `<div class="text-[11px] text-gray-400 font-mono">▪️ ${f.name} (${f.relationship}) - Blood: ${f.blood_group || 'N/A'}</div>`;
+                        });
+                        familyMarkup += `</div></div>`;
+                    }
+
+                    mount.innerHTML += `
+                        <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-md">
+                            <div onclick="this.nextElementSibling.classList.toggle('hidden')" class="p-4 flex items-center space-x-3 cursor-pointer hover:bg-gray-700/30 transition">
+                                ${m.profile_picture_url ? `<img src="${m.profile_picture_url}" class="w-10 h-10 rounded-full object-cover bg-black">` : `<div class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center font-bold">👤</div>`}
+                                <div class="flex-1">
+                                    <h3 class="text-sm font-bold text-white">${m.full_name}</h3>
+                                    <p class="text-[11px] text-gray-400 font-mono">${m.class_nickname ? '🔹 ' + m.class_nickname : ''} | Status: ${m.current_status || 'Member'}</p>
+                                </div>
+                                <span class="text-[10px] bg-gray-900 border border-gray-700 text-gray-400 px-2 py-1 rounded font-mono">↕️ View Details</span>
+                            </div>
+                            <div class="hidden p-4 bg-gray-950 border-t border-gray-700 space-y-2 text-[11px]">
+                                <div class="grid grid-cols-2 gap-2 text-gray-300 font-mono">
+                                    <div>🟢 <b>WhatsApp:</b> ${m.whatsapp_number || 'Not mapped'}</div>
+                                    <div>🩸 <b>Blood Group:</b> ${m.blood_group || 'Not mapped'}</div>
+                                    <div class="col-span-2">✉️ <b>Email Address:</b> ${m.email || 'Not mapped'}</div>
+                                    <div class="col-span-2">📞 <b>Contact Number:</b> ${m.contact_number || 'Not mapped'}</div>
+                                </div>
+                                <div class="pt-1 text-gray-400 font-sans space-y-1">
+                                    <div>📍 <b>Permanent Address:</b> ${m.permanent_address || 'Not mapped'} ${m.permanent_geo_location ? generateMapLinkHTML(m.permanent_geo_location) : ''}</div>
+                                    <div>🏠 <b>Current Address:</b> ${m.current_address || 'Not mapped'} ${m.current_geo_location ? generateMapLinkHTML(m.current_geo_location) : ''}</div>
+                                </div>
+                                ${familyMarkup}
+                            </div>
+                        </div>`;
+                });
+            }
+        }
+
+        // --- FENESTRIAN CALENDAR AND SCHEDULER SYSTEM ---
+        async function loadFenestrianCalendarView() {
+            const { data: globalRoster } = await _supabase.from('alumni').select('*').eq('is_placeholder', false);
+            const { data: customEvents } = await _supabase.from('calendar_events').select('*');
+            const { data: tasks } = await _supabase.from('tasks').select('*');
+            const { data: family } = await _supabase.from('family_members').select('*');
+            
+            const mount = document.getElementById('calendar-months-mount');
+            mount.innerHTML = '';
+
+            const targetYear = parseInt(document.getElementById('cal-view-year').value) || 2026;
+            let groupedStructure = Array.from({ length: 12 }, () => []);
+
+            if (globalRoster) {
+                globalRoster.forEach(u => {
+                    if (u.dob) {
+                        const birthDate = new Date(u.dob);
+                        const mIndex = birthDate.getMonth();
+                        const orderCount = targetYear - birthDate.getFullYear();
+                        if(mIndex >= 0 && mIndex <= 11) {
+                            groupedStructure[mIndex].push({ date: birthDate, text: `🎂 ${getOrdinalSuffix(orderCount)} Birthday Anniversary: ${u.full_name}`, type: 'Birthday' });
+                        }
+                    }
+                    if (u.wedding_date) {
+                        const wedDate = new Date(u.wedding_date);
+                        const mIndex = wedDate.getMonth();
+                        const orderCount = targetYear - wedDate.getFullYear();
+                        if(mIndex >= 0 && mIndex <= 11) {
+                            groupedStructure[mIndex].push({ date: wedDate, text: `💍 ${getOrdinalSuffix(orderCount)} Marriage Anniversary: ${u.full_name}`, type: 'Anniversary' });
+                        }
+                    }
+                });
+            }
+
+            if (family) {
+                family.forEach(f => {
+                    if (f.dob) {
+                        const famBirthDate = new Date(f.dob);
+                        const mIndex = famBirthDate.getMonth();
+                        const orderCount = targetYear - famBirthDate.getFullYear();
+                        if (mIndex >= 0 && mIndex <= 11) {
+                            groupedStructure[mIndex].push({ date: famBirthDate, text: `👶 ${getOrdinalSuffix(orderCount)} Birthday: ${f.name} (${f.relationship})`, type: 'Family Circle' });
+                        }
+                    }
+                });
+            }
+
+            if (customEvents) {
+                customEvents.forEach(ev => {
+                    if (ev.start_date) {
+                        const evDate = new Date(ev.start_date);
+                        const mIndex = evDate.getMonth();
+                        let displayTxt = `📌 [${ev.classification}] ${ev.title}`;
+                        
+                        if (ev.classification === 'Anniversary') {
+                            const orderCount = targetYear - evDate.getFullYear();
+                            displayTxt = `💍 ${getOrdinalSuffix(orderCount)} Anniversary: ${ev.title}`;
+                        }
+                        displayTxt += ` - ${ev.description || ''}`;
+
+                        if(mIndex >= 0 && mIndex <= 11) {
+                            groupedStructure[mIndex].push({ date: evDate, text: displayTxt, type: ev.classification, room: ev.room_tag });
+                        }
+                    }
+                });
+            }
+
+            if (tasks) {
+                tasks.forEach(t => {
+                    if (t.deadline) {
+                        if (t.is_private && t.assignee_id != sessionUserObj.id && t.created_by != sessionUserObj.id) return;
+
+                        const taskDate = new Date(t.deadline);
+                        const mIndex = taskDate.getMonth();
+                        if(mIndex >= 0 && mIndex <= 11) {
+                            groupedStructure[mIndex].push({
+                                date: taskDate,
+                                text: `✅ Task: ${t.title} [For: ${t.assignee_name}] ${t.is_completed ? '🔒 (Completed)' : '⏳ (Pending)'}`,
+                                type: t.is_private ? '🔒 Personal Task' : '📋 Community Task',
+                                taskId: t.id,
+                                isTask: true,
+                                isCompleted: t.is_completed,
+                                assigneeId: t.assignee_id
+                            });
+                        }
+                    }
+                });
+            }
+
+            for (let i = 0; i < 12; i++) {
+                const monthEvents = groupedStructure[i];
+                monthEvents.sort((a, b) => a.date.getDate() - b.date.getDate());
+                let innerMonthRowsHTML = '';
+
+                if (monthEvents.length === 0) {
+                    innerMonthRowsHTML = `<div class="text-gray-600 italic text-[11px] p-1">No tracked milestones indexed for this cycle.</div>`;
+                } else {
+                    monthEvents.forEach(e => {
+                        let dynamicActionControlHTML = '';
+                        if (e.isTask && !e.isCompleted && e.assigneeId == sessionUserObj.id) {
+                            dynamicActionControlHTML = `<button onclick="executeTaskCheckOutSync('${e.taskId}')" class="ml-2 bg-green-700 hover:bg-green-600 text-white font-bold px-2 py-0.5 rounded text-[10px]">Check Out</button>`;
+                        } else if (e.type.includes('Meeting')) {
+                            dynamicActionControlHTML = `<button onclick="routeDirectToLoungeCall('${e.room || 'Main-Lounge'}')" class="ml-2 bg-green-600 hover:bg-green-700 text-white font-bold px-2 py-0.5 rounded text-[10px] animate-pulse">🔴 Join Call Now</button>`;
+                        }
+
+                        innerMonthRowsHTML += `
+                            <div class="flex justify-between items-center bg-gray-950 p-2.5 rounded text-[11px] border border-gray-800">
+                                <span class="text-gray-300 font-mono"><b class="text-yellow-600/80 mr-2">[Day: ${e.date.getDate()}]</b> ${e.text}</span>
+                                <div class="flex items-center">
+                                    <span class="px-1.5 py-0.5 rounded text-[9px] bg-gray-800 text-blue-400 font-semibold uppercase">${e.type}</span>
+                                    ${dynamicActionControlHTML}
+                                </div>
+                            </div>`;
+                    });
+                }
+
+                mount.innerHTML += `
+                    <div class="bg-gray-900/40 p-3 rounded-lg border border-gray-800 space-y-2">
+                        <h3 class="font-bold text-gray-400 uppercase tracking-wider text-[11px] border-b border-gray-800 pb-1">${MONTH_NAMES[i]}</h3>
+                        <div class="space-y-1.5">${innerMonthRowsHTML}</div>
+                    </div>`;
+            }
+        }
+
+        // --- ADMINISTRATIVE ACTIONS ---
+        async function executePlaceholderCreation() {
+            const val = document.getElementById('new-placeholder-code').value.trim();
+            if(!val) return;
+            
+            // Added error logging diagnostics to prevent silent backend database insertion rejections
+            const { error } = await _supabase.from('alumni').insert([{ placeholder_code: val, is_placeholder: true }]);
+            if (error) {
+                alert("Supabase Slot Creation Rejection: " + error.message + " (Code: " + error.code + ")");
+                return;
+            }
+            
+            document.getElementById('new-placeholder-code').value = '';
+            loadAdministrativeMasterView();
+        }
+
+        async function executeCalendarEventCreation() {
+            const title = document.getElementById('cal-form-title').value.trim();
+            const type = document.getElementById('cal-form-type').value;
+            const date = document.getElementById('cal-form-date').value;
+            const desc = document.getElementById('cal-form-desc').value.trim();
+
+            if (!title || !date) { alert('Please populate the Title and Execution date parameters.'); return; }
+            let roomTag = type === 'Online Meeting' ? 'Meeting-' + title.replace(/[^a-zA-Z0-9]/g, '-') : null;
+
+            await _supabase.from('calendar_events').insert([{ title: title, classification: type, start_date: date, description: desc, room_tag: roomTag, created_by: sessionUserObj.id }]);
+            await _supabase.from('chat_messages').insert([{ room_id: 'global', sender_id: 0, sender_name: '🛡️ Fenestrian Bot', message_text: `🎟️ INVITATION: New Class ${type} Scheduled!\n📍 Event: ${title}\n📅 Date: ${date}\n📝 Description: ${desc}` }]);
+
+            document.getElementById('cal-form-title').value = '';
+            document.getElementById('cal-form-desc').value = '';
+            alert('Community milestone broadcast successfully updated!');
+            await loadFenestrianCalendarView();
+        }
+
+        async function executeTaskCreationSync() {
+            const title = document.getElementById('task-form-title').value.trim();
+            const assigneeId = document.getElementById('task-form-assignee').value;
+            const deadline = document.getElementById('task-form-deadline').value;
+            const isPrivate = document.getElementById('task-form-private').checked;
+
+            if (!title || !assigneeId || !deadline) { alert('Please fill out all task parameters.'); return; }
+            const dropdown = document.getElementById('task-form-assignee');
+            const assigneeName = dropdown.options[dropdown.selectedIndex].text;
+
+            await _supabase.from('tasks').insert([{ title: title, assignee_id: assigneeId, assignee_name: assigneeName, deadline: deadline, is_private: isPrivate, created_by: sessionUserObj.id }]);
+            alert('Task node assigned successfully.');
+            document.getElementById('task-form-title').value = '';
+            await loadFenestrianCalendarView();
+        }
+
+        async function executeTaskCheckOutSync(taskId) {
+            const { error } = await _supabase.from('tasks').update({ is_completed: true }).eq('id', taskId);
+            if (!error) { alert('Task target resolved and checked out!'); await loadFenestrianCalendarView(); }
+        }
+
+        async function triggerEcosystemAutomatedAlertsAndBroadcasts() {
+            const { data: users } = await _supabase.from('alumni').select('*').eq('is_placeholder', false);
+            const { data: family } = await _supabase.from('family_members').select('*');
+            const { data: customEvents } = await _supabase.from('calendar_events').select('*');
+            const bannerZone = document.getElementById('ecosystem-alert-banner-zone');
+            bannerZone.innerHTML = '';
+
+            const today = new Date();
+            const currentDay = today.getDate();
+            const currentMonth = today.getMonth();
+            const datestampTodayStr = `${today.getFullYear()}-${String(currentMonth+1).padStart(2,'0')}-${String(currentDay).padStart(2,'0')}`;
+
+            let targetedCelebrationsArray = [];
+            if (users) {
+                users.forEach(u => {
+                    if (u.dob && new Date(u.dob).getDate() === currentDay && new Date(u.dob).getMonth() === currentMonth) targetedCelebrationsArray.push({ payload: `🎉 Today is ${u.full_name}'s Birthday! Wishing them an incredible year ahead!` });
+                    if (u.wedding_date && new Date(u.wedding_date).getDate() === currentDay && new Date(u.wedding_date).getMonth() === currentMonth) targetedCelebrationsArray.push({ payload: `💍 Happy Wedding Anniversary to ${u.full_name} and their partner!` });
+                });
+            }
+
+            if (targetedCelebrationsArray.length > 0) {
+                for (let celeb of targetedCelebrationsArray) {
+                    bannerZone.innerHTML += `<div class="bg-blue-950/80 border border-blue-700/60 p-2.5 rounded text-xs flex justify-between items-center text-blue-300 shadow-md"><span>📢 SYSTEM REMINDER: ${celeb.payload}</span><button onclick="this.parentElement.remove()" class="text-[10px] font-bold">✕</button></div>`;
+                    const uniqueTraceLogString = `[AUTO-ALERT-TRACE:${datestampTodayStr}]: ${celeb.payload}`;
+                    const { data: m } = await _supabase.from('chat_messages').select('id').eq('room_id', 'global').eq('message_text', uniqueTraceLogString).limit(1);
+                    if (!m || m.length === 0) await _supabase.from('chat_messages').insert([{ room_id: 'global', sender_id: 0, sender_name: '🛡️ Fenestrian Bot', message_text: uniqueTraceLogString }]);
+                }
+            }
+        }
+
+        // --- AUTH ENGINE WRAPPERS ---
+        async function executeAdminLogin() {
+            const user = document.getElementById('admin-auth-user').value;
+            const pass = document.getElementById('admin-auth-pass').value;
+            const { data } = await _supabase.from('alumni').select('*').eq('custom_username', user).eq('custom_password', pass).eq('is_admin', true).single();
+            if(data) { showView('admin-dash'); loadAdministrativeMasterView(); } else { alert('Access Refused.'); }
+        }
+
+        async function executeMemberLogin() {
+            const u = document.getElementById('log-user').value;
+            const p = document.getElementById('log-pass').value;
+            const { data } = await _supabase.from('alumni').select('*').eq('custom_username', u).eq('custom_password', p).eq('is_placeholder', false).single();
+            if(data) { sessionUserObj = data; hydrateProfileFormFields(data); showView('member-dash'); await triggerEcosystemAutomatedAlertsAndBroadcasts(); switchTab('directory'); } else { alert('Identity unverified.'); }
+        }
+
+        async function executeProfileClaim() {
+            const code = document.getElementById('reg-code').value;
+            const username = document.getElementById('reg-user').value;
+            const password = document.getElementById('reg-pass').value;
+            const name = document.getElementById('reg-name').value;
+            const gender = document.getElementById('reg-gender').value;
+            const dob = document.getElementById('reg-dob').value;
+            const email = document.getElementById('reg-email').value;
+            const phone = document.getElementById('reg-phone').value;
+
+            if(!code || !username || !password || !name || !gender || !dob || !email || !phone) { alert('Fill fields.'); return; }
+            const { data: slot } = await _supabase.from('alumni').select('*').eq('placeholder_code', code).eq('is_placeholder', true).single();
+            if(slot) {
+                await _supabase.from('alumni').update({ custom_username: username, custom_password: password, full_name: name, gender: gender, dob: dob, email: email, contact_number: phone, is_placeholder: false }).eq('id', slot.id);
+                alert('Success'); showView('landing');
+            }
+        }
+
+        function hydrateProfileFormFields(d) {
+            document.getElementById('p-nickname').value = d.class_nickname || '';
+            document.getElementById('p-whatsapp').value = d.whatsapp_number || '';
+            document.getElementById('p-blood').value = d.blood_group || '';
+            document.getElementById('p-status').value = d.current_status || 'Employed';
+            document.getElementById('p-pic').value = d.profile_picture_url || '';
+            document.getElementById('p-perm-addr').value = d.permanent_address || '';
+            document.getElementById('p-perm-geo').value = d.permanent_geo_location || '';
+            document.getElementById('p-curr-addr').value = d.current_address || '';
+            document.getElementById('p-curr-geo').value = d.current_geo_location || '';
+            document.getElementById('p-marital').value = d.marital_status || 'Single';
+            document.getElementById('p-wedding').value = d.wedding_date || '';
+            document.getElementById('p-divorce').value = d.divorce_date || '';
+            document.getElementById('p-spouse-name').value = d.spouse_name || '';
+            document.getElementById('p-spouse-dob').value = d.spouse_dob || '';
+            document.getElementById('p-spouse-details').value = d.spouse_details || '';
+            document.getElementById('p-diary').value = d.diary_logs || '';
+            document.getElementById('p-hide-peers').checked = d.hide_from_peers;
+            document.getElementById('p-hide-admin').checked = d.hide_from_admin;
+            evaluateMaritalUI();
+        }
+
+        async function executeProfileUpdateSync() {
+            const payload = { class_nickname: document.getElementById('p-nickname').value, whatsapp_number: document.getElementById('p-whatsapp').value, blood_group: document.getElementById('p-blood').value, current_status: document.getElementById('p-status').value, profile_picture_url: document.getElementById('p-pic').value, permanent_address: document.getElementById('p-perm-addr').value, permanent_geo_location: document.getElementById('p-perm-geo').value, current_address: document.getElementById('p-curr-addr').value, current_geo_location: document.getElementById('p-curr-geo').value, marital_status: document.getElementById('p-marital').value, wedding_date: document.getElementById('p-wedding').value || null, divorce_date: document.getElementById('p-divorce').value || null, spouse_name: document.getElementById('p-spouse-name').value, spouse_dob: document.getElementById('p-spouse-dob').value || null, spouse_details: document.getElementById('p-spouse-details').value, diary_logs: document.getElementById('p-diary').value, hide_from_peers: document.getElementById('p-hide-peers').checked, hide_from_admin: document.getElementById('p-hide-admin').checked };
+            await _supabase.from('alumni').update(payload).eq('id', sessionUserObj.id);
+            alert('Updated'); switchTab('directory');
+        }
+
+        async function loadAdministrativeMasterView() {
+            const { data } = await _supabase.from('alumni').select('*');
+            const mount = document.getElementById('admin-roster-mount'); mount.innerHTML = '';
+            if(data) data.forEach(m => { mount.innerHTML += `<div class="bg-gray-700 p-2 rounded text-xs">${m.full_name || 'Placeholder'}</div>`; });
+        }
+
+        async function executeFamilyMemberInjection() {
+            await _supabase.from('family_members').insert([{ alumni_id: sessionUserObj.id, relationship: document.getElementById('f-relationship').value, name: document.getElementById('f-name').value, dob: document.getElementById('f-dob').value || null, blood_group: document.getElementById('f-blood').value }]);
+            loadFamilyRosterView();
+        }
+
+        async function loadFamilyRosterView() {
+            const { data } = await _supabase.from('family_members').select('*').eq('alumni_id', sessionUserObj.id);
+            const mount = document.getElementById('family-roster-mount'); mount.innerHTML = '';
+            if(data) data.forEach(f => { mount.innerHTML += `<div class="bg-gray-800 p-2 rounded text-xs">${f.name}</div>`; });
+        }
+
+        async function executeGalleryAssetInjection() {
+            await _supabase.from('photo_gallery').insert([{ alumni_id: sessionUserObj.id, image_url: document.getElementById('gal-url').value, description: document.getElementById('gal-desc').value }]);
+            loadGalleryVaultView();
+        }
+
+        async function loadGalleryVaultView() {
+            const { data } = await _supabase.from('photo_gallery').select('*');
+            const mount = document.getElementById('gallery-grid-mount'); mount.innerHTML = '';
+            if(data) data.forEach(img => { mount.innerHTML += `<div class="bg-gray-800 rounded overflow-hidden"><img src="${img.image_url}" class="w-full object-cover"></div>`; });
+        }
+    </script>
+</body>
+</html>
