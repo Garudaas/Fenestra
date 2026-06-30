@@ -1,14 +1,21 @@
 {
-  "background_color": "#ffffff",
+  "background_color": "#111827",
   "dir": "ltr",
   "display": "fullscreen",
   "name": "Fenestrians",
   "orientation": "any",
   "scope": "https://garudaas.github.io/Fenestra/",
   "short_name": "Fenestrians",
-  "start_url": "https://garudaas.github.io/Fenestra/",
+  "start_url": "https://garudaas.github.io/Fenestra/index.html",
   "theme_color": "#ffffff",
   "id": "Fenestrians",
   "description": "Fenestrians Alumni Inner Circle App. Keep in touch.",
   "lang": "en"
+  "icons": [
+    {
+      "src": "icon.png", 
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
 }
