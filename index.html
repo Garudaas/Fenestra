@@ -1076,8 +1076,9 @@
         
         function initializeVideoRoomSession() {
             const roomName = document.getElementById('video-room-tag').value.trim() || 'Main-Room';
-            document.getElementById('video-canvas-container').classList.remove('hidden');
-            document.getElementById('video-frame-node').src = `https://meet.jit.si/${roomName}-${sessionUserObj ? sessionUserObj.id : ''}`;
+            // Open the free Jitsi room in a new, full browser tab to bypass the 5-minute embed limit
+            const roomUrl = `https://meet.jit.si/${roomName}-${sessionUserObj ? sessionUserObj.id : ''}`;
+            window.open(roomUrl, '_blank');
         }
         
         async function executeVideoLoungeGalleryInjection() {
