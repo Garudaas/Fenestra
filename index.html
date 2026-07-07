@@ -244,6 +244,9 @@
                         <label class="flex items-center space-x-2 font-bold text-red-400"><input id="f-help" type="checkbox"> <span>Highlight: This member needs assistance/support</span></label>
                         <input id="f-help-details" placeholder="Describe the help needed..." class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-xs">
                     </div>
+                    <div class="p-3 bg-gray-900 rounded border border-gray-700 space-y-2">
+                        <label class="flex items-center space-x-2 font-bold text-yellow-500"><input id="f-is-private" type="checkbox" class="bg-gray-700 border-gray-600 rounded"> <span>🔒 Keep this family member's details private</span></label>
+                    </div>
                     <button onclick="executeFamilyMemberInjection()" class="w-full bg-blue-600 py-2 rounded font-bold">Save Family Member</button>
                 </div>
                 <div id="family-roster-mount" class="space-y-2"></div>
@@ -341,6 +344,7 @@
                     <div id="chat-messages-container" class="flex-1 p-4 overflow-y-auto space-y-2 font-mono"></div>
                     <div class="p-3 bg-gray-950 border-t border-gray-700 flex gap-2 flex-col">
                         <div class="flex gap-1">
+                            <!-- Fixed File Upload Trigger -->
                             <input type="file" accept="image/*" id="chat-media-file" class="hidden" onchange="loadLocalFileIntoField(this, 'chat-hidden-payload-string', true)">
                             <input type="hidden" id="chat-hidden-payload-string">
                             <button onclick="document.getElementById('chat-media-file').click()" class="bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded border border-gray-700">📁 Attach Image</button>
@@ -727,9 +731,17 @@
                     const memberFamily = family ? family.filter(f => f.alumni_id == m.id) : [];
                     let familyMarkup = '';
                     if (memberFamily.length > 0) {
-                        familyMarkup = `<div class="mt-2 pt-2 border-t border-gray-700/60"><h4 class="text-[11px] font-bold text-blue-400 mb-1">Family Members:</h4><div class="space-y-1">`;
+                        familyMarkup = `<div class="mt-2 pt-2 border-t border-gray-700/60"><h4 class="text-[11px] font-bold text-blue-400 mb-1">Family Members:</h4><div class="space-y-1.5">`;
                         memberFamily.forEach(f => {
-                            familyMarkup += `<div class="text-[11px] text-gray-400 font-mono">▪️ ${f.name} (${f.relationship}) - Blood: ${f.blood_group || 'N/A'}</div>`;
+                            if (f.is_private && m.id !== sessionUserObj.id) {
+                                familyMarkup += `<div class="text-[11px] text-gray-500 font-mono italic p-1.5 bg-gray-900/30 rounded border border-gray-800">🔒 Private ${f.relationship} details hidden</div>`;
+                            } else {
+                                let supportBadge = f.needs_support ? `<div class="text-red-400 text-[10px] mt-1 bg-red-950/50 p-1.5 rounded border border-red-900/50">🚨 <b>Support Needed:</b> ${f.support_details || 'Reach out for details'}</div>` : '';
+                                familyMarkup += `<div class="text-[11px] text-gray-300 font-mono bg-gray-900/50 p-1.5 rounded border border-gray-700/50">
+                                    ▪️ <b>${f.name}</b> (${f.relationship}) - Blood: ${f.blood_group || 'N/A'}
+                                    ${supportBadge}
+                                </div>`;
+                            }
                         });
                         familyMarkup += `</div></div>`;
                     }
@@ -801,8 +813,16 @@
                         const famBirthDate = new Date(f.dob);
                         const mIndex = famBirthDate.getMonth();
                         const orderCount = targetYear - famBirthDate.getFullYear();
+                        
+                        const relatedAlumni = globalRoster.find(u => u.id === f.alumni_id);
+                        const alumniName = relatedAlumni ? relatedAlumni.full_name : 'Unknown Member';
+
                         if (mIndex >= 0 && mIndex <= 11) {
-                            groupedStructure[mIndex].push({ date: famBirthDate, text: `👶 ${getOrdinalSuffix(orderCount)} Birthday: ${f.name} (${f.relationship})`, type: 'Family' });
+                            if (f.is_private && f.alumni_id !== sessionUserObj.id) {
+                                groupedStructure[mIndex].push({ date: famBirthDate, text: `🔒 ${getOrdinalSuffix(orderCount)} Birthday: Private ${f.relationship} of ${alumniName}`, type: 'Family' });
+                            } else {
+                                groupedStructure[mIndex].push({ date: famBirthDate, text: `👶 ${getOrdinalSuffix(orderCount)} Birthday: ${f.name} (${f.relationship} of ${alumniName})`, type: 'Family' });
+                            }
                         }
                     }
                 });
@@ -1052,14 +1072,26 @@
         }
 
         async function executeFamilyMemberInjection() {
-            await _supabase.from('family_members').insert([{ alumni_id: sessionUserObj.id, relationship: document.getElementById('f-relationship').value, name: document.getElementById('f-name').value, dob: document.getElementById('f-dob').value || null, blood_group: document.getElementById('f-blood').value }]);
+            const payload = { 
+                alumni_id: sessionUserObj.id, 
+                relationship: document.getElementById('f-relationship').value, 
+                name: document.getElementById('f-name').value, 
+                dob: document.getElementById('f-dob').value || null, 
+                blood_group: document.getElementById('f-blood').value,
+                is_private: document.getElementById('f-is-private').checked,
+                needs_support: document.getElementById('f-help').checked,
+                support_details: document.getElementById('f-help-details').value
+            };
+            await _supabase.from('family_members').insert([payload]);
+            document.getElementById('f-name').value = '';
+            document.getElementById('f-dob').value = '';
             loadFamilyRosterView();
         }
 
         async function loadFamilyRosterView() {
             const { data } = await _supabase.from('family_members').select('*').eq('alumni_id', sessionUserObj.id);
             const mount = document.getElementById('family-roster-mount'); mount.innerHTML = '';
-            if(data) data.forEach(f => { mount.innerHTML += `<div class="bg-gray-800 p-2 rounded text-xs">${f.name}</div>`; });
+            if(data) data.forEach(f => { mount.innerHTML += `<div class="bg-gray-800 p-2 rounded text-xs">${f.name} (${f.relationship}) ${f.is_private ? '🔒' : ''}</div>`; });
         }
 
         async function executeGalleryAssetInjection() {
