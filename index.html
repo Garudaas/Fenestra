@@ -3,159 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alumni Inner Circle</title>
+    <title>The Fenestra</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col">
 
-    <div id="camera-modal" class="hidden fixed inset-0 bg-black/80 flex flex-col items-center justify-center p-4 z-50">
-        <div class="bg-gray-800 border border-gray-700 p-4 rounded-xl max-w-sm w-full space-y-3">
-            <h3 class="text-sm font-bold text-blue-400">Live Device Capture</h3>
-            <video id="camera-stream" autoplay playsinline class="w-full rounded bg-black aspect-video object-cover"></video>
-            <div class="flex justify-end space-x-2">
-                <button onclick="closeCameraEngine()" class="px-3 py-1.5 bg-gray-700 rounded text-xs">Cancel</button>
-                <button onclick="captureFrameToDestination()" class="px-3 py-1.5 bg-blue-600 rounded text-xs font-bold">🔴 Capture Photo</button>
-            </div>
-        </div>
-    </div>
-
     <div id="view-landing" class="flex-1 flex flex-col items-center justify-center p-6 text-center">
         <div class="max-w-md w-full bg-gray-800 p-8 rounded-xl border border-gray-700 shadow-2xl space-y-6">
-            <h1 class="text-3xl font-extrabold text-blue-400 tracking-tight">Alumni Network</h1>
+            <h1 class="text-3xl font-extrabold text-blue-400">The Fenestrian Network</h1>
             <div class="space-y-4 pt-4 flex flex-col items-center">
-                <button onclick="showView('member-login')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded transition duration-200">Member Log In</button>
-                <a href="#" onclick="showView('signup'); return false;" class="text-sm text-green-400 hover:text-green-300 transition">Register (First Time)</a>
+                <button onclick="showView('member-login')" class="w-full bg-blue-600 py-3 rounded font-bold text-white">Member Log In</button>
+                <button onclick="showView('signup')" class="text-sm text-green-400">Register (First Time)</button>
+            </div>
+            <div class="pt-4 border-t border-gray-700">
+                <button onclick="showView('admin-login')" class="text-xs text-gray-500 hover:text-red-400">Admin Dashboard</button>
             </div>
         </div>
     </div>
 
-    <div id="view-member-dash" class="hidden flex-1 flex flex-col">
-        <header class="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center">
-            <h1 class="text-md font-bold text-blue-400">Alumni Hub</h1>
-            <div class="flex space-x-2 text-xs">
-                <button onclick="switchTab('directory')" class="px-3 py-1.5 bg-gray-700 rounded">Directory</button>
-                <button onclick="switchTab('family')" class="px-3 py-1.5 bg-gray-700 rounded">Family</button>
-                <button onclick="executeLogout()" class="px-3 py-1.5 bg-red-900 rounded font-bold">Log Out</button>
-            </div>
-        </header>
-        <main class="flex-1 p-4 max-w-5xl w-full mx-auto">
-            <section id="tab-directory" class="space-y-4">
-                <div id="directory-cards-mount" class="grid gap-4 md:grid-cols-2"></div>
-            </section>
-            
-            <section id="tab-family" class="hidden max-w-2xl mx-auto space-y-4 text-xs">
-                <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-3">
-                    <h2 class="text-lg font-bold text-blue-400">Manage Family Member</h2>
-                    <div class="grid grid-cols-2 gap-2">
-                        <select id="f-relationship" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1">
-                            <option value="Child">Child</option>
-                            <option value="Spouse">Spouse</option>
-                            <option value="Parent">Parent</option>
-                        </select>
-                        <input id="f-name" placeholder="Full Name *" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1">
-                    </div>
-                    <input id="f-dob" type="date" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1">
-                    <input id="f-blood" placeholder="Blood Group" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1">
-                    <div class="space-y-2">
-                        <label class="flex items-center"><input id="f-help" type="checkbox" class="mr-2"> Needs Support</label>
-                        <input id="f-help-details" placeholder="Support details..." class="w-full p-2 bg-gray-700 rounded border border-gray-600">
-                        <label class="flex items-center"><input id="f-is-private" type="checkbox" class="mr-2"> 🔒 Private</label>
-                    </div>
-                    <button id="family-save-btn" onclick="executeFamilyMemberInjection()" class="w-full bg-blue-600 py-2 rounded font-bold">Save Family Member</button>
-                </div>
-                <div id="family-roster-mount" class="space-y-2"></div>
-            </section>
-        </main>
-    </div>
-
+    <div id="view-member-dash" class="hidden flex-1 flex flex-col">...</div>
     <script>
-        const _supabase = supabase.createClient('https://dojlbfnfhkfltlxggxiy.supabase.co', 'sb_publishable_CmCFzsQ_L8dk7NxUmIVZ0g_pl_jq0fV');
+        const _supabase = supabase.createClient('URL', 'KEY');
         let sessionUserObj = null;
 
-        function showView(id) {
-            ['view-landing', 'view-signup', 'view-member-login', 'view-admin-dash', 'view-member-dash'].forEach(v => document.getElementById(v).classList.add('hidden'));
-            document.getElementById(`view-${id}`).classList.remove('hidden');
-        }
-
-        function switchTab(name) {
-            ['tab-directory', 'tab-family'].forEach(t => document.getElementById(t).classList.add('hidden'));
-            document.getElementById(`tab-${name}`).classList.remove('hidden');
-            if (name === 'directory') loadMemberDirectoryView();
-            if (name === 'family') loadFamilyRosterView();
-        }
+        // PERSISTENCE: Check for stored session on load
+        window.onload = () => {
+            const savedSession = localStorage.getItem('alumni_session');
+            if (savedSession) {
+                sessionUserObj = JSON.parse(savedSession);
+                showView('member-dash');
+                initializeChatHubView(); // Resume background listening
+            }
+        };
 
         async function executeMemberLogin() {
-            const u = document.getElementById('log-user').value.trim();
-            const p = document.getElementById('log-pass').value;
-            const { data } = await _supabase.from('alumni').select('*').or(`custom_username.ilike.${u},email.ilike.${u}`).eq('custom_password', p).single();
-            if(data) { sessionUserObj = data; showView('member-dash'); switchTab('directory'); } else { alert('Login failed.'); }
+            // ... (Your existing login logic)
+            if(data) { 
+                sessionUserObj = data; 
+                localStorage.setItem('alumni_session', JSON.stringify(data)); // Save session
+                showView('member-dash'); 
+            }
         }
 
-        async function executeFamilyMemberInjection() {
-            const payload = { 
-                alumni_id: sessionUserObj.id, 
-                relationship: document.getElementById('f-relationship').value, 
-                name: document.getElementById('f-name').value, 
-                dob: document.getElementById('f-dob').value || null, 
-                blood_group: document.getElementById('f-blood').value,
-                is_private: document.getElementById('f-is-private').checked,
-                needs_support: document.getElementById('f-help').checked,
-                support_details: document.getElementById('f-help-details').value
-            };
-            await _supabase.from('family_members').insert([payload]);
-            alert("Saved!");
-            loadFamilyRosterView();
-        }
-
-        async function loadFamilyRosterView() {
-            const { data } = await _supabase.from('family_members').select('*').eq('alumni_id', sessionUserObj.id);
-            const mount = document.getElementById('family-roster-mount'); mount.innerHTML = '';
-            if(data) data.forEach(f => {
-                mount.innerHTML += `
-                    <div class="bg-gray-800 p-3 rounded text-xs flex justify-between items-center">
-                        <span>${f.name} (${f.relationship}) ${f.is_private ? '🔒' : ''}</span>
-                        <div class="flex gap-2">
-                            <button onclick="editFamilyMember('${f.id}')" class="text-blue-400">Edit</button>
-                            <button onclick="deleteFamilyMember('${f.id}')" class="text-red-400">Delete</button>
-                        </div>
-                    </div>`;
-            });
-        }
-
-        async function editFamilyMember(id) {
-            const { data } = await _supabase.from('family_members').select('*').eq('id', id).single();
-            document.getElementById('f-name').value = data.name;
-            document.getElementById('f-relationship').value = data.relationship;
-            document.getElementById('f-dob').value = data.dob;
-            document.getElementById('f-blood').value = data.blood_group;
-            document.getElementById('f-help-details').value = data.support_details;
-            document.getElementById('f-help').checked = data.needs_support;
-            document.getElementById('f-is-private').checked = data.is_private;
-            
-            const btn = document.getElementById('family-save-btn');
-            btn.textContent = "Update Family Member";
-            btn.onclick = function() { executeUpdateFamilyMember(id); };
-        }
-
-        async function executeUpdateFamilyMember(id) {
-            const payload = { 
-                relationship: document.getElementById('f-relationship').value, 
-                name: document.getElementById('f-name').value, 
-                dob: document.getElementById('f-dob').value || null, 
-                blood_group: document.getElementById('f-blood').value,
-                is_private: document.getElementById('f-is-private').checked,
-                needs_support: document.getElementById('f-help').checked,
-                support_details: document.getElementById('f-help-details').value
-            };
-            await _supabase.from('family_members').update(payload).eq('id', id);
-            alert("Updated!");
+        function executeLogout() {
+            localStorage.removeItem('alumni_session'); // Clear session
             location.reload();
-        }
-
-        async function deleteFamilyMember(id) {
-            await _supabase.from('family_members').delete().eq('id', id);
-            loadFamilyRosterView();
         }
     </script>
 </body>
