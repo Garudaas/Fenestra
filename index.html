@@ -253,13 +253,13 @@
                 <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-3">
                     <h2 class="text-lg font-bold text-blue-400">Add Photo to Gallery</h2>
                     <div class="grid grid-cols-2 gap-2">
-                        <input id="gal-url" placeholder="Image URL or Data" class="p-2.5 bg-gray-700 rounded border border-gray-600 text-xs">
+                        <input id="gal-url" placeholder="Image URL or Data String" class="p-2.5 bg-gray-700 rounded border border-gray-600 text-xs">
                         <input id="gal-desc" placeholder="Photo Description" class="p-2.5 bg-gray-700 rounded border border-gray-600">
                     </div>
                     <div class="flex gap-2">
                         <input type="file" accept="image/*" id="file-gal-url" class="hidden" onchange="loadLocalFileIntoField(this, 'gal-url')">
-                        <button type="button" onclick="document.getElementById('file-gal-url').click()" class="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded font-semibold">📁 Select File</button>
-                        <button type="button" onclick="openCameraEngine('gal-url')" class="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded font-semibold">📷 Use Camera</button>
+                        <button type="button" onclick="document.getElementById('file-gal-url').click()" class="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded font-semibold">📁 Select Image File</button>
+                        <button type="button" onclick="openCameraEngine('gal-url')" class="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded font-semibold">📷 Capture Photo</button>
                     </div>
                     <button onclick="executeGalleryAssetInjection()" class="w-full bg-blue-600 py-2 rounded font-bold mt-2">Upload Photo</button>
                 </div>
@@ -283,14 +283,14 @@
                         <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-xl space-y-3">
                             <h3 class="text-sm font-bold text-blue-400 uppercase tracking-wider border-b border-gray-700 pb-2">📅 Post Event</h3>
                             <div class="space-y-2.5">
-                                <input id="cal-form-title" type="text" placeholder="Event Name *" class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs">
+                                <input id="cal-form-title" type="text" placeholder="Event Title *" class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs">
                                 <select id="cal-form-type" class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs text-gray-300">
                                     <option value="Anniversary">💍 Anniversary</option>
                                     <option value="Online Meeting">🎥 Video Meeting</option>
                                     <option value="Custom Event">📌 General Event</option>
                                 </select>
                                 <input id="cal-form-date" type="date" class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs text-gray-300">
-                                <textarea id="cal-form-desc" placeholder="Details or location..." class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs h-12"></textarea>
+                                <textarea id="cal-form-desc" placeholder="Agenda or location details..." class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs h-12"></textarea>
                                 <button onclick="executeCalendarEventCreation()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded text-xs transition shadow-md">Post Event</button>
                             </div>
                         </div>
@@ -298,9 +298,9 @@
                         <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-xl space-y-3">
                             <h3 class="text-sm font-bold text-green-400 uppercase tracking-wider border-b border-gray-700 pb-2">✅ Assign Task</h3>
                             <div class="space-y-2.5">
-                                <input id="task-form-title" type="text" placeholder="Task Name *" class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs">
+                                <input id="task-form-title" type="text" placeholder="Task Objective *" class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs">
                                 <select id="task-form-assignee" class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs text-gray-300">
-                                    <option value="">Select Person *</option>
+                                    <option value="">Select Assignee *</option>
                                 </select>
                                 <input id="task-form-deadline" type="date" class="w-full p-2 bg-gray-700 rounded border border-gray-600 text-white text-xs text-gray-300">
                                 <div class="flex items-center space-x-2 py-1">
@@ -341,7 +341,6 @@
                     <div id="chat-messages-container" class="flex-1 p-4 overflow-y-auto space-y-2 font-mono"></div>
                     <div class="p-3 bg-gray-950 border-t border-gray-700 flex gap-2 flex-col">
                         <div class="flex gap-1">
-                            <!-- Fixed File Upload Trigger -->
                             <input type="file" accept="image/*" id="chat-media-file" class="hidden" onchange="loadLocalFileIntoField(this, 'chat-hidden-payload-string', true)">
                             <input type="hidden" id="chat-hidden-payload-string">
                             <button onclick="document.getElementById('chat-media-file').click()" class="bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded border border-gray-700">📁 Attach Image</button>
