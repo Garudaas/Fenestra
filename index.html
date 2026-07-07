@@ -1081,10 +1081,20 @@
                 needs_support: document.getElementById('f-help').checked,
                 support_details: document.getElementById('f-help-details').value
             };
-            await _supabase.from('family_members').insert([payload]);
-            document.getElementById('f-name').value = '';
-            document.getElementById('f-dob').value = '';
-            loadFamilyRosterView();
+            
+            console.log("Submitting Family Data:", payload); // Add this line
+
+            const { data, error } = await _supabase.from('family_members').insert([payload]);
+            
+            if (error) {
+                console.error("Database Error:", error);
+                alert("Error: " + error.message);
+            } else {
+                alert("Family member saved!");
+                document.getElementById('f-name').value = '';
+                document.getElementById('f-dob').value = '';
+                loadFamilyRosterView();
+            }
         }
 
         async function loadFamilyRosterView() {
