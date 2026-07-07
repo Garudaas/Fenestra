@@ -344,7 +344,6 @@
                     <div id="chat-messages-container" class="flex-1 p-4 overflow-y-auto space-y-2 font-mono"></div>
                     <div class="p-3 bg-gray-950 border-t border-gray-700 flex gap-2 flex-col">
                         <div class="flex gap-1">
-                            <!-- Fixed File Upload Trigger -->
                             <input type="file" accept="image/*" id="chat-media-file" class="hidden" onchange="loadLocalFileIntoField(this, 'chat-hidden-payload-string', true)">
                             <input type="hidden" id="chat-hidden-payload-string">
                             <button onclick="document.getElementById('chat-media-file').click()" class="bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded border border-gray-700">📁 Attach Image</button>
@@ -554,7 +553,7 @@
             
             groupMount.innerHTML = '';
             dmMount.innerHTML = '';
-            if (formAssigneeDropdown) formAssigneeDropdown.innerHTML = '<option value="">Select Person *</option>';
+            if (formAssigneeDropdown) formAssigneeDropdown.innerHTML = '<option value="">Select Assignee *</option>';
 
             if (groups) {
                 groups.forEach(g => {
@@ -1107,7 +1106,6 @@
         
         function initializeVideoRoomSession() {
             const roomName = document.getElementById('video-room-tag').value.trim() || 'Main-Room';
-            // Open the free Jitsi room in a new, full browser tab to bypass the 5-minute embed limit
             const roomUrl = `https://meet.jit.si/${roomName}-${sessionUserObj ? sessionUserObj.id : ''}`;
             window.open(roomUrl, '_blank');
         }
