@@ -414,11 +414,18 @@
             }
         };
 
-        // PUSH NOTIFICATION REGISTRATION
+        // PUSH NOTIFICATION REGISTRATION (UPDATED)
         async function registerPush() {
             if ('serviceWorker' in navigator && 'PushManager' in window) {
                 try {
-                    const registration = await navigator.serviceWorker.register('/sw.js');
+                    // 1. Explicitly ask the user for permission first
+                    const permission = await Notification.requestPermission();
+                    if (permission !== 'granted') {
+                        throw new Error('Permission not granted for Notification');
+                    }
+
+                    // 2. Fix the path! Use './sw.js' so it works on GitHub Pages subfolders
+                    const registration = await navigator.serviceWorker.register('./sw.js');
                     console.log('Service Worker registered');
                     
                     const subscription = await registration.pushManager.subscribe({
@@ -426,7 +433,7 @@
                         applicationServerKey: 'BEfci1SY-xyIq3MtS10Q1kibOKAk2ijtyR3zlLBJz48o5mYUeL5Olmpj6ah-TGMx29fS3DJwPc5DT9E2lFR-KVU'
                     });
                     
-                    // Send to Render server
+                    // 3. Send to Render server
                     await fetch('https://alumni-notification-server-1.onrender.com/send-notification', {
                         method: 'POST',
                         body: JSON.stringify({
@@ -439,7 +446,7 @@
                     alert("Push Notifications enabled!");
                 } catch (error) {
                     console.error('Push registration failed:', error);
-                    alert("Failed to enable notifications. Ensure your browser allows them.");
+                    alert("Failed to enable notifications. Press F12 and check the Console tab for the exact error.");
                 }
             } else {
                 alert("Push notifications are not supported in this browser.");
@@ -1131,7 +1138,7 @@
                 support_details: document.getElementById('f-help-details').value
             };
             await _supabase.from('family_members').insert([payload]);
-            cancelFamilyEdit(); // clears the form safely
+            cancelFamilyEdit(); 
             loadFamilyRosterView();
         }
 
@@ -1202,7 +1209,7 @@
             const { error } = await _supabase.from('family_members').update(payload).eq('id', id);
             if (!error) {
                 alert("Updated successfully!");
-                cancelFamilyEdit(); // Resets the form and buttons back to normal
+                cancelFamilyEdit(); 
                 loadFamilyRosterView();
             } else {
                 alert("Error updating: " + error.message);
