@@ -120,6 +120,7 @@
                 <button onclick="switchTab('calendar')" class="px-2.5 py-1.5 bg-yellow-600 font-bold text-white rounded">Event Calendar</button>
                 <button onclick="switchTab('chat')" class="px-2.5 py-1.5 bg-green-700 font-bold text-white rounded">Chat Hub</button>
                 <button onclick="switchTab('video')" class="px-2.5 py-1.5 bg-blue-600 font-bold text-white rounded">Video Chat</button>
+                <button onclick="registerPush()" class="px-2.5 py-1.5 bg-purple-700 font-bold text-white rounded ml-2 shadow-md">🔔 Enable Alerts</button>
                 <button onclick="executeLogout()" class="px-2.5 py-1.5 bg-red-900 rounded font-bold ml-4">Log Out</button>
             </div>
         </header>
@@ -413,6 +414,38 @@
             }
         };
 
+        // PUSH NOTIFICATION REGISTRATION
+        async function registerPush() {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                try {
+                    const registration = await navigator.serviceWorker.register('/sw.js');
+                    console.log('Service Worker registered');
+                    
+                    const subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: 'BEfci1SY-xyIq3MtS10Q1kibOKAk2ijtyR3zlLBJz48o5mYUeL5Olmpj6ah-TGMx29fS3DJwPc5DT9E2lFR-KVU'
+                    });
+                    
+                    // Send to Render server
+                    await fetch('https://alumni-notification-server-1.onrender.com/send-notification', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            subscription: subscription,
+                            message: "Notifications enabled successfully!"
+                        }),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    alert("Push Notifications enabled!");
+                } catch (error) {
+                    console.error('Push registration failed:', error);
+                    alert("Failed to enable notifications. Ensure your browser allows them.");
+                }
+            } else {
+                alert("Push notifications are not supported in this browser.");
+            }
+        }
+
         function showView(id) {
             ['landing', 'signup', 'member-login', 'admin-login', 'admin-dash', 'member-dash'].forEach(v => document.getElementById(`view-${v}`).classList.add('hidden'));
             document.getElementById(`view-${id}`).classList.remove('hidden');
@@ -437,7 +470,7 @@
 
         function executeLogout() {
             sessionUserObj = null;
-            localStorage.removeItem('alumni_session'); // Clear session
+            localStorage.removeItem('alumni_session');
             document.getElementById('video-frame-node').src = '';
             document.getElementById('ecosystem-alert-banner-zone').innerHTML = '';
             if (chatSubscriptionRealtime) _supabase.removeChannel(chatSubscriptionRealtime);
