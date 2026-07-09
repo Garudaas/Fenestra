@@ -120,7 +120,7 @@
                 <button onclick="switchTab('calendar')" class="px-2.5 py-1.5 bg-yellow-600 font-bold text-white rounded">Event Calendar</button>
                 <button onclick="switchTab('chat')" class="px-2.5 py-1.5 bg-green-700 font-bold text-white rounded">Chat Hub</button>
                 <button onclick="switchTab('video')" class="px-2.5 py-1.5 bg-blue-600 font-bold text-white rounded">Video Chat</button>
-                <button onclick="registerPush()" class="px-2.5 py-1.5 bg-purple-700 font-bold text-white rounded ml-2 shadow-md">🔔 Enable Alerts</button>
+                <button id="alert-toggle-btn" onclick="registerPush()" class="px-2.5 py-1.5 bg-purple-700 font-bold text-white rounded ml-2 shadow-md transition">🔔 Enable Alerts</button>
                 <button onclick="executeLogout()" class="px-2.5 py-1.5 bg-red-900 rounded font-bold ml-4">Log Out</button>
             </div>
         </header>
@@ -411,20 +411,29 @@
                 showView('member-dash');
                 switchTab('directory');
                 triggerEcosystemAutomatedAlertsAndBroadcasts();
+                
+                // NEW: Update button automatically if permission is already granted
+                if (Notification.permission === 'granted') {
+                    const btn = document.getElementById('alert-toggle-btn');
+                    if(btn) {
+                        btn.innerHTML = '✅ Alerts Enabled';
+                        btn.classList.remove('bg-purple-700');
+                        btn.classList.add('bg-gray-700', 'cursor-not-allowed');
+                        btn.disabled = true;
+                    }
+                }
             }
         };
 
-        // PUSH NOTIFICATION REGISTRATION (UPDATED)
+        // PUSH NOTIFICATION REGISTRATION
         async function registerPush() {
             if ('serviceWorker' in navigator && 'PushManager' in window) {
                 try {
-                    // 1. Explicitly ask the user for permission first
                     const permission = await Notification.requestPermission();
                     if (permission !== 'granted') {
                         throw new Error('Permission not granted for Notification');
                     }
 
-                    // 2. Fix the path! Use './sw.js' so it works on GitHub Pages subfolders
                     const registration = await navigator.serviceWorker.register('./sw.js');
                     console.log('Service Worker registered');
                     
@@ -433,7 +442,6 @@
                         applicationServerKey: 'BEfci1SY-xyIq3MtS10Q1kibOKAk2ijtyR3zlLBJz48o5mYUeL5Olmpj6ah-TGMx29fS3DJwPc5DT9E2lFR-KVU'
                     });
                     
-                    // 3. Send to Render server
                     await fetch('https://alumni-notification-server-1.onrender.com/send-notification', {
                         method: 'POST',
                         body: JSON.stringify({
@@ -443,7 +451,13 @@
                         headers: { 'Content-Type': 'application/json' }
                     });
                     
-                    alert("Push Notifications enabled!");
+                    // NEW: Update UI after clicking
+                    const btn = document.getElementById('alert-toggle-btn');
+                    btn.innerHTML = '✅ Alerts Enabled';
+                    btn.classList.remove('bg-purple-700');
+                    btn.classList.add('bg-gray-700', 'cursor-not-allowed');
+                    btn.disabled = true;
+
                 } catch (error) {
                     console.error('Push registration failed:', error);
                     alert("Failed to enable notifications. Press F12 and check the Console tab for the exact error.");
