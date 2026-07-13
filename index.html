@@ -425,7 +425,7 @@
             }
         };
 
-        // PUSH NOTIFICATION REGISTRATION
+        // PUSH NOTIFICATION REGISTRATION (UPDATED)
         async function registerPush() {
             if ('serviceWorker' in navigator && 'PushManager' in window) {
                 try {
@@ -442,22 +442,20 @@
                         applicationServerKey: 'BEfci1SY-xyIq3MtS10Q1kibOKAk2ijtyR3zlLBJz48o5mYUeL5Olmpj6ah-TGMx29fS3DJwPc5DT9E2lFR-KVU'
                     });
                     
-                    await fetch('https://alumni-notification-server-1.onrender.com/send-notification', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            subscription: subscription,
-                            message: "Notifications enabled successfully!"
-                        }),
-                        headers: { 'Content-Type': 'application/json' }
-                    });
+                    // Save the subscription to Supabase instead of sending a single test fetch
+                    await _supabase.from('push_subscriptions').delete().eq('alumni_id', sessionUserObj.id);
+                    await _supabase.from('push_subscriptions').insert([{ 
+                        alumni_id: sessionUserObj.id, 
+                        sub_data: JSON.parse(JSON.stringify(subscription)) 
+                    }]);
                     
-                    // NEW: Update UI after clicking
                     const btn = document.getElementById('alert-toggle-btn');
                     btn.innerHTML = '✅ Alerts Enabled';
                     btn.classList.remove('bg-purple-700');
                     btn.classList.add('bg-gray-700', 'cursor-not-allowed');
                     btn.disabled = true;
 
+                    alert("Push Notifications enabled!");
                 } catch (error) {
                     console.error('Push registration failed:', error);
                     alert("Failed to enable notifications. Press F12 and check the Console tab for the exact error.");
