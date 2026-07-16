@@ -890,21 +890,28 @@
             }
         }
 
-        function formatMessageContent(msg, isNew = false) {
+function formatMessageContent(msg, isNew = false) {
             let contentHTML = msg.message_text;
 
-            const mentionRegex = new RegExp(`@(${sessionUserObj.full_name}|${sessionUserObj.class_nickname})`, 'gi');
+            // Safe regex that prevents breaking if nickname is empty
+            const validNames = [sessionUserObj.full_name];
+            if (sessionUserObj.class_nickname && sessionUserObj.class_nickname.trim() !== '') {
+                validNames.push(sessionUserObj.class_nickname);
+            }
+            const escapedNames = validNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+            const mentionRegex = new RegExp(`@(${escapedNames.join('|')})`, 'gi');
+            
             const hasMyMention = mentionRegex.test(msg.message_text);
 
             if (hasMyMention) {
                 contentHTML = contentHTML.replace(mentionRegex, `<span class="mention-highlight">@$1</span>`);
                 if (isNew && msg.sender_id !== sessionUserObj.id) {
-                    playMentionTone();
+                    playMentionTone(); // Triggers the audio and vibration
                 }
             }
             
             contentHTML = contentHTML.replace(/@([a-zA-Z0-9_ ]+)/g, (match, p1) => {
-                if(p1 === sessionUserObj.full_name || p1 === sessionUserObj.class_nickname) return match; 
+                if(validNames.some(n => p1.toLowerCase() === n.toLowerCase())) return match; 
                 return `<span class="text-blue-300 font-bold">${match}</span>`;
             });
 
@@ -918,7 +925,6 @@
                 const lines = msg.message_text.split('\n');
                 const titleLine = lines.find(l => l.startsWith('📍 Event: '));
                 const eventTitleToken = titleLine ? titleLine.replace('📍 Event: ', '').trim() : '';
-                
                 contentHTML = `
                     <div class="bg-gray-900 border border-yellow-600/40 p-3 rounded-xl text-yellow-400 max-w-xs font-sans text-xs shadow-md">
                         <div class="font-medium whitespace-pre-line">${msg.message_text}</div>
@@ -934,7 +940,6 @@
                 const tokens = cleanMeta.split('|');
                 const question = tokens[0];
                 const options = tokens[1]?.split(',') || [];
-                
                 let optionsMarkupHTML = '';
                 options.forEach((opt, idx) => {
                     optionsMarkupHTML += `
@@ -943,7 +948,6 @@
                             <span class="bg-gray-950 px-2 py-0.5 rounded font-mono text-[10px] text-blue-400 font-bold">Vote</span>
                         </button>`;
                 });
-
                 contentHTML = `
                     <div class="bg-gray-950 border border-purple-900/50 p-4 rounded-xl max-w-xs w-full space-y-3 shadow-xl">
                         <h4 class="font-bold text-purple-400 font-sans tracking-wide">📊 Poll: ${question}</h4>
@@ -951,7 +955,6 @@
                     </div>`;
             }
             
-            // Format Quotes / Replies visually
             contentHTML = contentHTML.replace(/^> (.*)$/gm, '<div class="border-l-2 border-blue-500 pl-2 ml-1 text-gray-400 italic mb-1 bg-gray-900/40 p-1 rounded-r text-[10px]">$1</div>');
 
             return { html: contentHTML, hasMyMention: hasMyMention };
@@ -962,10 +965,10 @@
             const container = document.getElementById('chat-messages-container');
             const isMe = msg.sender_id == sessionUserObj.id;
             
-            // Remove the empty state message if it's there
             if(container.innerHTML.includes("No messages here yet")) container.innerHTML = '';
 
             const processed = formatMessageContent(msg, isNew);
+            // Applies the shaky animation class only if it's a new message containing your name
             const shakeClass = (isNew && processed.hasMyMention) ? 'animate-shake' : '';
 
             const menuHTML = `
@@ -978,6 +981,7 @@
                     ${isMe ? `<button onclick="deleteMsg('${msg.id}')" title="Delete Message" class="hover:text-red-400 transition">🗑️</button>` : ''}
                 </div>`;
 
+            // Clickable name for mentions, and ✉️ icon for private messages
             const headerInfo = isMe 
                 ? `<div class="flex items-center space-x-2 text-[10px] text-gray-500 font-sans mb-0.5">${menuHTML} <span class="font-bold text-gray-400">${msg.sender_name}</span></div>`
                 : `<div class="flex items-center space-x-2 text-[10px] text-gray-500 font-sans mb-0.5">
@@ -998,6 +1002,8 @@
                 
             container.scrollTop = container.scrollHeight;
         }
+
+        
 
         // --- MSG MENU ACTIONS ---
         function insertEmoji(char) {
@@ -1069,7 +1075,6 @@
             const msg = loadedChatMessagesMap[id];
             if(!msg) return;
             
-            // Do not translate images or audio URLs
             if(msg.message_text.startsWith('data:') || msg.message_text.startsWith('http')) {
                 alert("Cannot translate media items."); return;
             }
@@ -1078,8 +1083,25 @@
             if(btn) { btn.classList.add('animate-pulse'); btn.textContent = '⏳'; }
 
             const targetLang = localStorage.getItem('pref_lang') || 'en';
+            let textToTranslate = msg.message_text;
+
             try {
-                const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(msg.message_text)}`);
+                // STEP 1: Pre-process Tanglish/English words into Tamil script so the translator doesn't skip them
+                const englishWords = textToTranslate.match(/[a-zA-Z]+/g);
+                if (englishWords) {
+                    for (const word of englishWords) {
+                        try {
+                            const inputRes = await fetch(`https://inputtools.google.com/request?text=${word}&itc=ta-t-i0-und&num=1`);
+                            const inputData = await inputRes.json();
+                            if (inputData[0] === "SUCCESS" && inputData[1][0][1][0]) {
+                                textToTranslate = textToTranslate.replace(word, inputData[1][0][1][0]);
+                            }
+                        } catch (e) { console.warn("Skipped input tool conversion for:", word); }
+                    }
+                }
+
+                // STEP 2: Standard Translation on the cleaned string
+                const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(textToTranslate)}`);
                 const data = await res.json();
                 let translatedText = '';
                 data[0].forEach(item => translatedText += item[0]);
