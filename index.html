@@ -18,7 +18,6 @@
             animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both;
             box-shadow: 0 0 10px rgba(96, 165, 250, 0.6);
         }
-        /* Style for highlighted mentions */
         .mention-highlight {
             color: #60a5fa;
             font-weight: bold;
@@ -26,6 +25,11 @@
             padding: 0 4px;
             border-radius: 4px;
         }
+        /* Custom Audio Player Style overrides */
+        audio { height: 32px; outline: none; border-radius: 20px; }
+        ::-webkit-media-controls-panel { background-color: #374151; }
+        ::-webkit-media-controls-play-button, ::-webkit-media-controls-mute-button { background-color: #9ca3af; border-radius: 50%; }
+        ::-webkit-media-controls-current-time-display, ::-webkit-media-controls-time-remaining-display { color: white; }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col">
@@ -134,24 +138,68 @@
     </div>
 
     <div id="view-member-dash" class="hidden flex-1 flex flex-col">
-        <header class="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center shadow-sm">
-            <h1 class="text-md font-bold text-blue-400">Alumni Hub</h1>
-            <div class="flex space-x-1 text-xs flex-wrap gap-y-1 items-center">
-                <button onclick="switchTab('directory')" class="px-2.5 py-1.5 bg-gray-700 rounded hover:bg-gray-600">Directory</button>
-                <button onclick="switchTab('profile')" class="px-2.5 py-1.5 bg-gray-700 rounded hover:bg-gray-600">Edit Profile</button>
-                <button onclick="switchTab('family')" class="px-2.5 py-1.5 bg-gray-700 rounded hover:bg-gray-600">Family</button>
-                <button onclick="switchTab('gallery')" class="px-2.5 py-1.5 bg-gray-700 rounded hover:bg-gray-600">Gallery</button>
-                <button onclick="switchTab('calendar')" class="px-2.5 py-1.5 bg-yellow-600 hover:bg-yellow-500 font-bold text-white rounded">Event Calendar</button>
-                <button onclick="switchTab('chat')" class="px-2.5 py-1.5 bg-green-700 hover:bg-green-600 font-bold text-white rounded">Chat Hub</button>
-                <button onclick="switchTab('video')" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 font-bold text-white rounded">Video Chat</button>
-                <button id="alert-toggle-btn" onclick="toggleAlerts()" class="px-2.5 py-1.5 bg-purple-700 hover:bg-purple-600 font-bold text-white rounded ml-2 shadow-md transition">🔔 Enable Alerts</button>
-                <button onclick="executeLogout()" class="px-2.5 py-1.5 bg-red-900 hover:bg-red-800 rounded font-bold ml-4">Log Out</button>
+        <header class="bg-gray-800 border-b border-gray-700 p-3 flex justify-between items-center shadow-sm">
+            <h1 class="text-md font-bold text-blue-400 mr-4">Alumni Hub</h1>
+            <div class="flex flex-wrap gap-3 items-center text-xs flex-1 justify-end">
+                <div class="flex space-x-1 bg-gray-900 p-1 rounded-lg border border-gray-700">
+                    <span class="text-[9px] uppercase text-gray-500 font-bold px-1.5 self-center hidden sm:block">Network</span>
+                    <button onclick="switchTab('directory')" class="px-2.5 py-1.5 bg-gray-700 rounded hover:bg-gray-600 transition">Directory</button>
+                    <button onclick="switchTab('family')" class="px-2.5 py-1.5 bg-gray-700 rounded hover:bg-gray-600 transition">Family</button>
+                    <button onclick="switchTab('gallery')" class="px-2.5 py-1.5 bg-gray-700 rounded hover:bg-gray-600 transition">Gallery</button>
+                    <button onclick="switchTab('calendar')" class="px-2.5 py-1.5 bg-yellow-600 hover:bg-yellow-500 font-bold text-white rounded transition">Calendar</button>
+                </div>
+                
+                <div class="flex space-x-1 bg-gray-900 p-1 rounded-lg border border-gray-700">
+                    <span class="text-[9px] uppercase text-gray-500 font-bold px-1.5 self-center hidden md:block">Comms</span>
+                    <button onclick="switchTab('chat')" class="px-2.5 py-1.5 bg-green-700 hover:bg-green-600 font-bold text-white rounded transition">Chat</button>
+                    <button onclick="switchTab('voice')" class="px-2.5 py-1.5 bg-cyan-700 hover:bg-cyan-600 font-bold text-white rounded transition">Voice Call</button>
+                    <button onclick="switchTab('video')" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 font-bold text-white rounded transition">Video Call</button>
+                </div>
+
+                <div class="flex space-x-1 bg-gray-900 p-1 rounded-lg border border-gray-700">
+                    <span class="text-[9px] uppercase text-gray-500 font-bold px-1.5 self-center hidden lg:block">Account</span>
+                    <button onclick="switchTab('profile')" class="px-2.5 py-1.5 bg-gray-700 rounded hover:bg-gray-600 transition">Profile</button>
+                    <button onclick="switchTab('settings')" class="px-2.5 py-1.5 bg-purple-700 hover:bg-purple-600 font-bold text-white rounded transition">⚙️ Settings</button>
+                    <button onclick="executeLogout()" class="px-2.5 py-1.5 bg-red-900 hover:bg-red-800 rounded font-bold ml-1 transition">Log Out</button>
+                </div>
             </div>
         </header>
 
         <div id="ecosystem-alert-banner-zone" class="bg-gradient-to-r from-blue-900/60 to-purple-900/60 max-w-5xl mx-auto w-full px-4 mt-2 empty:hidden space-y-1"></div>
 
         <main class="flex-1 p-4 max-w-5xl w-full mx-auto">
+            
+            <!-- NEW SETTINGS TAB -->
+            <section id="tab-settings" class="hidden max-w-2xl mx-auto space-y-4 text-xs">
+                <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 space-y-5 shadow-xl">
+                    <h2 class="text-xl font-bold text-blue-400 border-b border-gray-700 pb-2 flex items-center gap-2">⚙️ User Settings</h2>
+
+                    <div class="space-y-2 bg-gray-900 p-4 rounded border border-gray-700">
+                        <h3 class="font-bold text-purple-400 uppercase tracking-wider">🔔 Push Notifications</h3>
+                        <p class="text-gray-400 text-[11px]">Receive background alerts for new chat messages and ecosystem events.</p>
+                        <button id="alert-toggle-btn" onclick="toggleAlerts()" class="mt-2 px-4 py-2 bg-purple-700 hover:bg-purple-600 font-bold text-white rounded shadow-md transition">Enable Alerts</button>
+                    </div>
+
+                    <div class="space-y-3 bg-gray-900 p-4 rounded border border-gray-700">
+                        <h3 class="font-bold text-green-400 uppercase tracking-wider">💬 Chat & Translation Preferences</h3>
+                        <div>
+                            <label class="text-gray-400 block mb-1">Default Translation Language</label>
+                            <select id="pref-lang" onchange="saveLanguagePref()" class="w-full p-2.5 bg-gray-800 rounded border border-gray-600 text-white font-bold">
+                                <option value="en">English (Default)</option>
+                                <option value="ta">Tamil (தமிழ்)</option>
+                                <option value="ml">Malayalam (മലയാളം)</option>
+                            </select>
+                            <p class="text-gray-500 text-[10px] mt-2 italic">Note: Chat hub voice messages are always enabled via the hybrid input system. You can freely type using English, Tamil, and Malayalam directly from your local keyboard.</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 bg-gray-900 p-4 rounded border border-gray-700">
+                        <h3 class="font-bold text-cyan-400 uppercase tracking-wider">📞 Voice & Video Controls</h3>
+                        <p class="text-gray-400 text-[11px]">All ecosystem calls are secured. Voice calls will automatically launch in audio-only mode. Video calls require explicit camera permission per session.</p>
+                    </div>
+                </div>
+            </section>
+
             <section id="tab-directory" class="space-y-4">
                 <div id="directory-cards-mount" class="grid gap-4 md:grid-cols-2"></div>
             </section>
@@ -379,30 +427,74 @@
                     </div>
                 </div>
 
-                <div class="md:col-span-3 bg-gray-800 rounded-xl border border-gray-700 flex flex-col overflow-hidden shadow-xl">
+                <div class="md:col-span-3 bg-gray-800 rounded-xl border border-gray-700 flex flex-col overflow-hidden shadow-xl relative">
                     <header class="bg-gray-950 p-3 border-b border-gray-700 font-bold text-blue-400 flex items-center justify-between shadow-sm">
                         <span id="active-chat-title">📢 General Chat</span>
                         <span class="text-[10px] bg-blue-900/40 px-2 py-0.5 rounded text-blue-300">Live Connection</span>
                     </header>
-                    <div id="chat-messages-container" class="flex-1 p-4 overflow-y-auto space-y-3 font-mono scroll-smooth"></div>
+                    <div id="chat-messages-container" class="flex-1 p-4 overflow-y-auto space-y-3 font-mono scroll-smooth relative"></div>
                     
                     <div id="chat-reply-preview" class="hidden bg-gray-900 border-t border-gray-700 p-2 flex justify-between items-center text-[10px] text-gray-400">
-                        <div class="truncate italic" id="chat-reply-preview-text">Replying to...</div>
+                        <div class="truncate italic border-l-2 border-blue-500 pl-2" id="chat-reply-preview-text">Replying to...</div>
                         <button onclick="clearReplyContext()" class="text-red-400 hover:text-red-300 font-bold px-2 py-1">✕</button>
                     </div>
 
-                    <div class="p-3 bg-gray-950 border-t border-gray-700 flex gap-2 flex-col">
-                        <div class="flex gap-1">
+                    <div class="p-3 bg-gray-950 border-t border-gray-700 flex gap-2 flex-col relative overflow-visible">
+                        <div class="flex gap-1 items-center">
                             <input type="file" accept="image/*" id="chat-media-file" class="hidden" onchange="loadLocalFileIntoField(this, 'chat-hidden-payload-string', true)">
                             <input type="hidden" id="chat-hidden-payload-string">
-                            <button onclick="document.getElementById('chat-media-file').click()" class="bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded border border-gray-700 transition">📁 Attach Image</button>
-                            <button onclick="openCameraEngine('chat')" class="bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded border border-gray-700 transition">📷 Send Photo</button>
-                            <button onclick="triggerPollCreationFlow()" class="bg-gray-800 hover:bg-gray-700 text-green-400 px-2.5 py-1.5 rounded border border-gray-700 font-bold transition">📊 Create Poll</button>
+                            <button onclick="document.getElementById('chat-media-file').click()" class="bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded border border-gray-700 transition" title="Attach Image">📁</button>
+                            <button onclick="openCameraEngine('chat')" class="bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded border border-gray-700 transition" title="Send Photo">📷</button>
+                            <button onclick="triggerPollCreationFlow()" class="bg-gray-800 hover:bg-gray-700 text-green-400 px-2.5 py-1.5 rounded border border-gray-700 font-bold transition" title="Create Poll">📊</button>
                         </div>
-                        <div class="flex gap-2">
-                            <input id="chat-input-field" type="text" placeholder="Write a message... (Type @ to mention)" onkeydown="if(event.key==='Enter') executeSendChatMessage()" class="flex-1 p-2.5 bg-gray-800 border border-gray-700 rounded text-xs text-white focus:outline-none focus:border-blue-500 transition">
+                        
+                        <!-- Hybrid Chat Input Area -->
+                        <div class="flex gap-2 relative items-center">
+                            
+                            <!-- EMOJI & STICKER PICKER MENU -->
+                            <div id="emoji-picker" class="hidden absolute bottom-12 left-0 bg-gray-900 border border-gray-600 p-3 rounded-xl shadow-2xl w-72 max-h-56 overflow-y-auto z-50 flex flex-col gap-2">
+                                <div class="text-[10px] text-gray-400 border-b border-gray-700 pb-1">Emojis</div>
+                                <div class="flex flex-wrap gap-2 text-xl">
+                                    <span class="cursor-pointer hover:scale-125 transition" onclick="insertEmoji('😀')">😀</span>
+                                    <span class="cursor-pointer hover:scale-125 transition" onclick="insertEmoji('😂')">😂</span>
+                                    <span class="cursor-pointer hover:scale-125 transition" onclick="insertEmoji('🙏')">🙏</span>
+                                    <span class="cursor-pointer hover:scale-125 transition" onclick="insertEmoji('👍')">👍</span>
+                                    <span class="cursor-pointer hover:scale-125 transition" onclick="insertEmoji('❤️')">❤️</span>
+                                    <span class="cursor-pointer hover:scale-125 transition" onclick="insertEmoji('🔥')">🔥</span>
+                                    <span class="cursor-pointer hover:scale-125 transition" onclick="insertEmoji('🎉')">🎉</span>
+                                    <span class="cursor-pointer hover:scale-125 transition" onclick="insertEmoji('😢')">😢</span>
+                                    <span class="cursor-pointer hover:scale-125 transition" onclick="insertEmoji('👏')">👏</span>
+                                    <span class="cursor-pointer hover:scale-125 transition" onclick="insertEmoji('💯')">💯</span>
+                                </div>
+                                <div class="text-[10px] text-gray-400 border-b border-gray-700 pb-1 mt-2">Animated Stickers</div>
+                                <div class="grid grid-cols-4 gap-2">
+                                    <img src="https://media.giphy.com/media/l41YkxvU8c7J7Bba0/giphy.gif" class="w-full h-12 object-cover rounded cursor-pointer hover:opacity-80" onclick="sendSticker('https://media.giphy.com/media/l41YkxvU8c7J7Bba0/giphy.gif')">
+                                    <img src="https://media.giphy.com/media/3o7TKoWXm3okO1kgHC/giphy.gif" class="w-full h-12 object-cover rounded cursor-pointer hover:opacity-80" onclick="sendSticker('https://media.giphy.com/media/3o7TKoWXm3okO1kgHC/giphy.gif')">
+                                    <img src="https://media.giphy.com/media/26AHONQ79FdWZhAI0/giphy.gif" class="w-full h-12 object-cover rounded cursor-pointer hover:opacity-80" onclick="sendSticker('https://media.giphy.com/media/26AHONQ79FdWZhAI0/giphy.gif')">
+                                    <img src="https://media.giphy.com/media/11ISwbgCxEzMyY/giphy.gif" class="w-full h-12 object-cover rounded cursor-pointer hover:opacity-80" onclick="sendSticker('https://media.giphy.com/media/11ISwbgCxEzMyY/giphy.gif')">
+                                </div>
+                            </div>
+
+                            <button onclick="document.getElementById('emoji-picker').classList.toggle('hidden')" class="bg-gray-800 hover:bg-gray-700 px-3 py-2.5 rounded text-lg border border-gray-700 transition" title="Emojis & Stickers">😀</button>
+                            
+                            <input id="chat-input-field" type="text" placeholder="Type @ to mention, or type in En/Ta/Ml..." onkeydown="if(event.key==='Enter') executeSendChatMessage()" class="flex-1 p-2.5 bg-gray-800 border border-gray-700 rounded text-xs text-white focus:outline-none focus:border-blue-500 transition">
+                            
+                            <button id="mic-btn" onclick="toggleVoiceRecord()" class="bg-gray-800 hover:bg-gray-700 text-red-400 px-3 py-2.5 rounded text-lg border border-gray-700 transition flex items-center justify-center min-w-[40px]" title="Click to start/stop recording voice">🎤</button>
+
                             <button onclick="executeSendChatMessage()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-bold transition shadow-md">Send</button>
                         </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- NEW VOICE CALL SECTION -->
+            <section id="tab-voice" class="hidden max-w-4xl mx-auto space-y-4 text-xs">
+                <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-3 shadow-xl">
+                    <h2 class="text-lg font-bold text-cyan-400 flex items-center gap-2">📞 Voice Call Lounge</h2>
+                    <p class="text-gray-400 text-xs">Join an audio-only secure call. Your camera is automatically disabled upon entry.</p>
+                    <div class="flex gap-2 items-center max-w-md">
+                        <input id="voice-room-tag" type="text" value="Audio-Lounge" placeholder="Room Name" class="p-2 bg-gray-700 rounded border border-gray-600 text-white w-full text-xs font-mono">
+                        <button onclick="initializeVoiceRoomSession()" class="bg-cyan-600 hover:bg-cyan-700 font-bold px-4 py-2 rounded text-xs whitespace-nowrap transition">Join Voice Call</button>
                     </div>
                 </div>
             </section>
@@ -413,7 +505,7 @@
                     <p class="text-gray-400 text-xs">Connect instantly with video and voice. Type a room name below or keep default.</p>
                     <div class="flex gap-2 items-center max-w-md">
                         <input id="video-room-tag" type="text" value="Main-Room" placeholder="Room Name" class="p-2 bg-gray-700 rounded border border-gray-600 text-white w-full text-xs font-mono">
-                        <button onclick="initializeVideoRoomSession()" class="bg-green-600 hover:bg-green-700 font-bold px-4 py-2 rounded text-xs whitespace-nowrap transition">Join Call</button>
+                        <button onclick="initializeVideoRoomSession()" class="bg-blue-600 hover:bg-blue-700 font-bold px-4 py-2 rounded text-xs whitespace-nowrap transition">Join Video Call</button>
                     </div>
                     <div id="video-canvas-container" class="w-full aspect-video bg-gray-950 rounded-xl overflow-hidden border border-gray-700 hidden shadow-inner relative mt-4">
                         <iframe id="video-frame-node" src="" class="w-full h-full" allow="camera; microphone; fullscreen; display-capture; autoplay"></iframe>
@@ -442,10 +534,14 @@
         let sessionUserObj = null;
         let activeRoomId = 'global';
         let chatSubscriptionRealtime = null;
-        let loadedChatMessagesMap = {}; // Maps ID to message object for easy referencing
+        let loadedChatMessagesMap = {}; 
         
         let mediaStreamTrackInstance = null;
         let activeCameraTargetFieldId = '';
+
+        // Media Recorder config for Voice Hybrid
+        let mediaRecorder;
+        let audioChunks = [];
 
         // Reply State
         let activeReplyContext = null;
@@ -460,8 +556,19 @@
                 switchTab('directory');
                 triggerEcosystemAutomatedAlertsAndBroadcasts();
                 checkAlertState();
+                loadLanguagePref();
             }
         };
+
+        // --- PREFERENCES ---
+        function saveLanguagePref() {
+            localStorage.setItem('pref_lang', document.getElementById('pref-lang').value);
+        }
+
+        function loadLanguagePref() {
+            const lang = localStorage.getItem('pref_lang') || 'en';
+            document.getElementById('pref-lang').value = lang;
+        }
 
         // --- AUDIO / VIBRATION TONE GENERATOR ---
         function playMentionTone() {
@@ -481,7 +588,7 @@
                 osc.start(ctx.currentTime);
                 osc.stop(ctx.currentTime + 0.3);
             } catch(e) {
-                console.log("Audio not supported or auto-blocked by browser.");
+                console.log("Audio feedback not supported.");
             }
         }
 
@@ -494,10 +601,10 @@
                 if (btn) {
                     if (existingSubscription) {
                         btn.innerHTML = '🔕 Disable Alerts';
-                        btn.className = 'px-2.5 py-1.5 bg-gray-700 hover:bg-red-700 font-bold text-white rounded ml-2 shadow-md transition';
+                        btn.className = 'px-4 py-2 bg-gray-700 hover:bg-red-700 font-bold text-white rounded shadow-md transition';
                     } else {
                         btn.innerHTML = '🔔 Enable Alerts';
-                        btn.className = 'px-2.5 py-1.5 bg-purple-700 hover:bg-purple-600 font-bold text-white rounded ml-2 shadow-md transition';
+                        btn.className = 'px-4 py-2 bg-purple-700 hover:bg-purple-600 font-bold text-white rounded shadow-md transition';
                     }
                     btn.disabled = false;
                 }
@@ -555,19 +662,24 @@
         }
 
         function switchTab(name) {
-            ['directory', 'profile', 'family', 'gallery', 'video', 'chat', 'calendar'].forEach(t => document.getElementById(`tab-${t}`).classList.add('hidden'));
-            document.getElementById(`tab-${name}`).classList.remove('hidden');
+            ['directory', 'profile', 'family', 'gallery', 'video', 'voice', 'chat', 'calendar', 'settings'].forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if(el) el.classList.add('hidden');
+            });
+            const target = document.getElementById(`tab-${name}`);
+            if(target) target.classList.remove('hidden');
             
             if (name !== 'video') {
-                document.getElementById('video-frame-node').src = '';
-                document.getElementById('video-canvas-container').classList.add('hidden');
+                const node = document.getElementById('video-frame-node');
+                if(node) node.src = '';
+                const cont = document.getElementById('video-canvas-container');
+                if(cont) cont.classList.add('hidden');
             }
             
             if (name === 'directory') loadMemberDirectoryView();
             if (name === 'family') loadFamilyRosterView();
             if (name === 'gallery') loadGalleryVaultView();
             if (name === 'calendar') loadFenestrianCalendarView();
-            if (name === 'video') initializeVideoRoomSession();
             if (name === 'chat') initializeChatHubView();
         }
 
@@ -684,7 +796,7 @@
             switchChatRoom(dmId, `👤 ${targetName}`);
         }
 
-        // --- NEW CHAT ARCHITECTURE START ---
+        // --- NEW CHAT ARCHITECTURE ---
 
         async function initializeChatHubView() {
             await syncChatSidebarRoster();
@@ -700,7 +812,10 @@
                             } else if (payload.eventType === 'UPDATE') {
                                 loadedChatMessagesMap[payload.new.id] = payload.new;
                                 const contentEl = document.getElementById(`msg-bubble-content-${payload.new.id}`);
-                                if (contentEl) contentEl.innerHTML = formatMessageContent(payload.new);
+                                if (contentEl) {
+                                    const proc = formatMessageContent(payload.new);
+                                    contentEl.innerHTML = proc.html;
+                                }
                             }
                         } else if (payload.eventType === 'DELETE') {
                             const wrapperEl = document.getElementById(`msg-wrapper-${payload.old.id}`);
@@ -713,7 +828,6 @@
         }
 
         async function syncChatSidebarRoster() {
-            // FIXED: Exclude System Administrator completely
             const { data: globalRoster } = await _supabase.from('alumni').select('*')
                 .eq('is_placeholder', false)
                 .neq('full_name', 'System Administrator'); 
@@ -754,9 +868,10 @@
             activeRoomId = roomId;
             document.getElementById('active-chat-title').textContent = roomTitle;
             clearReplyContext();
+            document.getElementById('emoji-picker').classList.add('hidden');
             
             const container = document.getElementById('chat-messages-container');
-            container.innerHTML = '<div class="text-gray-600 italic">Loading messages...</div>';
+            container.innerHTML = '<div class="text-gray-600 italic text-center w-full mt-4">Loading messages...</div>';
             loadedChatMessagesMap = {};
 
             const { data: logs } = await _supabase
@@ -766,37 +881,38 @@
                 .order('created_at', { ascending: true });
 
             container.innerHTML = '';
-            if (logs) {
+            if (logs && logs.length > 0) {
                 for (const msg of logs) {
                     await appendMessageStringToStream(msg, false);
                 }
+            } else {
+                container.innerHTML = '<div class="text-gray-600 italic text-center w-full mt-4">No messages here yet. Break the ice!</div>';
             }
         }
 
         function formatMessageContent(msg, isNew = false) {
             let contentHTML = msg.message_text;
 
-            // Handle Mentions Logic for text
             const mentionRegex = new RegExp(`@(${sessionUserObj.full_name}|${sessionUserObj.class_nickname})`, 'gi');
             const hasMyMention = mentionRegex.test(msg.message_text);
 
             if (hasMyMention) {
-                // Highlight my mention
                 contentHTML = contentHTML.replace(mentionRegex, `<span class="mention-highlight">@$1</span>`);
                 if (isNew && msg.sender_id !== sessionUserObj.id) {
                     playMentionTone();
                 }
             }
             
-            // Highlight general mentions visually
             contentHTML = contentHTML.replace(/@([a-zA-Z0-9_ ]+)/g, (match, p1) => {
-                if(p1 === sessionUserObj.full_name || p1 === sessionUserObj.class_nickname) return match; // Already handled
+                if(p1 === sessionUserObj.full_name || p1 === sessionUserObj.class_nickname) return match; 
                 return `<span class="text-blue-300 font-bold">${match}</span>`;
             });
 
-            // Convert content based on Type
-            if (msg.message_text.startsWith('data:image/') || /\.(jpeg|jpg|gif|png|webp)$/i.test(msg.message_text)) {
-                contentHTML = `<img src="${msg.message_text}" class="max-w-xs rounded border border-gray-600 max-h-48 object-cover cursor-pointer hover:opacity-90" onclick="window.open('${msg.message_text}')">`;
+            if (msg.message_text.startsWith('data:audio/')) {
+                contentHTML = `<audio controls src="${msg.message_text}" class="h-8 w-full max-w-[220px] rounded-full"></audio>`;
+            }
+            else if (msg.message_text.startsWith('data:image/') || /\.(jpeg|jpg|gif|png|webp)$/i.test(msg.message_text)) {
+                contentHTML = `<img src="${msg.message_text}" class="max-w-[200px] rounded border border-gray-600 object-cover cursor-pointer hover:opacity-90" onclick="window.open('${msg.message_text}')">`;
             } 
             else if (msg.message_text.startsWith('🎟️ INVITATION:')) {
                 const lines = msg.message_text.split('\n');
@@ -835,7 +951,7 @@
                     </div>`;
             }
             
-            // Format Quotes / Replies in text
+            // Format Quotes / Replies visually
             contentHTML = contentHTML.replace(/^> (.*)$/gm, '<div class="border-l-2 border-blue-500 pl-2 ml-1 text-gray-400 italic mb-1 bg-gray-900/40 p-1 rounded-r text-[10px]">$1</div>');
 
             return { html: contentHTML, hasMyMention: hasMyMention };
@@ -846,31 +962,34 @@
             const container = document.getElementById('chat-messages-container');
             const isMe = msg.sender_id == sessionUserObj.id;
             
+            // Remove the empty state message if it's there
+            if(container.innerHTML.includes("No messages here yet")) container.innerHTML = '';
+
             const processed = formatMessageContent(msg, isNew);
             const shakeClass = (isNew && processed.hasMyMention) ? 'animate-shake' : '';
 
-            // Group hover menu HTML
             const menuHTML = `
                 <div class="opacity-0 group-hover:opacity-100 flex items-center space-x-1.5 bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700 shadow-lg transition-opacity duration-200">
-                    <button onclick="copyMsg('${msg.id}')" title="Copy" class="hover:text-white transition">📋</button>
-                    <button onclick="replyMsg('${msg.id}')" title="Reply" class="hover:text-blue-400 transition">↩️</button>
-                    <button onclick="forwardMsg('${msg.id}')" title="Forward" class="hover:text-green-400 transition">➡️</button>
-                    ${isMe ? `<button onclick="editMsg('${msg.id}')" title="Edit" class="hover:text-yellow-400 transition">✏️</button>` : ''}
-                    ${isMe ? `<button onclick="deleteMsg('${msg.id}')" title="Delete" class="hover:text-red-400 transition">🗑️</button>` : ''}
+                    <button id="translate-btn-${msg.id}" onclick="translateMsg('${msg.id}')" title="Translate to default language" class="hover:text-cyan-400 transition">🌐</button>
+                    <button onclick="copyMsg('${msg.id}')" title="Copy Message" class="hover:text-white transition">📋</button>
+                    <button onclick="replyMsg('${msg.id}')" title="Reply to Message" class="hover:text-blue-400 transition">↩️</button>
+                    <button onclick="forwardMsg('${msg.id}')" title="Forward Message" class="hover:text-green-400 transition">➡️</button>
+                    ${isMe ? `<button onclick="editMsg('${msg.id}')" title="Edit Message" class="hover:text-yellow-400 transition">✏️</button>` : ''}
+                    ${isMe ? `<button onclick="deleteMsg('${msg.id}')" title="Delete Message" class="hover:text-red-400 transition">🗑️</button>` : ''}
                 </div>`;
 
             const headerInfo = isMe 
                 ? `<div class="flex items-center space-x-2 text-[10px] text-gray-500 font-sans mb-0.5">${menuHTML} <span class="font-bold text-gray-400">${msg.sender_name}</span></div>`
                 : `<div class="flex items-center space-x-2 text-[10px] text-gray-500 font-sans mb-0.5">
                     <span class="flex items-center gap-1">
-                        <button onclick="addMention('${msg.sender_name}')" class="hover:text-blue-400 font-bold transition">${msg.sender_name}</button> 
+                        <button onclick="addMention('${msg.sender_name}')" class="hover:text-blue-400 font-bold transition" title="Mention User">${msg.sender_name}</button> 
                         <button onclick="openDirectMessage('${msg.sender_id}', '${msg.sender_name}')" title="Private Message" class="hover:scale-110 transition">✉️</button>
                     </span> 
                     ${menuHTML}
                    </div>`;
 
             container.innerHTML += `
-                <div id="msg-wrapper-${msg.id}" class="flex flex-col ${isMe ? 'items-end' : 'items-start'} group w-full ${shakeClass}">
+                <div id="msg-wrapper-${msg.id}" class="flex flex-col ${isMe ? 'items-end' : 'items-start'} group w-full ${shakeClass} my-1">
                     ${headerInfo}
                     <div id="msg-bubble-content-${msg.id}" class="p-2.5 rounded-lg max-w-[85%] break-words shadow-md ${isMe ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-gray-700 text-gray-200 rounded-tl-none'}">
                         ${processed.html}
@@ -881,6 +1000,17 @@
         }
 
         // --- MSG MENU ACTIONS ---
+        function insertEmoji(char) {
+            const input = document.getElementById('chat-input-field');
+            input.value += char;
+            input.focus();
+        }
+
+        async function sendSticker(url) {
+            await sendRawChatMessage(url);
+            document.getElementById('emoji-picker').classList.add('hidden');
+        }
+
         function addMention(name) {
             const input = document.getElementById('chat-input-field');
             input.value += `@${name} `;
@@ -914,7 +1044,7 @@
             const msg = loadedChatMessagesMap[id];
             if(!msg) return;
             const input = document.getElementById('chat-input-field');
-            input.value = `[Forwarded from ${msg.sender_name}]:\n${msg.message_text}`;
+            input.value = `> Forwarded from ${msg.sender_name}:\n> ${msg.message_text}\n`;
             input.focus();
         }
 
@@ -935,16 +1065,91 @@
             }
         }
 
+        async function translateMsg(id) {
+            const msg = loadedChatMessagesMap[id];
+            if(!msg) return;
+            
+            // Do not translate images or audio URLs
+            if(msg.message_text.startsWith('data:') || msg.message_text.startsWith('http')) {
+                alert("Cannot translate media items."); return;
+            }
+
+            const btn = document.getElementById(`translate-btn-${id}`);
+            if(btn) { btn.classList.add('animate-pulse'); btn.textContent = '⏳'; }
+
+            const targetLang = localStorage.getItem('pref_lang') || 'en';
+            try {
+                const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(msg.message_text)}`);
+                const data = await res.json();
+                let translatedText = '';
+                data[0].forEach(item => translatedText += item[0]);
+
+                const contentDiv = document.getElementById(`msg-bubble-content-${id}`);
+                contentDiv.innerHTML += `<div class="mt-2 pt-1 border-t border-white/20 text-[11px] text-yellow-300 font-sans italic">🌐 Translation: ${translatedText}</div>`;
+            } catch(e) {
+                alert('Translation failed. Please try again later.');
+            } finally {
+                if(btn) { btn.classList.remove('animate-pulse'); btn.textContent = '🌐'; }
+            }
+        }
+
+        // --- HYBRID AUDIO RECORDING LOGIC ---
+        async function toggleVoiceRecord() {
+            const btn = document.getElementById('mic-btn');
+            
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                btn.classList.remove('bg-red-600', 'animate-pulse');
+                btn.classList.add('bg-gray-800');
+                return;
+            }
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    audioChunks = [];
+                    const reader = new FileReader();
+                    reader.onloadend = function() {
+                        sendRawChatMessage(reader.result); // Base64 audio string
+                    }
+                    reader.readAsDataURL(audioBlob);
+                };
+                mediaRecorder.start();
+                btn.classList.add('bg-red-600', 'animate-pulse');
+                btn.classList.remove('bg-gray-800');
+            } catch (err) {
+                alert('Microphone access required for voice messages: ' + err.message);
+            }
+        }
+
+        async function sendRawChatMessage(str) {
+            const { error } = await _supabase.from('chat_messages').insert([{
+                room_id: activeRoomId,
+                sender_id: sessionUserObj.id,
+                sender_name: sessionUserObj.full_name,
+                message_text: str
+            }]);
+            
+            if (error) {
+                alert("Failed to send: " + error.message);
+                console.error("Chat Error:", error);
+            }
+        }
+
         async function executeSendChatMessage() {
             const input = document.getElementById('chat-input-field');
             let str = input.value.trim();
             if (!str) return;
 
             if (activeReplyContext) {
-                str = `> Replying to ${activeReplyContext.sender}:\n> ${activeReplyContext.text}\n\n` + str;
+                str = `> ${activeReplyContext.text}\n\n` + str;
             }
 
-            // Updated error handling so it yells at you if it fails
+            document.getElementById('emoji-picker').classList.add('hidden');
+
             const { error } = await _supabase.from('chat_messages').insert([{
                 room_id: activeRoomId,
                 sender_id: sessionUserObj.id,
@@ -970,7 +1175,7 @@
 
         async function injectAsMediaPayloadToChatStream(base64PayloadString) {
             await _supabase.from('photo_gallery').insert([{ alumni_id: sessionUserObj.id, image_url: base64PayloadString, description: `${sessionUserObj.full_name}: Sent a photo in chat` }]);
-            await _supabase.from('chat_messages').insert([{ room_id: activeRoomId, sender_id: sessionUserObj.id, sender_name: sessionUserObj.full_name, message_text: base64PayloadString }]);
+            await sendRawChatMessage(base64PayloadString);
         }
 
         async function triggerPollCreationFlow() {
@@ -1326,6 +1531,7 @@
                 await triggerEcosystemAutomatedAlertsAndBroadcasts(); 
                 switchTab('directory'); 
                 checkAlertState();
+                loadLanguagePref();
             } else { 
                 alert('Login failed. Please check your credentials.'); 
                 if(error) console.error("Login issue:", error);
@@ -1552,6 +1758,12 @@
         function initializeVideoRoomSession() {
             const roomName = document.getElementById('video-room-tag').value.trim() || 'Main-Room';
             const roomUrl = `https://meet.jit.si/${roomName}-${sessionUserObj ? sessionUserObj.id : ''}`;
+            window.open(roomUrl, '_blank');
+        }
+
+        function initializeVoiceRoomSession() {
+            const roomName = document.getElementById('voice-room-tag').value.trim() || 'Audio-Lounge';
+            const roomUrl = `https://meet.jit.si/${roomName}-${sessionUserObj ? sessionUserObj.id : ''}#config.startAudioOnly=true&config.startWithVideoMuted=true`;
             window.open(roomUrl, '_blank');
         }
         
