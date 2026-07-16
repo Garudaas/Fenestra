@@ -6,6 +6,27 @@
     <title>Alumni Inner Circle</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Shaky Animation for Mentions */
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-3px, 0, 0); }
+            40%, 60% { transform: translate3d(3px, 0, 0); }
+        }
+        .animate-shake {
+            animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both;
+            box-shadow: 0 0 10px rgba(96, 165, 250, 0.6);
+        }
+        /* Style for highlighted mentions */
+        .mention-highlight {
+            color: #60a5fa;
+            font-weight: bold;
+            background-color: rgba(30, 58, 138, 0.4);
+            padding: 0 4px;
+            border-radius: 4px;
+        }
+    </style>
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col">
 
@@ -56,12 +77,10 @@
                 </select>
                 <input id="reg-dob" type="date" placeholder="Date of Birth *" class="w-full p-3 bg-gray-700 rounded border border-gray-600 text-sm text-gray-400">
                 <input id="reg-email" type="email" placeholder="Email Address *" class="w-full p-3 bg-gray-700 rounded border border-gray-600 text-sm">
-                
                 <div class="flex gap-2">
                     <input id="reg-cc" type="text" value="+91" placeholder="Code" class="w-1/4 p-3 bg-gray-700 rounded border border-gray-600 text-sm text-center">
                     <input id="reg-phone" type="text" placeholder="Contact Number *" class="w-3/4 p-3 bg-gray-700 rounded border border-gray-600 text-sm">
                 </div>
-
                 <button onclick="executeProfileClaim()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded">Create Account</button>
                 <button onclick="showView('landing')" class="w-full text-xs text-gray-400 hover:text-white text-center">Cancel</button>
             </div>
@@ -118,15 +137,15 @@
         <header class="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center shadow-sm">
             <h1 class="text-md font-bold text-blue-400">Alumni Hub</h1>
             <div class="flex space-x-1 text-xs flex-wrap gap-y-1 items-center">
-                <button onclick="switchTab('directory')" class="px-2.5 py-1.5 bg-gray-700 rounded">Directory</button>
-                <button onclick="switchTab('profile')" class="px-2.5 py-1.5 bg-gray-700 rounded">Edit Profile</button>
-                <button onclick="switchTab('family')" class="px-2.5 py-1.5 bg-gray-700 rounded">Family</button>
-                <button onclick="switchTab('gallery')" class="px-2.5 py-1.5 bg-gray-700 rounded">Gallery</button>
-                <button onclick="switchTab('calendar')" class="px-2.5 py-1.5 bg-yellow-600 font-bold text-white rounded">Event Calendar</button>
-                <button onclick="switchTab('chat')" class="px-2.5 py-1.5 bg-green-700 font-bold text-white rounded">Chat Hub</button>
-                <button onclick="switchTab('video')" class="px-2.5 py-1.5 bg-blue-600 font-bold text-white rounded">Video Chat</button>
+                <button onclick="switchTab('directory')" class="px-2.5 py-1.5 bg-gray-700 rounded hover:bg-gray-600">Directory</button>
+                <button onclick="switchTab('profile')" class="px-2.5 py-1.5 bg-gray-700 rounded hover:bg-gray-600">Edit Profile</button>
+                <button onclick="switchTab('family')" class="px-2.5 py-1.5 bg-gray-700 rounded hover:bg-gray-600">Family</button>
+                <button onclick="switchTab('gallery')" class="px-2.5 py-1.5 bg-gray-700 rounded hover:bg-gray-600">Gallery</button>
+                <button onclick="switchTab('calendar')" class="px-2.5 py-1.5 bg-yellow-600 hover:bg-yellow-500 font-bold text-white rounded">Event Calendar</button>
+                <button onclick="switchTab('chat')" class="px-2.5 py-1.5 bg-green-700 hover:bg-green-600 font-bold text-white rounded">Chat Hub</button>
+                <button onclick="switchTab('video')" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 font-bold text-white rounded">Video Chat</button>
                 <button id="alert-toggle-btn" onclick="toggleAlerts()" class="px-2.5 py-1.5 bg-purple-700 hover:bg-purple-600 font-bold text-white rounded ml-2 shadow-md transition">🔔 Enable Alerts</button>
-                <button onclick="executeLogout()" class="px-2.5 py-1.5 bg-red-900 rounded font-bold ml-4">Log Out</button>
+                <button onclick="executeLogout()" class="px-2.5 py-1.5 bg-red-900 hover:bg-red-800 rounded font-bold ml-4">Log Out</button>
             </div>
         </header>
 
@@ -215,7 +234,7 @@
                     <label class="flex items-center space-x-2"><input id="p-hide-peers" type="checkbox"> <span>Hide my profile from classmates</span></label>
                     <label class="flex items-center space-x-2"><input id="p-hide-admin" type="checkbox"> <span>Hide my profile from Admin</span></label>
                 </div>
-                <button onclick="executeProfileUpdateSync()" class="w-full bg-blue-600 py-2.5 rounded font-bold text-sm mt-2">Save Profile Settings</button>
+                <button onclick="executeProfileUpdateSync()" class="w-full bg-blue-600 hover:bg-blue-700 py-2.5 rounded font-bold text-sm mt-2 transition">Save Profile Settings</button>
             </section>
 
             <section id="tab-family" class="hidden max-w-2xl mx-auto space-y-4 text-xs">
@@ -342,10 +361,10 @@
             </section>
 
             <section id="tab-chat" class="hidden grid md:grid-cols-4 gap-4 text-xs h-[550px] max-w-5xl mx-auto">
-                <div class="bg-gray-800 rounded-xl border border-gray-700 p-3 flex flex-col space-y-3 overflow-y-auto">
+                <div class="bg-gray-800 rounded-xl border border-gray-700 p-3 flex flex-col space-y-3 overflow-y-auto shadow-xl">
                     <div>
                         <h2 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Channels</h2>
-                        <button onclick="switchChatRoom('global', '📢 General Chat')" class="w-full text-left p-2.5 bg-blue-950/40 border border-blue-900 rounded font-semibold text-blue-400 block hover:bg-blue-900/30">📢 General Chat</button>
+                        <button onclick="switchChatRoom('global', '📢 General Chat')" class="w-full text-left p-2.5 bg-blue-950/40 border border-blue-900 rounded font-semibold text-blue-400 block hover:bg-blue-900/30 transition">📢 General Chat</button>
                     </div>
                     <div class="pt-2 border-t border-gray-700">
                         <div class="flex justify-between items-center mb-2">
@@ -356,27 +375,33 @@
                     </div>
                     <div class="pt-2 border-t border-gray-700 flex-1 flex flex-col min-h-0">
                         <h2 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Direct Messages</h2>
-                        <div id="chat-dms-mount" class="space-y-1 overflow-y-auto flex-1"></div>
+                        <div id="chat-dms-mount" class="space-y-1 overflow-y-auto flex-1 pr-1"></div>
                     </div>
                 </div>
 
-                <div class="md:col-span-3 bg-gray-800 rounded-xl border border-gray-700 flex flex-col overflow-hidden">
+                <div class="md:col-span-3 bg-gray-800 rounded-xl border border-gray-700 flex flex-col overflow-hidden shadow-xl">
                     <header class="bg-gray-950 p-3 border-b border-gray-700 font-bold text-blue-400 flex items-center justify-between shadow-sm">
                         <span id="active-chat-title">📢 General Chat</span>
                         <span class="text-[10px] bg-blue-900/40 px-2 py-0.5 rounded text-blue-300">Live Connection</span>
                     </header>
-                    <div id="chat-messages-container" class="flex-1 p-4 overflow-y-auto space-y-2 font-mono"></div>
+                    <div id="chat-messages-container" class="flex-1 p-4 overflow-y-auto space-y-3 font-mono scroll-smooth"></div>
+                    
+                    <div id="chat-reply-preview" class="hidden bg-gray-900 border-t border-gray-700 p-2 flex justify-between items-center text-[10px] text-gray-400">
+                        <div class="truncate italic" id="chat-reply-preview-text">Replying to...</div>
+                        <button onclick="clearReplyContext()" class="text-red-400 hover:text-red-300 font-bold px-2 py-1">✕</button>
+                    </div>
+
                     <div class="p-3 bg-gray-950 border-t border-gray-700 flex gap-2 flex-col">
                         <div class="flex gap-1">
                             <input type="file" accept="image/*" id="chat-media-file" class="hidden" onchange="loadLocalFileIntoField(this, 'chat-hidden-payload-string', true)">
                             <input type="hidden" id="chat-hidden-payload-string">
-                            <button onclick="document.getElementById('chat-media-file').click()" class="bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded border border-gray-700">📁 Attach Image</button>
-                            <button onclick="openCameraEngine('chat')" class="bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded border border-gray-700">📷 Send Photo</button>
-                            <button onclick="triggerPollCreationFlow()" class="bg-gray-800 hover:bg-gray-700 text-green-400 px-2.5 py-1.5 rounded border border-gray-700 font-bold">📊 Create Poll</button>
+                            <button onclick="document.getElementById('chat-media-file').click()" class="bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded border border-gray-700 transition">📁 Attach Image</button>
+                            <button onclick="openCameraEngine('chat')" class="bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded border border-gray-700 transition">📷 Send Photo</button>
+                            <button onclick="triggerPollCreationFlow()" class="bg-gray-800 hover:bg-gray-700 text-green-400 px-2.5 py-1.5 rounded border border-gray-700 font-bold transition">📊 Create Poll</button>
                         </div>
                         <div class="flex gap-2">
-                            <input id="chat-input-field" type="text" placeholder="Write a message..." onkeydown="if(event.key==='Enter') executeSendChatMessage()" class="flex-1 p-2.5 bg-gray-800 border border-gray-700 rounded text-xs text-white focus:outline-none focus:border-blue-500">
-                            <button onclick="executeSendChatMessage()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-bold transition">Send</button>
+                            <input id="chat-input-field" type="text" placeholder="Write a message... (Type @ to mention)" onkeydown="if(event.key==='Enter') executeSendChatMessage()" class="flex-1 p-2.5 bg-gray-800 border border-gray-700 rounded text-xs text-white focus:outline-none focus:border-blue-500 transition">
+                            <button onclick="executeSendChatMessage()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-bold transition shadow-md">Send</button>
                         </div>
                     </div>
                 </div>
@@ -388,7 +413,7 @@
                     <p class="text-gray-400 text-xs">Connect instantly with video and voice. Type a room name below or keep default.</p>
                     <div class="flex gap-2 items-center max-w-md">
                         <input id="video-room-tag" type="text" value="Main-Room" placeholder="Room Name" class="p-2 bg-gray-700 rounded border border-gray-600 text-white w-full text-xs font-mono">
-                        <button onclick="initializeVideoRoomSession()" class="bg-green-600 hover:bg-green-700 font-bold px-4 py-2 rounded text-xs whitespace-nowrap">Join Call</button>
+                        <button onclick="initializeVideoRoomSession()" class="bg-green-600 hover:bg-green-700 font-bold px-4 py-2 rounded text-xs whitespace-nowrap transition">Join Call</button>
                     </div>
                     <div id="video-canvas-container" class="w-full aspect-video bg-gray-950 rounded-xl overflow-hidden border border-gray-700 hidden shadow-inner relative mt-4">
                         <iframe id="video-frame-node" src="" class="w-full h-full" allow="camera; microphone; fullscreen; display-capture; autoplay"></iframe>
@@ -399,9 +424,9 @@
                         <div class="flex flex-wrap gap-2">
                             <input type="file" accept="image/*" id="video-lounge-file" class="hidden" onchange="loadLocalFileIntoField(this, 'video-lounge-hidden-string')">
                             <input type="hidden" id="video-lounge-hidden-string">
-                            <button onclick="document.getElementById('video-lounge-file').click()" class="bg-gray-700 px-3 py-1.5 rounded hover:bg-gray-600">📁 Select Photo</button>
-                            <button onclick="openCameraEngine('video-lounge-hidden-string')" class="bg-gray-700 px-3 py-1.5 rounded hover:bg-gray-600">📷 Take Photo</button>
-                            <button onclick="executeVideoLoungeGalleryInjection()" class="bg-blue-600 px-4 py-1.5 rounded font-bold text-white">Upload to Gallery</button>
+                            <button onclick="document.getElementById('video-lounge-file').click()" class="bg-gray-700 px-3 py-1.5 rounded hover:bg-gray-600 transition">📁 Select Photo</button>
+                            <button onclick="openCameraEngine('video-lounge-hidden-string')" class="bg-gray-700 px-3 py-1.5 rounded hover:bg-gray-600 transition">📷 Take Photo</button>
+                            <button onclick="executeVideoLoungeGalleryInjection()" class="bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded font-bold text-white transition">Upload to Gallery</button>
                         </div>
                     </div>
                 </div>
@@ -417,9 +442,13 @@
         let sessionUserObj = null;
         let activeRoomId = 'global';
         let chatSubscriptionRealtime = null;
+        let loadedChatMessagesMap = {}; // Maps ID to message object for easy referencing
         
         let mediaStreamTrackInstance = null;
         let activeCameraTargetFieldId = '';
+
+        // Reply State
+        let activeReplyContext = null;
 
         const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -433,6 +462,28 @@
                 checkAlertState();
             }
         };
+
+        // --- AUDIO / VIBRATION TONE GENERATOR ---
+        function playMentionTone() {
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.5, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.3);
+            } catch(e) {
+                console.log("Audio not supported or auto-blocked by browser.");
+            }
+        }
 
         async function checkAlertState() {
             if ('serviceWorker' in navigator && 'PushManager' in window) {
@@ -627,6 +678,14 @@
             switchTab('video');
         }
 
+        function openDirectMessage(targetId, targetName) {
+            switchTab('chat');
+            const dmId = ['dm', sessionUserObj.id, targetId].sort().join('_');
+            switchChatRoom(dmId, `👤 ${targetName}`);
+        }
+
+        // --- NEW CHAT ARCHITECTURE START ---
+
         async function initializeChatHubView() {
             await syncChatSidebarRoster();
             await switchChatRoom('global', '📢 General Chat');
@@ -634,9 +693,19 @@
             if (!chatSubscriptionRealtime) {
                 chatSubscriptionRealtime = _supabase
                     .channel('realtime-chat-channel')
-                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
-                        if (payload.new.room_id === activeRoomId) {
-                            appendMessageStringToStream(payload.new);
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, payload => {
+                        if (payload.new && payload.new.room_id === activeRoomId) {
+                            if (payload.eventType === 'INSERT') {
+                                appendMessageStringToStream(payload.new, true);
+                            } else if (payload.eventType === 'UPDATE') {
+                                loadedChatMessagesMap[payload.new.id] = payload.new;
+                                const contentEl = document.getElementById(`msg-bubble-content-${payload.new.id}`);
+                                if (contentEl) contentEl.innerHTML = formatMessageContent(payload.new);
+                            }
+                        } else if (payload.eventType === 'DELETE') {
+                            const wrapperEl = document.getElementById(`msg-wrapper-${payload.old.id}`);
+                            if (wrapperEl) wrapperEl.remove();
+                            delete loadedChatMessagesMap[payload.old.id];
                         }
                     })
                     .subscribe();
@@ -644,10 +713,11 @@
         }
 
         async function syncChatSidebarRoster() {
+            // FIXED: Exclude System Administrator completely
             const { data: globalRoster } = await _supabase.from('alumni').select('*')
                 .eq('is_placeholder', false)
-                .neq('full_name', 'System Administrator'); // This completely removes the admin from the chat list
-            
+                .neq('full_name', 'System Administrator'); 
+                
             const { data: groups } = await _supabase.from('chat_rooms').select('*');
             
             const groupMount = document.getElementById('chat-rooms-mount');
@@ -674,7 +744,7 @@
                     }
                     if (u.id !== sessionUserObj.id) {
                         const dmId = ['dm', sessionUserObj.id, u.id].sort().join('_');
-                        dmMount.innerHTML += `<button onclick="switchChatRoom('${dmId}', '👤 ${u.full_name}')" class="w-full text-left p-2 rounded hover:bg-gray-700/50 block text-gray-400 truncate">👤 ${u.full_name}</button>`;
+                        dmMount.innerHTML += `<button onclick="switchChatRoom('${dmId}', '👤 ${u.full_name}')" class="w-full text-left p-2 rounded hover:bg-gray-700/50 block text-gray-400 truncate hover:text-white transition">👤 ${u.full_name}</button>`;
                     }
                 });
             }
@@ -683,9 +753,11 @@
         async function switchChatRoom(roomId, roomTitle) {
             activeRoomId = roomId;
             document.getElementById('active-chat-title').textContent = roomTitle;
+            clearReplyContext();
             
             const container = document.getElementById('chat-messages-container');
             container.innerHTML = '<div class="text-gray-600 italic">Loading messages...</div>';
+            loadedChatMessagesMap = {};
 
             const { data: logs } = await _supabase
                 .from('chat_messages')
@@ -696,44 +768,49 @@
             container.innerHTML = '';
             if (logs) {
                 for (const msg of logs) {
-                    await appendMessageStringToStream(msg);
+                    await appendMessageStringToStream(msg, false);
                 }
             }
         }
 
-        async function appendMessageStringToStream(msg) {
-            const container = document.getElementById('chat-messages-container');
-            const isMe = msg.sender_id == sessionUserObj.id;
-            
-            let coreBubbleContentHTML = msg.message_text;
+        function formatMessageContent(msg, isNew = false) {
+            let contentHTML = msg.message_text;
 
+            // Handle Mentions Logic for text
+            const mentionRegex = new RegExp(`@(${sessionUserObj.full_name}|${sessionUserObj.class_nickname})`, 'gi');
+            const hasMyMention = mentionRegex.test(msg.message_text);
+
+            if (hasMyMention) {
+                // Highlight my mention
+                contentHTML = contentHTML.replace(mentionRegex, `<span class="mention-highlight">@$1</span>`);
+                if (isNew && msg.sender_id !== sessionUserObj.id) {
+                    playMentionTone();
+                }
+            }
+            
+            // Highlight general mentions visually
+            contentHTML = contentHTML.replace(/@([a-zA-Z0-9_ ]+)/g, (match, p1) => {
+                if(p1 === sessionUserObj.full_name || p1 === sessionUserObj.class_nickname) return match; // Already handled
+                return `<span class="text-blue-300 font-bold">${match}</span>`;
+            });
+
+            // Convert content based on Type
             if (msg.message_text.startsWith('data:image/') || /\.(jpeg|jpg|gif|png|webp)$/i.test(msg.message_text)) {
-                coreBubbleContentHTML = `<img src="${msg.message_text}" class="max-w-xs rounded border border-gray-600 max-h-48 object-cover cursor-pointer hover:opacity-90" onclick="window.open('${msg.message_text}')">`;
+                contentHTML = `<img src="${msg.message_text}" class="max-w-xs rounded border border-gray-600 max-h-48 object-cover cursor-pointer hover:opacity-90" onclick="window.open('${msg.message_text}')">`;
             } 
             else if (msg.message_text.startsWith('🎟️ INVITATION:')) {
-                const eventTitleToken = msg.message_text.split('\n')[1]?.replace('📍 Event: ', '').trim() || '';
-                const { data: eventNode } = await _supabase.from('calendar_events').select('*').eq('title', eventTitleToken).single();
+                const lines = msg.message_text.split('\n');
+                const titleLine = lines.find(l => l.startsWith('📍 Event: '));
+                const eventTitleToken = titleLine ? titleLine.replace('📍 Event: ', '').trim() : '';
                 
-                let rsvpControlHTML = '';
-                if (eventNode) {
-                    const { data: totals } = await _supabase.from('event_rsvps').select('status').eq('event_id', eventNode.id);
-                    const goingCount = totals ? totals.filter(r => r.status === 'Going').length : 0;
-                    
-                    rsvpControlHTML = `
-                        <div class="mt-3 pt-2 border-t border-gray-800 space-y-2">
-                            <div class="flex gap-1">
-                                <button onclick="executeRsvpSubmission('${eventNode.id}', 'Going')" class="bg-green-700/80 hover:bg-green-600 px-2 py-1 rounded text-[10px] font-bold">Going</button>
-                                <button onclick="executeRsvpSubmission('${eventNode.id}', 'Maybe')" class="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-[10px] font-bold">Maybe</button>
-                                <button onclick="executeRsvpSubmission('${eventNode.id}', 'Declined')" class="bg-red-950 hover:bg-red-900 px-2 py-1 rounded text-[10px] font-bold">Decline</button>
-                            </div>
-                            <div class="text-[10px] text-gray-400 font-sans">📈 Confirmed Going: <b class="text-green-400">${goingCount}</b></div>
-                        </div>`;
-                }
-                
-                coreBubbleContentHTML = `
-                    <div class="bg-gray-900 border border-yellow-600/40 p-3 rounded-xl text-yellow-400 max-w-xs font-sans text-xs">
+                contentHTML = `
+                    <div class="bg-gray-900 border border-yellow-600/40 p-3 rounded-xl text-yellow-400 max-w-xs font-sans text-xs shadow-md">
                         <div class="font-medium whitespace-pre-line">${msg.message_text}</div>
-                        ${rsvpControlHTML}
+                        <div class="mt-3 pt-2 border-t border-gray-800 flex gap-1">
+                            <button onclick="executeRsvpLookupAndSubmit('${eventTitleToken}', 'Going')" class="bg-green-700/80 hover:bg-green-600 px-2 py-1 rounded text-[10px] font-bold text-white transition">Going</button>
+                            <button onclick="executeRsvpLookupAndSubmit('${eventTitleToken}', 'Maybe')" class="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-[10px] font-bold text-white transition">Maybe</button>
+                            <button onclick="executeRsvpLookupAndSubmit('${eventTitleToken}', 'Declined')" class="bg-red-950 hover:bg-red-900 px-2 py-1 rounded text-[10px] font-bold text-white transition">Decline</button>
+                        </div>
                     </div>`;
             } 
             else if (msg.message_text.startsWith('📊 POLL:')) {
@@ -742,40 +819,132 @@
                 const question = tokens[0];
                 const options = tokens[1]?.split(',') || [];
                 
-                const { data: votes } = await _supabase.from('poll_votes').select('*').eq('message_id', msg.id);
-                
                 let optionsMarkupHTML = '';
                 options.forEach((opt, idx) => {
-                    const optionVotesCount = votes ? votes.filter(v => v.option_index === idx).length : 0;
                     optionsMarkupHTML += `
                         <button onclick="executePollVoteCast(${msg.id}, ${idx})" class="w-full text-left bg-gray-800 hover:bg-gray-700 p-2 rounded border border-gray-700 flex justify-between items-center transition group">
                             <span class="text-gray-200 group-hover:text-white font-sans">${opt}</span>
-                            <span class="bg-gray-950 px-2 py-0.5 rounded font-mono text-[10px] text-blue-400 font-bold">${optionVotesCount} votes</span>
+                            <span class="bg-gray-950 px-2 py-0.5 rounded font-mono text-[10px] text-blue-400 font-bold">Vote</span>
                         </button>`;
                 });
 
-                coreBubbleContentHTML = `
+                contentHTML = `
                     <div class="bg-gray-950 border border-purple-900/50 p-4 rounded-xl max-w-xs w-full space-y-3 shadow-xl">
                         <h4 class="font-bold text-purple-400 font-sans tracking-wide">📊 Poll: ${question}</h4>
                         <div class="space-y-1.5">${optionsMarkupHTML}</div>
                     </div>`;
             }
             
+            // Format Quotes / Replies in text
+            contentHTML = contentHTML.replace(/^> (.*)$/gm, '<div class="border-l-2 border-blue-500 pl-2 ml-1 text-gray-400 italic mb-1 bg-gray-900/40 p-1 rounded-r text-[10px]">$1</div>');
+
+            return { html: contentHTML, hasMyMention: hasMyMention };
+        }
+
+        async function appendMessageStringToStream(msg, isNew = false) {
+            loadedChatMessagesMap[msg.id] = msg;
+            const container = document.getElementById('chat-messages-container');
+            const isMe = msg.sender_id == sessionUserObj.id;
+            
+            const processed = formatMessageContent(msg, isNew);
+            const shakeClass = (isNew && processed.hasMyMention) ? 'animate-shake' : '';
+
+            // Group hover menu HTML
+            const menuHTML = `
+                <div class="opacity-0 group-hover:opacity-100 flex items-center space-x-1.5 bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700 shadow-lg transition-opacity duration-200">
+                    <button onclick="copyMsg('${msg.id}')" title="Copy" class="hover:text-white transition">📋</button>
+                    <button onclick="replyMsg('${msg.id}')" title="Reply" class="hover:text-blue-400 transition">↩️</button>
+                    <button onclick="forwardMsg('${msg.id}')" title="Forward" class="hover:text-green-400 transition">➡️</button>
+                    ${isMe ? `<button onclick="editMsg('${msg.id}')" title="Edit" class="hover:text-yellow-400 transition">✏️</button>` : ''}
+                    ${isMe ? `<button onclick="deleteMsg('${msg.id}')" title="Delete" class="hover:text-red-400 transition">🗑️</button>` : ''}
+                </div>`;
+
+            const headerInfo = isMe 
+                ? `<div class="flex items-center space-x-2 text-[10px] text-gray-500 font-sans mb-0.5">${menuHTML} <span class="font-bold text-gray-400">${msg.sender_name}</span></div>`
+                : `<div class="flex items-center space-x-2 text-[10px] text-gray-500 font-sans mb-0.5">
+                    <span class="flex items-center gap-1">
+                        <button onclick="addMention('${msg.sender_name}')" class="hover:text-blue-400 font-bold transition">${msg.sender_name}</button> 
+                        <button onclick="openDirectMessage('${msg.sender_id}', '${msg.sender_name}')" title="Private Message" class="hover:scale-110 transition">✉️</button>
+                    </span> 
+                    ${menuHTML}
+                   </div>`;
+
             container.innerHTML += `
-                <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-0.5">
-                    <span class="text-[10px] text-gray-500 font-sans">${msg.sender_name}</span>
-                    <div class="p-2.5 rounded-lg max-w-[75%] break-words ${isMe ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}">
-                        ${coreBubbleContentHTML}
+                <div id="msg-wrapper-${msg.id}" class="flex flex-col ${isMe ? 'items-end' : 'items-start'} group w-full ${shakeClass}">
+                    ${headerInfo}
+                    <div id="msg-bubble-content-${msg.id}" class="p-2.5 rounded-lg max-w-[85%] break-words shadow-md ${isMe ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-gray-700 text-gray-200 rounded-tl-none'}">
+                        ${processed.html}
                     </div>
                 </div>`;
+                
             container.scrollTop = container.scrollHeight;
+        }
+
+        // --- MSG MENU ACTIONS ---
+        function addMention(name) {
+            const input = document.getElementById('chat-input-field');
+            input.value += `@${name} `;
+            input.focus();
+        }
+
+        function copyMsg(id) {
+            const msg = loadedChatMessagesMap[id];
+            if(msg && msg.message_text) navigator.clipboard.writeText(msg.message_text);
+        }
+
+        function replyMsg(id) {
+            const msg = loadedChatMessagesMap[id];
+            if(!msg) return;
+            activeReplyContext = {
+                id: msg.id,
+                sender: msg.sender_name,
+                text: msg.message_text.length > 40 ? msg.message_text.substring(0, 40) + '...' : msg.message_text
+            };
+            document.getElementById('chat-reply-preview').classList.remove('hidden');
+            document.getElementById('chat-reply-preview-text').innerText = `Replying to ${activeReplyContext.sender}: ${activeReplyContext.text}`;
+            document.getElementById('chat-input-field').focus();
+        }
+
+        function clearReplyContext() {
+            activeReplyContext = null;
+            document.getElementById('chat-reply-preview').classList.add('hidden');
+        }
+
+        function forwardMsg(id) {
+            const msg = loadedChatMessagesMap[id];
+            if(!msg) return;
+            const input = document.getElementById('chat-input-field');
+            input.value = `[Forwarded from ${msg.sender_name}]:\n${msg.message_text}`;
+            input.focus();
+        }
+
+        async function editMsg(id) {
+            const msg = loadedChatMessagesMap[id];
+            if(!msg) return;
+            const newText = prompt("Edit your message:", msg.message_text);
+            if(newText !== null && newText.trim() !== "" && newText !== msg.message_text) {
+                const { error } = await _supabase.from('chat_messages').update({ message_text: newText.trim() }).eq('id', id);
+                if (error) alert("Edit failed: " + error.message);
+            }
+        }
+
+        async function deleteMsg(id) {
+            if(confirm("Are you sure you want to delete this message for everyone?")) {
+                const { error } = await _supabase.from('chat_messages').delete().eq('id', id);
+                if (error) alert("Delete failed: " + error.message);
+            }
         }
 
         async function executeSendChatMessage() {
             const input = document.getElementById('chat-input-field');
-            const str = input.value.trim();
+            let str = input.value.trim();
             if (!str) return;
 
+            if (activeReplyContext) {
+                str = `> Replying to ${activeReplyContext.sender}:\n> ${activeReplyContext.text}\n\n` + str;
+            }
+
+            // Updated error handling so it yells at you if it fails
             const { error } = await _supabase.from('chat_messages').insert([{
                 room_id: activeRoomId,
                 sender_id: sessionUserObj.id,
@@ -787,7 +956,8 @@
                 alert("Failed to send message: " + error.message);
                 console.error("Chat Error:", error);
             } else {
-                input.value = ''; // Only clear the box if it successfully sent
+                input.value = '';
+                clearReplyContext();
             }
         }
 
@@ -818,12 +988,17 @@
             await switchChatRoom(activeRoomId, document.getElementById('active-chat-title').textContent);
         }
 
-        async function executeRsvpSubmission(eventId, statusValue) {
-            await _supabase.from('event_rsvps').delete().eq('event_id', eventId).eq('alumni_id', sessionUserObj.id);
-            await _supabase.from('event_rsvps').insert([{ event_id: eventId, alumni_id: sessionUserObj.id, status: statusValue }]);
-            alert(`RSVP saved: ${statusValue}`);
-            await switchChatRoom(activeRoomId, document.getElementById('active-chat-title').textContent);
+        async function executeRsvpLookupAndSubmit(eventTitle, statusValue) {
+            const { data: ev } = await _supabase.from('calendar_events').select('id').eq('title', eventTitle).single();
+            if(ev) {
+                await _supabase.from('event_rsvps').delete().eq('event_id', ev.id).eq('alumni_id', sessionUserObj.id);
+                await _supabase.from('event_rsvps').insert([{ event_id: ev.id, alumni_id: sessionUserObj.id, status: statusValue }]);
+                alert(`RSVP saved: ${statusValue}`);
+                await switchChatRoom(activeRoomId, document.getElementById('active-chat-title').textContent);
+            }
         }
+
+        // --- DIRECTORY & PROFILES ---
 
         async function loadMemberDirectoryView() {
             const { data: users } = await _supabase.from('alumni').select('*')
@@ -871,7 +1046,6 @@
                     }
                     familyMarkup += `</div>`;
 
-                    // Handle Contact Links Formatting
                     const phoneLink = m.contact_number ? `<a href="tel:${m.contact_number.replace(/\s/g, '')}" class="text-blue-400 hover:underline font-bold">${m.contact_number}</a>` : '-';
                     const waClean = m.whatsapp_number ? m.whatsapp_number.replace(/[^0-9]/g, '') : '';
                     const waLink = m.whatsapp_number ? `<a href="https://wa.me/${waClean}" target="_blank" class="text-green-400 hover:underline font-bold">${m.whatsapp_number}</a>` : '-';
@@ -879,13 +1053,21 @@
 
                     mount.innerHTML += `
                         <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-md">
-                            <div onclick="this.nextElementSibling.classList.toggle('hidden')" class="p-4 flex items-center space-x-3 cursor-pointer hover:bg-gray-700/30 transition">
-                                ${m.profile_picture_url ? `<img src="${m.profile_picture_url}" class="w-10 h-10 rounded-full object-cover bg-black">` : `<div class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center font-bold">👤</div>`}
-                                <div class="flex-1">
+                            <div class="p-4 flex items-center space-x-3 transition relative group">
+                                ${m.profile_picture_url ? `<img src="${m.profile_picture_url}" class="w-12 h-12 rounded-full object-cover bg-black border border-gray-600">` : `<div class="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center font-bold text-lg border border-gray-600">👤</div>`}
+                                <div class="flex-1 cursor-pointer" onclick="this.parentElement.nextElementSibling.classList.toggle('hidden')">
                                     <h3 class="text-sm font-bold text-white">${m.full_name}</h3>
                                     <p class="text-[11px] text-gray-400 font-mono">${m.class_nickname ? '🔹 ' + m.class_nickname : ''} | Status: ${m.current_status || '-'}</p>
+                                    
+                                    ${m.id !== sessionUserObj.id ? `
+                                    <div class="flex items-center space-x-3 mt-1.5">
+                                        <button onclick="event.stopPropagation(); routeDirectToLoungeCall('DM-${Math.min(sessionUserObj.id, m.id)}-${Math.max(sessionUserObj.id, m.id)}')" class="text-blue-400 hover:text-blue-300 hover:scale-110 transition" title="Start Video Call">📹</button>
+                                        <button onclick="event.stopPropagation(); openDirectMessage('${m.id}', '${m.full_name}')" class="text-green-400 hover:text-green-300 hover:scale-110 transition" title="Send Private Message">💬</button>
+                                        <a href="mailto:${m.email}" onclick="event.stopPropagation();" class="text-yellow-400 hover:text-yellow-300 hover:scale-110 transition" title="Send Email">📧</a>
+                                    </div>` : ''}
+
                                 </div>
-                                <span class="text-[10px] bg-gray-900 border border-gray-700 text-gray-400 px-2 py-1 rounded font-mono">↕️ View Details</span>
+                                <span class="text-[10px] bg-gray-900 border border-gray-700 text-gray-400 px-2 py-1 rounded font-mono cursor-pointer" onclick="this.parentElement.nextElementSibling.classList.toggle('hidden')">↕️ Details</span>
                             </div>
                             <div class="hidden p-4 bg-gray-950 border-t border-gray-700 space-y-2 text-[11px]">
                                 <div class="grid grid-cols-2 gap-2 text-gray-300 font-mono items-center">
@@ -1192,7 +1374,6 @@
             document.getElementById('p-hide-peers').checked = d.hide_from_peers;
             document.getElementById('p-hide-admin').checked = d.hide_from_admin;
 
-            // Handle combined contact number hydration
             let cRaw = d.contact_number || '';
             let cParts = cRaw.split(' ');
             if(cParts.length > 1 && cParts[0].startsWith('+')) {
@@ -1203,7 +1384,6 @@
                 document.getElementById('p-phone').value = cRaw;
             }
 
-            // Handle combined WA hydration
             let waRaw = d.whatsapp_number || '';
             let waParts = waRaw.split(' ');
             if(waParts.length > 1 && waParts[0].startsWith('+')) {
