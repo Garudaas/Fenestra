@@ -56,7 +56,12 @@
                 </select>
                 <input id="reg-dob" type="date" placeholder="Date of Birth *" class="w-full p-3 bg-gray-700 rounded border border-gray-600 text-sm text-gray-400">
                 <input id="reg-email" type="email" placeholder="Email Address *" class="w-full p-3 bg-gray-700 rounded border border-gray-600 text-sm">
-                <input id="reg-phone" type="text" placeholder="Contact Number *" class="w-full p-3 bg-gray-700 rounded border border-gray-600 text-sm">
+                
+                <div class="flex gap-2">
+                    <input id="reg-cc" type="text" value="+91" placeholder="Code" class="w-1/4 p-3 bg-gray-700 rounded border border-gray-600 text-sm text-center">
+                    <input id="reg-phone" type="text" placeholder="Contact Number *" class="w-3/4 p-3 bg-gray-700 rounded border border-gray-600 text-sm">
+                </div>
+
                 <button onclick="executeProfileClaim()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded">Create Account</button>
                 <button onclick="showView('landing')" class="w-full text-xs text-gray-400 hover:text-white text-center">Cancel</button>
             </div>
@@ -136,9 +141,24 @@
                 <h2 class="text-lg font-bold text-blue-400">Update Profile</h2>
                 <div class="grid grid-cols-2 gap-3">
                     <div><label class="text-gray-400">Nickname</label><input id="p-nickname" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1"></div>
-                    <div><label class="text-gray-400">WhatsApp Number</label><input id="p-whatsapp" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1"></div>
                     <div><label class="text-gray-400">Blood Group</label><input id="p-blood" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1"></div>
+                    
                     <div>
+                        <label class="text-gray-400">Contact Number</label>
+                        <div class="flex gap-1 mt-1">
+                            <input id="p-phone-cc" type="text" placeholder="+91" class="w-1/4 p-2 bg-gray-700 rounded border border-gray-600 text-center">
+                            <input id="p-phone" placeholder="Number" class="w-3/4 p-2 bg-gray-700 rounded border border-gray-600">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-gray-400">WhatsApp Number</label>
+                        <div class="flex gap-1 mt-1">
+                            <input id="p-wa-cc" type="text" placeholder="+91" class="w-1/4 p-2 bg-gray-700 rounded border border-gray-600 text-center">
+                            <input id="p-whatsapp" placeholder="Number" class="w-3/4 p-2 bg-gray-700 rounded border border-gray-600">
+                        </div>
+                    </div>
+
+                    <div class="col-span-2">
                         <label class="text-gray-400">Current Career Status *</label>
                         <select id="p-status" class="w-full p-2 bg-gray-700 rounded border border-gray-600 mt-1 text-gray-300">
                             <option value="Noble Services">Noble Services</option>
@@ -808,22 +828,45 @@
             if (users) {
                 users.forEach(m => {
                     const memberFamily = family ? family.filter(f => f.alumni_id == m.id) : [];
-                    let familyMarkup = '';
-                    if (memberFamily.length > 0) {
-                        familyMarkup = `<div class="mt-2 pt-2 border-t border-gray-700/60"><h4 class="text-[11px] font-bold text-blue-400 mb-1">Family Members:</h4><div class="space-y-1.5">`;
-                        memberFamily.forEach(f => {
-                            if (f.is_private && m.id !== sessionUserObj.id) {
-                                familyMarkup += `<div class="text-[11px] text-gray-500 font-mono italic p-1.5 bg-gray-900/30 rounded border border-gray-800">🔒 Private ${f.relationship} details hidden</div>`;
-                            } else {
-                                let supportBadge = f.needs_support ? `<div class="text-red-400 text-[10px] mt-1 bg-red-950/50 p-1.5 rounded border border-red-900/50">🚨 <b>Support Needed:</b> ${f.support_details || 'Reach out for details'}</div>` : '';
-                                familyMarkup += `<div class="text-[11px] text-gray-300 font-mono bg-gray-900/50 p-1.5 rounded border border-gray-700/50">
-                                    ▪️ <b>${f.name}</b> (${f.relationship}) - Blood: ${f.blood_group || 'N/A'}
-                                    ${supportBadge}
-                                </div>`;
-                            }
-                        });
-                        familyMarkup += `</div></div>`;
+                    let familyMarkup = `<div class="mt-2 pt-2 border-t border-gray-700/60"><h4 class="text-[11px] font-bold text-blue-400 mb-1">Family Members:</h4>`;
+                    
+                    if (memberFamily.length === 0) {
+                        familyMarkup += `<div class="text-[11px] text-gray-500 font-mono italic">No family details input by user yet</div>`;
+                    } else {
+                        const allPrivate = memberFamily.every(f => f.is_private && m.id !== sessionUserObj.id);
+                        if (allPrivate) {
+                            familyMarkup += `<div class="text-[11px] text-gray-500 font-mono italic">Family details undisclosed by user</div>`;
+                        } else {
+                            familyMarkup += `<div class="space-y-1.5">`;
+                            memberFamily.forEach(f => {
+                                if (f.is_private && m.id !== sessionUserObj.id) {
+                                    familyMarkup += `<div class="text-[11px] text-gray-500 font-mono italic p-1.5 bg-gray-900/30 rounded border border-gray-800">🔒 Private ${f.relationship} - Undisclosed</div>`;
+                                } else {
+                                    let supportBadge = f.needs_support ? `<div class="text-red-400 text-[10px] mt-1 bg-red-950/50 p-1.5 rounded border border-red-900/50">🚨 <b>Support Needed:</b> ${f.support_details || '-'}</div>` : '';
+                                    familyMarkup += `
+                                    <div class="bg-gray-900/50 rounded border border-gray-700/50 overflow-hidden">
+                                        <div onclick="this.nextElementSibling.classList.toggle('hidden')" class="p-1.5 cursor-pointer hover:bg-gray-700/50 flex justify-between items-center text-[11px] text-gray-300 font-mono transition">
+                                            <span>▪️ <b>${f.name}</b> (${f.relationship})</span>
+                                            <span class="text-[9px] text-blue-400 border border-blue-900/50 bg-blue-950/30 px-1.5 py-0.5 rounded">▼ Details</span>
+                                        </div>
+                                        <div class="hidden p-2 text-[10px] text-gray-400 font-sans border-t border-gray-700/50 space-y-1 bg-gray-950">
+                                            <div>🩸 <b>Blood Group:</b> ${f.blood_group || '-'}</div>
+                                            ${f.dob ? `<div>🎂 <b>DOB:</b> ${f.dob}</div>` : ''}
+                                            ${supportBadge}
+                                        </div>
+                                    </div>`;
+                                }
+                            });
+                            familyMarkup += `</div>`;
+                        }
                     }
+                    familyMarkup += `</div>`;
+
+                    // Handle Contact Links Formatting
+                    const phoneLink = m.contact_number ? `<a href="tel:${m.contact_number.replace(/\s/g, '')}" class="text-blue-400 hover:underline font-bold">${m.contact_number}</a>` : '-';
+                    const waClean = m.whatsapp_number ? m.whatsapp_number.replace(/[^0-9]/g, '') : '';
+                    const waLink = m.whatsapp_number ? `<a href="https://wa.me/${waClean}" target="_blank" class="text-green-400 hover:underline font-bold">${m.whatsapp_number}</a>` : '-';
+                    const emailLink = m.email ? `<a href="mailto:${m.email}" class="text-blue-400 hover:underline font-bold">${m.email}</a>` : '-';
 
                     mount.innerHTML += `
                         <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-md">
@@ -831,20 +874,20 @@
                                 ${m.profile_picture_url ? `<img src="${m.profile_picture_url}" class="w-10 h-10 rounded-full object-cover bg-black">` : `<div class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center font-bold">👤</div>`}
                                 <div class="flex-1">
                                     <h3 class="text-sm font-bold text-white">${m.full_name}</h3>
-                                    <p class="text-[11px] text-gray-400 font-mono">${m.class_nickname ? '🔹 ' + m.class_nickname : ''} | Status: ${m.current_status || 'Member'}</p>
+                                    <p class="text-[11px] text-gray-400 font-mono">${m.class_nickname ? '🔹 ' + m.class_nickname : ''} | Status: ${m.current_status || '-'}</p>
                                 </div>
                                 <span class="text-[10px] bg-gray-900 border border-gray-700 text-gray-400 px-2 py-1 rounded font-mono">↕️ View Details</span>
                             </div>
                             <div class="hidden p-4 bg-gray-950 border-t border-gray-700 space-y-2 text-[11px]">
-                                <div class="grid grid-cols-2 gap-2 text-gray-300 font-mono">
-                                    <div>🟢 <b>WhatsApp:</b> ${m.whatsapp_number || 'N/A'}</div>
-                                    <div>🩸 <b>Blood Group:</b> ${m.blood_group || 'N/A'}</div>
-                                    <div class="col-span-2">✉️ <b>Email Address:</b> ${m.email || 'N/A'}</div>
-                                    <div class="col-span-2">📞 <b>Contact Number:</b> ${m.contact_number || 'N/A'}</div>
+                                <div class="grid grid-cols-2 gap-2 text-gray-300 font-mono items-center">
+                                    <div>🟢 <b>WhatsApp:</b> ${waLink}</div>
+                                    <div>🩸 <b>Blood Group:</b> ${m.blood_group || '-'}</div>
+                                    <div class="col-span-2">✉️ <b>Email Address:</b> ${emailLink}</div>
+                                    <div class="col-span-2">📞 <b>Contact Number:</b> ${phoneLink}</div>
                                 </div>
-                                <div class="pt-1 text-gray-400 font-sans space-y-1">
-                                    <div>📍 <b>Permanent Address:</b> ${m.permanent_address || 'N/A'} ${m.permanent_geo_location ? generateMapLinkHTML(m.permanent_geo_location) : ''}</div>
-                                    <div>🏠 <b>Current Address:</b> ${m.current_address || 'N/A'} ${m.current_geo_location ? generateMapLinkHTML(m.current_geo_location) : ''}</div>
+                                <div class="pt-2 text-gray-400 font-sans space-y-1">
+                                    <div>📍 <b>Permanent Address:</b> ${m.permanent_address || '-'} ${m.permanent_geo_location ? generateMapLinkHTML(m.permanent_geo_location) : ''}</div>
+                                    <div>🏠 <b>Current Address:</b> ${m.current_address || '-'} ${m.current_geo_location ? generateMapLinkHTML(m.current_geo_location) : ''}</div>
                                 </div>
                                 ${familyMarkup}
                             </div>
@@ -1106,9 +1149,12 @@
             const gender = document.getElementById('reg-gender').value;
             const dob = document.getElementById('reg-dob').value;
             const email = document.getElementById('reg-email').value;
-            const phone = document.getElementById('reg-phone').value;
+            
+            const cc = document.getElementById('reg-cc').value.trim();
+            const rawPhone = document.getElementById('reg-phone').value.trim();
+            const phone = cc ? `${cc} ${rawPhone}` : rawPhone;
 
-            if(!code || !username || !password || !name || !gender || !dob || !email || !phone) { alert('Please fill all fields.'); return; }
+            if(!code || !username || !password || !name || !gender || !dob || !email || !rawPhone) { alert('Please fill all fields.'); return; }
             const { data: slot } = await _supabase.from('alumni').select('*').eq('placeholder_code', code).eq('is_placeholder', true).single();
             if(slot) {
                 await _supabase.from('alumni').update({ custom_username: username, custom_password: password, full_name: name, gender: gender, dob: dob, email: email, contact_number: phone, is_placeholder: false }).eq('id', slot.id);
@@ -1120,7 +1166,6 @@
 
         function hydrateProfileFormFields(d) {
             document.getElementById('p-nickname').value = d.class_nickname || '';
-            document.getElementById('p-whatsapp').value = d.whatsapp_number || '';
             document.getElementById('p-blood').value = d.blood_group || '';
             document.getElementById('p-status').value = d.current_status || 'Employed';
             document.getElementById('p-pic').value = d.profile_picture_url || '';
@@ -1137,11 +1182,62 @@
             document.getElementById('p-diary').value = d.diary_logs || '';
             document.getElementById('p-hide-peers').checked = d.hide_from_peers;
             document.getElementById('p-hide-admin').checked = d.hide_from_admin;
+
+            // Handle combined contact number hydration
+            let cRaw = d.contact_number || '';
+            let cParts = cRaw.split(' ');
+            if(cParts.length > 1 && cParts[0].startsWith('+')) {
+                document.getElementById('p-phone-cc').value = cParts[0];
+                document.getElementById('p-phone').value = cParts.slice(1).join(' ');
+            } else {
+                document.getElementById('p-phone-cc').value = '+91';
+                document.getElementById('p-phone').value = cRaw;
+            }
+
+            // Handle combined WA hydration
+            let waRaw = d.whatsapp_number || '';
+            let waParts = waRaw.split(' ');
+            if(waParts.length > 1 && waParts[0].startsWith('+')) {
+                document.getElementById('p-wa-cc').value = waParts[0];
+                document.getElementById('p-whatsapp').value = waParts.slice(1).join(' ');
+            } else {
+                document.getElementById('p-wa-cc').value = '+91';
+                document.getElementById('p-whatsapp').value = waRaw;
+            }
+
             evaluateMaritalUI();
         }
 
         async function executeProfileUpdateSync() {
-            const payload = { class_nickname: document.getElementById('p-nickname').value, whatsapp_number: document.getElementById('p-whatsapp').value, blood_group: document.getElementById('p-blood').value, current_status: document.getElementById('p-status').value, profile_picture_url: document.getElementById('p-pic').value, permanent_address: document.getElementById('p-perm-addr').value, permanent_geo_location: document.getElementById('p-perm-geo').value, current_address: document.getElementById('p-curr-addr').value, current_geo_location: document.getElementById('p-curr-geo').value, marital_status: document.getElementById('p-marital').value, wedding_date: document.getElementById('p-wedding').value || null, divorce_date: document.getElementById('p-divorce').value || null, spouse_name: document.getElementById('p-spouse-name').value, spouse_dob: document.getElementById('p-spouse-dob').value || null, spouse_details: document.getElementById('p-spouse-details').value, diary_logs: document.getElementById('p-diary').value, hide_from_peers: document.getElementById('p-hide-peers').checked, hide_from_admin: document.getElementById('p-hide-admin').checked };
+            const waCC = document.getElementById('p-wa-cc').value.trim();
+            const waNum = document.getElementById('p-whatsapp').value.trim();
+            const finalWA = waNum ? `${waCC} ${waNum}` : '';
+
+            const phCC = document.getElementById('p-phone-cc').value.trim();
+            const phNum = document.getElementById('p-phone').value.trim();
+            const finalPh = phNum ? `${phCC} ${phNum}` : '';
+
+            const payload = { 
+                class_nickname: document.getElementById('p-nickname').value, 
+                whatsapp_number: finalWA, 
+                contact_number: finalPh,
+                blood_group: document.getElementById('p-blood').value, 
+                current_status: document.getElementById('p-status').value, 
+                profile_picture_url: document.getElementById('p-pic').value, 
+                permanent_address: document.getElementById('p-perm-addr').value, 
+                permanent_geo_location: document.getElementById('p-perm-geo').value, 
+                current_address: document.getElementById('p-curr-addr').value, 
+                current_geo_location: document.getElementById('p-curr-geo').value, 
+                marital_status: document.getElementById('p-marital').value, 
+                wedding_date: document.getElementById('p-wedding').value || null, 
+                divorce_date: document.getElementById('p-divorce').value || null, 
+                spouse_name: document.getElementById('p-spouse-name').value, 
+                spouse_dob: document.getElementById('p-spouse-dob').value || null, 
+                spouse_details: document.getElementById('p-spouse-details').value, 
+                diary_logs: document.getElementById('p-diary').value, 
+                hide_from_peers: document.getElementById('p-hide-peers').checked, 
+                hide_from_admin: document.getElementById('p-hide-admin').checked 
+            };
             await _supabase.from('alumni').update(payload).eq('id', sessionUserObj.id);
             alert('Profile Updated'); switchTab('directory');
         }
