@@ -773,13 +773,19 @@
             const str = input.value.trim();
             if (!str) return;
 
-            await _supabase.from('chat_messages').insert([{
+            const { error } = await _supabase.from('chat_messages').insert([{
                 room_id: activeRoomId,
                 sender_id: sessionUserObj.id,
                 sender_name: sessionUserObj.full_name,
                 message_text: str
             }]);
-            input.value = '';
+            
+            if (error) {
+                alert("Failed to send message: " + error.message);
+                console.error("Chat Error:", error);
+            } else {
+                input.value = ''; // Only clear the box if it successfully sent
+            }
         }
 
         function executeSendChatImageMessage() {
