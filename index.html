@@ -34,13 +34,13 @@
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col">
 
+    <!-- UPDATED: Dynamic Modal for both Photo and Video capture -->
     <div id="camera-modal" class="hidden fixed inset-0 bg-black/80 flex flex-col items-center justify-center p-4 z-50">
         <div class="bg-gray-800 border border-gray-700 p-4 rounded-xl max-w-sm w-full space-y-3">
-            <h3 class="text-sm font-bold text-blue-400">Live Device Capture</h3>
-            <video id="camera-stream" autoplay playsinline class="w-full rounded bg-black aspect-video object-cover"></video>
-            <div class="flex justify-end space-x-2">
-                <button onclick="closeCameraEngine()" class="px-3 py-1.5 bg-gray-700 rounded text-xs">Cancel</button>
-                <button onclick="captureFrameToDestination()" class="px-3 py-1.5 bg-blue-600 rounded text-xs font-bold">🔴 Capture Photo</button>
+            <h3 id="camera-modal-title" class="text-sm font-bold text-blue-400">Live Device Capture</h3>
+            <video id="camera-stream" autoplay playsinline muted class="w-full rounded bg-black aspect-video object-cover"></video>
+            <div id="camera-controls" class="flex justify-end space-x-2">
+                <!-- Buttons injected via JS depending on Photo vs Video -->
             </div>
         </div>
     </div>
@@ -169,7 +169,6 @@
 
         <main class="flex-1 p-4 max-w-5xl w-full mx-auto">
             
-            <!-- NEW SETTINGS TAB -->
             <section id="tab-settings" class="hidden max-w-2xl mx-auto space-y-4 text-xs">
                 <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 space-y-5 shadow-xl">
                     <h2 class="text-xl font-bold text-blue-400 border-b border-gray-700 pb-2 flex items-center gap-2">⚙️ User Settings</h2>
@@ -445,13 +444,11 @@
                             <input type="hidden" id="chat-hidden-payload-string">
                             <button onclick="document.getElementById('chat-media-file').click()" class="bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded border border-gray-700 transition" title="Attach Image">📁</button>
                             <button onclick="openCameraEngine('chat')" class="bg-gray-800 hover:bg-gray-700 px-2.5 py-1.5 rounded border border-gray-700 transition" title="Send Photo">📷</button>
+                            <button onclick="openVideoMessageModal()" class="bg-gray-800 hover:bg-gray-700 text-blue-400 px-2.5 py-1.5 rounded border border-gray-700 transition" title="Record Video Message">🎥</button>
                             <button onclick="triggerPollCreationFlow()" class="bg-gray-800 hover:bg-gray-700 text-green-400 px-2.5 py-1.5 rounded border border-gray-700 font-bold transition" title="Create Poll">📊</button>
                         </div>
                         
-                        <!-- Hybrid Chat Input Area -->
                         <div class="flex gap-2 relative items-center">
-                            
-                            <!-- EMOJI & STICKER PICKER MENU -->
                             <div id="emoji-picker" class="hidden absolute bottom-12 left-0 bg-gray-900 border border-gray-600 p-3 rounded-xl shadow-2xl w-72 max-h-56 overflow-y-auto z-50 flex flex-col gap-2">
                                 <div class="text-[10px] text-gray-400 border-b border-gray-700 pb-1">Emojis</div>
                                 <div class="flex flex-wrap gap-2 text-xl">
@@ -479,6 +476,7 @@
                             
                             <input id="chat-input-field" type="text" placeholder="Type @ to mention, or type in En/Ta/Ml..." onkeydown="if(event.key==='Enter') executeSendChatMessage()" class="flex-1 p-2.5 bg-gray-800 border border-gray-700 rounded text-xs text-white focus:outline-none focus:border-blue-500 transition">
                             
+                            <!-- Voice Record Button -->
                             <button id="mic-btn" onclick="toggleVoiceRecord()" class="bg-gray-800 hover:bg-gray-700 text-red-400 px-3 py-2.5 rounded text-lg border border-gray-700 transition flex items-center justify-center min-w-[40px]" title="Click to start/stop recording voice">🎤</button>
 
                             <button onclick="executeSendChatMessage()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-bold transition shadow-md">Send</button>
@@ -487,7 +485,6 @@
                 </div>
             </section>
 
-            <!-- NEW VOICE CALL SECTION -->
             <section id="tab-voice" class="hidden max-w-4xl mx-auto space-y-4 text-xs">
                 <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 space-y-3 shadow-xl">
                     <h2 class="text-lg font-bold text-cyan-400 flex items-center gap-2">📞 Voice Call Lounge</h2>
@@ -539,9 +536,11 @@
         let mediaStreamTrackInstance = null;
         let activeCameraTargetFieldId = '';
 
-        // Media Recorder config for Voice Hybrid
-        let mediaRecorder;
+        // Media Recorders
+        let mediaRecorder; // Voice
         let audioChunks = [];
+        let videoRecorder; // Video
+        let videoChunks = [];
 
         // Reply State
         let activeReplyContext = null;
@@ -716,10 +715,18 @@
             reader.readAsDataURL(file);
         }
 
+        // --- DYNAMIC CAMERA MODAL ENGINE ---
         async function openCameraEngine(targetFieldId) {
             activeCameraTargetFieldId = targetFieldId;
             const modal = document.getElementById('camera-modal');
             const video = document.getElementById('camera-stream');
+            
+            document.getElementById('camera-modal-title').textContent = "Live Device Capture";
+            document.getElementById('camera-controls').innerHTML = `
+                <button onclick="closeCameraEngine()" class="px-3 py-1.5 bg-gray-700 rounded text-xs">Cancel</button>
+                <button onclick="captureFrameToDestination()" class="px-3 py-1.5 bg-blue-600 rounded text-xs font-bold">🔴 Capture Photo</button>
+            `;
+            
             modal.classList.remove('hidden');
             try {
                 mediaStreamTrackInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
@@ -731,8 +738,14 @@
         }
 
         function closeCameraEngine() {
+            // Free Camera and Audio Tracks
             if (mediaStreamTrackInstance) {
                 mediaStreamTrackInstance.getTracks().forEach(track => track.stop());
+            }
+            // Safely kill video recording if it was running and cancelled
+            if (videoRecorder && videoRecorder.state === 'recording') {
+                videoRecorder.onstop = null; // Do not send
+                videoRecorder.stop();
             }
             document.getElementById('camera-modal').classList.add('hidden');
         }
@@ -890,10 +903,9 @@
             }
         }
 
-function formatMessageContent(msg, isNew = false) {
+        function formatMessageContent(msg, isNew = false) {
             let contentHTML = msg.message_text;
 
-            // Safe regex that prevents breaking if nickname is empty
             const validNames = [sessionUserObj.full_name];
             if (sessionUserObj.class_nickname && sessionUserObj.class_nickname.trim() !== '') {
                 validNames.push(sessionUserObj.class_nickname);
@@ -906,7 +918,7 @@ function formatMessageContent(msg, isNew = false) {
             if (hasMyMention) {
                 contentHTML = contentHTML.replace(mentionRegex, `<span class="mention-highlight">@$1</span>`);
                 if (isNew && msg.sender_id !== sessionUserObj.id) {
-                    playMentionTone(); // Triggers the audio and vibration
+                    playMentionTone();
                 }
             }
             
@@ -915,8 +927,12 @@ function formatMessageContent(msg, isNew = false) {
                 return `<span class="text-blue-300 font-bold">${match}</span>`;
             });
 
+            // Parse Media Types
             if (msg.message_text.startsWith('data:audio/')) {
                 contentHTML = `<audio controls src="${msg.message_text}" class="h-8 w-full max-w-[220px] rounded-full"></audio>`;
+            }
+            else if (msg.message_text.startsWith('data:video/')) {
+                contentHTML = `<video controls src="${msg.message_text}" class="max-w-[220px] rounded border border-gray-600 aspect-video bg-black"></video>`;
             }
             else if (msg.message_text.startsWith('data:image/') || /\.(jpeg|jpg|gif|png|webp)$/i.test(msg.message_text)) {
                 contentHTML = `<img src="${msg.message_text}" class="max-w-[200px] rounded border border-gray-600 object-cover cursor-pointer hover:opacity-90" onclick="window.open('${msg.message_text}')">`;
@@ -968,7 +984,6 @@ function formatMessageContent(msg, isNew = false) {
             if(container.innerHTML.includes("No messages here yet")) container.innerHTML = '';
 
             const processed = formatMessageContent(msg, isNew);
-            // Applies the shaky animation class only if it's a new message containing your name
             const shakeClass = (isNew && processed.hasMyMention) ? 'animate-shake' : '';
 
             const menuHTML = `
@@ -981,7 +996,6 @@ function formatMessageContent(msg, isNew = false) {
                     ${isMe ? `<button onclick="deleteMsg('${msg.id}')" title="Delete Message" class="hover:text-red-400 transition">🗑️</button>` : ''}
                 </div>`;
 
-            // Clickable name for mentions, and ✉️ icon for private messages
             const headerInfo = isMe 
                 ? `<div class="flex items-center space-x-2 text-[10px] text-gray-500 font-sans mb-0.5">${menuHTML} <span class="font-bold text-gray-400">${msg.sender_name}</span></div>`
                 : `<div class="flex items-center space-x-2 text-[10px] text-gray-500 font-sans mb-0.5">
@@ -1002,8 +1016,6 @@ function formatMessageContent(msg, isNew = false) {
                 
             container.scrollTop = container.scrollHeight;
         }
-
-        
 
         // --- MSG MENU ACTIONS ---
         function insertEmoji(char) {
@@ -1086,7 +1098,6 @@ function formatMessageContent(msg, isNew = false) {
             let textToTranslate = msg.message_text;
 
             try {
-                // STEP 1: Pre-process Tanglish/English words into Tamil script so the translator doesn't skip them
                 const englishWords = textToTranslate.match(/[a-zA-Z]+/g);
                 if (englishWords) {
                     for (const word of englishWords) {
@@ -1100,7 +1111,6 @@ function formatMessageContent(msg, isNew = false) {
                     }
                 }
 
-                // STEP 2: Standard Translation on the cleaned string
                 const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(textToTranslate)}`);
                 const data = await res.json();
                 let translatedText = '';
@@ -1121,23 +1131,26 @@ function formatMessageContent(msg, isNew = false) {
             
             if (mediaRecorder && mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(t => t.stop()); // Explicitly release hardware
                 btn.classList.remove('bg-red-600', 'animate-pulse');
                 btn.classList.add('bg-gray-800');
                 return;
             }
             
             try {
+                audioChunks = [];
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaRecorder = new MediaRecorder(stream);
-                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.ondataavailable = e => { if(e.data.size > 0) audioChunks.push(e.data); };
                 mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    audioChunks = [];
-                    const reader = new FileReader();
-                    reader.onloadend = function() {
-                        sendRawChatMessage(reader.result); // Base64 audio string
+                    if (audioChunks.length > 0) {
+                        const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+                        const reader = new FileReader();
+                        reader.onloadend = function() {
+                            sendRawChatMessage(reader.result); 
+                        }
+                        reader.readAsDataURL(audioBlob);
                     }
-                    reader.readAsDataURL(audioBlob);
                 };
                 mediaRecorder.start();
                 btn.classList.add('bg-red-600', 'animate-pulse');
@@ -1145,6 +1158,56 @@ function formatMessageContent(msg, isNew = false) {
             } catch (err) {
                 alert('Microphone access required for voice messages: ' + err.message);
             }
+        }
+
+        // --- VIDEO MESSAGE RECORDING LOGIC ---
+        async function openVideoMessageModal() {
+            const modal = document.getElementById('camera-modal');
+            const video = document.getElementById('camera-stream');
+            
+            document.getElementById('camera-modal-title').textContent = "Record Video Message";
+            document.getElementById('camera-controls').innerHTML = `
+                <button onclick="closeCameraEngine()" class="px-3 py-1.5 bg-gray-700 rounded text-xs">Cancel</button>
+                <button id="start-vid-btn" onclick="startVideoMessageRecording()" class="px-3 py-1.5 bg-red-600 rounded text-xs font-bold transition">🔴 Record</button>
+                <button id="stop-vid-btn" onclick="stopVideoMessageRecording()" class="hidden px-3 py-1.5 bg-green-600 rounded text-xs font-bold transition">⏹ Send Video</button>
+            `;
+            
+            modal.classList.remove('hidden');
+            try {
+                // Low res required to keep base64 payload under DB limits
+                mediaStreamTrackInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } }, audio: true });
+                video.srcObject = mediaStreamTrackInstance;
+                video.muted = true; 
+            } catch (err) {
+                alert('Camera/Mic error: ' + err.message);
+                modal.classList.add('hidden');
+            }
+        }
+
+        function startVideoMessageRecording() {
+            videoChunks = [];
+            videoRecorder = new MediaRecorder(mediaStreamTrackInstance);
+            videoRecorder.ondataavailable = e => { if(e.data.size > 0) videoChunks.push(e.data); };
+            videoRecorder.onstop = () => {
+                if (videoChunks.length > 0) {
+                    const videoBlob = new Blob(videoChunks, { type: videoRecorder.mimeType || 'video/webm' });
+                    const reader = new FileReader();
+                    reader.onloadend = function() {
+                        sendRawChatMessage(reader.result);
+                    }
+                    reader.readAsDataURL(videoBlob);
+                }
+            };
+            videoRecorder.start();
+            document.getElementById('start-vid-btn').classList.add('hidden');
+            document.getElementById('stop-vid-btn').classList.remove('hidden');
+        }
+
+        function stopVideoMessageRecording() {
+            if(videoRecorder && videoRecorder.state === 'recording') {
+                videoRecorder.stop();
+            }
+            closeCameraEngine();
         }
 
         async function sendRawChatMessage(str) {
@@ -1156,7 +1219,7 @@ function formatMessageContent(msg, isNew = false) {
             }]);
             
             if (error) {
-                alert("Failed to send: " + error.message);
+                alert("Failed to send media: " + error.message);
                 console.error("Chat Error:", error);
             }
         }
