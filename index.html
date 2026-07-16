@@ -34,14 +34,25 @@
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col">
 
-    <!-- UPDATED: Dynamic Modal for both Photo and Video capture -->
+    <!-- Live Device Capture Modal -->
     <div id="camera-modal" class="hidden fixed inset-0 bg-black/80 flex flex-col items-center justify-center p-4 z-50">
         <div class="bg-gray-800 border border-gray-700 p-4 rounded-xl max-w-sm w-full space-y-3">
             <h3 id="camera-modal-title" class="text-sm font-bold text-blue-400">Live Device Capture</h3>
             <video id="camera-stream" autoplay playsinline muted class="w-full rounded bg-black aspect-video object-cover"></video>
             <div id="camera-controls" class="flex justify-end space-x-2">
-                <!-- Buttons injected via JS depending on Photo vs Video -->
             </div>
+        </div>
+    </div>
+
+    <!-- Floating Reaction Picker Modal -->
+    <div id="reaction-picker-modal" class="hidden fixed inset-0 z-[100]" onclick="closeReactionPicker()">
+        <div id="reaction-picker-box" class="absolute bg-gray-900 border border-gray-600 rounded-xl shadow-2xl p-2.5 flex gap-2.5 text-2xl" onclick="event.stopPropagation()">
+            <button onclick="submitReaction('👍')" class="hover:scale-125 transition origin-bottom">👍</button>
+            <button onclick="submitReaction('❤️')" class="hover:scale-125 transition origin-bottom">❤️</button>
+            <button onclick="submitReaction('😂')" class="hover:scale-125 transition origin-bottom">😂</button>
+            <button onclick="submitReaction('😮')" class="hover:scale-125 transition origin-bottom">😮</button>
+            <button onclick="submitReaction('😢')" class="hover:scale-125 transition origin-bottom">😢</button>
+            <button onclick="submitReaction('🙏')" class="hover:scale-125 transition origin-bottom">🙏</button>
         </div>
     </div>
 
@@ -476,7 +487,6 @@
                             
                             <input id="chat-input-field" type="text" placeholder="Type @ to mention, or type in En/Ta/Ml..." onkeydown="if(event.key==='Enter') executeSendChatMessage()" class="flex-1 p-2.5 bg-gray-800 border border-gray-700 rounded text-xs text-white focus:outline-none focus:border-blue-500 transition">
                             
-                            <!-- Voice Record Button -->
                             <button id="mic-btn" onclick="toggleVoiceRecord()" class="bg-gray-800 hover:bg-gray-700 text-red-400 px-3 py-2.5 rounded text-lg border border-gray-700 transition flex items-center justify-center min-w-[40px]" title="Click to start/stop recording voice">🎤</button>
 
                             <button onclick="executeSendChatMessage()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-bold transition shadow-md">Send</button>
@@ -531,19 +541,20 @@
         let sessionUserObj = null;
         let activeRoomId = 'global';
         let chatSubscriptionRealtime = null;
+        
         let loadedChatMessagesMap = {}; 
+        let loadedReactionsMap = {}; // Maps message ID to array of reactions
         
         let mediaStreamTrackInstance = null;
         let activeCameraTargetFieldId = '';
 
-        // Media Recorders
-        let mediaRecorder; // Voice
+        let mediaRecorder; 
         let audioChunks = [];
-        let videoRecorder; // Video
+        let videoRecorder; 
         let videoChunks = [];
 
-        // Reply State
         let activeReplyContext = null;
+        let activeReactionMsgId = null; // For floating picker
 
         const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -559,7 +570,12 @@
             }
         };
 
-        // --- PREFERENCES ---
+        function getDmRoomId(id1, id2) {
+            const a = parseInt(id1);
+            const b = parseInt(id2);
+            return `dm_${Math.min(a, b)}_${Math.max(a, b)}`;
+        }
+
         function saveLanguagePref() {
             localStorage.setItem('pref_lang', document.getElementById('pref-lang').value);
         }
@@ -569,7 +585,6 @@
             document.getElementById('pref-lang').value = lang;
         }
 
-        // --- AUDIO / VIBRATION TONE GENERATOR ---
         function playMentionTone() {
             if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
             try {
@@ -715,7 +730,6 @@
             reader.readAsDataURL(file);
         }
 
-        // --- DYNAMIC CAMERA MODAL ENGINE ---
         async function openCameraEngine(targetFieldId) {
             activeCameraTargetFieldId = targetFieldId;
             const modal = document.getElementById('camera-modal');
@@ -738,13 +752,11 @@
         }
 
         function closeCameraEngine() {
-            // Free Camera and Audio Tracks
             if (mediaStreamTrackInstance) {
                 mediaStreamTrackInstance.getTracks().forEach(track => track.stop());
             }
-            // Safely kill video recording if it was running and cancelled
             if (videoRecorder && videoRecorder.state === 'recording') {
-                videoRecorder.onstop = null; // Do not send
+                videoRecorder.onstop = null; 
                 videoRecorder.stop();
             }
             document.getElementById('camera-modal').classList.add('hidden');
@@ -805,7 +817,7 @@
 
         function openDirectMessage(targetId, targetName) {
             switchTab('chat');
-            const dmId = ['dm', sessionUserObj.id, targetId].sort().join('_');
+            const dmId = getDmRoomId(sessionUserObj.id, targetId);
             switchChatRoom(dmId, `👤 ${targetName}`);
         }
 
@@ -834,6 +846,24 @@
                             const wrapperEl = document.getElementById(`msg-wrapper-${payload.old.id}`);
                             if (wrapperEl) wrapperEl.remove();
                             delete loadedChatMessagesMap[payload.old.id];
+                        }
+                    })
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_reactions' }, payload => {
+                        if (payload.eventType === 'INSERT') {
+                            const r = payload.new;
+                            if(!loadedReactionsMap[r.message_id]) loadedReactionsMap[r.message_id] = [];
+                            loadedReactionsMap[r.message_id].push(r);
+                            redrawMessageReactions(r.message_id);
+                        } else if (payload.eventType === 'DELETE') {
+                            const old = payload.old;
+                            for(let msgId in loadedReactionsMap) {
+                                const idx = loadedReactionsMap[msgId].findIndex(x => x.id === old.id);
+                                if(idx > -1) {
+                                    loadedReactionsMap[msgId].splice(idx, 1);
+                                    redrawMessageReactions(msgId);
+                                    break;
+                                }
+                            }
                         }
                     })
                     .subscribe();
@@ -870,7 +900,7 @@
                         formAssigneeDropdown.innerHTML += `<option value="${u.id}">${u.full_name}</option>`;
                     }
                     if (u.id !== sessionUserObj.id) {
-                        const dmId = ['dm', sessionUserObj.id, u.id].sort().join('_');
+                        const dmId = getDmRoomId(sessionUserObj.id, u.id);
                         dmMount.innerHTML += `<button onclick="switchChatRoom('${dmId}', '👤 ${u.full_name}')" class="w-full text-left p-2 rounded hover:bg-gray-700/50 block text-gray-400 truncate hover:text-white transition">👤 ${u.full_name}</button>`;
                     }
                 });
@@ -881,21 +911,30 @@
             activeRoomId = roomId;
             document.getElementById('active-chat-title').textContent = roomTitle;
             clearReplyContext();
+            closeReactionPicker();
             document.getElementById('emoji-picker').classList.add('hidden');
             
             const container = document.getElementById('chat-messages-container');
             container.innerHTML = '<div class="text-gray-600 italic text-center w-full mt-4">Loading messages...</div>';
             loadedChatMessagesMap = {};
+            loadedReactionsMap = {};
 
-            const { data: logs } = await _supabase
-                .from('chat_messages')
-                .select('*')
-                .eq('room_id', roomId)
-                .order('created_at', { ascending: true });
+            // Fetch both messages and reactions for the room concurrently
+            const [msgRes, rxRes] = await Promise.all([
+                _supabase.from('chat_messages').select('*').eq('room_id', roomId).order('created_at', { ascending: true }),
+                _supabase.from('chat_reactions').select('*').eq('room_id', roomId)
+            ]);
+
+            if (rxRes.data) {
+                rxRes.data.forEach(r => {
+                    if(!loadedReactionsMap[r.message_id]) loadedReactionsMap[r.message_id] = [];
+                    loadedReactionsMap[r.message_id].push(r);
+                });
+            }
 
             container.innerHTML = '';
-            if (logs && logs.length > 0) {
-                for (const msg of logs) {
+            if (msgRes.data && msgRes.data.length > 0) {
+                for (const msg of msgRes.data) {
                     await appendMessageStringToStream(msg, false);
                 }
             } else {
@@ -904,30 +943,28 @@
         }
 
         function formatMessageContent(msg, isNew = false) {
-            let contentHTML = msg.message_text;
+            let contentHTML = msg.message_text || '';
 
             const validNames = [sessionUserObj.full_name];
             if (sessionUserObj.class_nickname && sessionUserObj.class_nickname.trim() !== '') {
                 validNames.push(sessionUserObj.class_nickname);
             }
+            
             const escapedNames = validNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-            const mentionRegex = new RegExp(`@(${escapedNames.join('|')})`, 'gi');
+            const myMentionRegex = new RegExp(`@(${escapedNames.join('|')})(?![a-zA-Z0-9_])`, 'gi');
             
-            const hasMyMention = mentionRegex.test(msg.message_text);
-
-            if (hasMyMention) {
-                contentHTML = contentHTML.replace(mentionRegex, `<span class="mention-highlight">@$1</span>`);
-                if (isNew && msg.sender_id !== sessionUserObj.id) {
-                    playMentionTone();
-                }
+            const hasMyMention = myMentionRegex.test(contentHTML);
+            if (hasMyMention && isNew && msg.sender_id != sessionUserObj.id) {
+                playMentionTone();
             }
-            
-            contentHTML = contentHTML.replace(/@([a-zA-Z0-9_ ]+)/g, (match, p1) => {
-                if(validNames.some(n => p1.toLowerCase() === n.toLowerCase())) return match; 
-                return `<span class="text-blue-300 font-bold">${match}</span>`;
+
+            contentHTML = contentHTML.replace(myMentionRegex, function(match) {
+                return `[[MY_MENTION_${match}]]`;
             });
 
-            // Parse Media Types
+            contentHTML = contentHTML.replace(/@([a-zA-Z0-9_]+)/g, `<span class="text-blue-300 font-bold">@$1</span>`);
+            contentHTML = contentHTML.replace(/\[\[MY_MENTION_(@.+?)\]\]/g, `<span class="mention-highlight">$1</span>`);
+
             if (msg.message_text.startsWith('data:audio/')) {
                 contentHTML = `<audio controls src="${msg.message_text}" class="h-8 w-full max-w-[220px] rounded-full"></audio>`;
             }
@@ -988,6 +1025,7 @@
 
             const menuHTML = `
                 <div class="opacity-0 group-hover:opacity-100 flex items-center space-x-1.5 bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700 shadow-lg transition-opacity duration-200">
+                    <button onclick="openReactionPicker(event, '${msg.id}')" title="React" class="hover:text-pink-400 transition">🙂</button>
                     <button id="translate-btn-${msg.id}" onclick="translateMsg('${msg.id}')" title="Translate to default language" class="hover:text-cyan-400 transition">🌐</button>
                     <button onclick="copyMsg('${msg.id}')" title="Copy Message" class="hover:text-white transition">📋</button>
                     <button onclick="replyMsg('${msg.id}')" title="Reply to Message" class="hover:text-blue-400 transition">↩️</button>
@@ -1001,7 +1039,7 @@
                 : `<div class="flex items-center space-x-2 text-[10px] text-gray-500 font-sans mb-0.5">
                     <span class="flex items-center gap-1">
                         <button onclick="addMention('${msg.sender_name}')" class="hover:text-blue-400 font-bold transition" title="Mention User">${msg.sender_name}</button> 
-                        <button onclick="openDirectMessage('${msg.sender_id}', '${msg.sender_name}')" title="Private Message" class="hover:scale-110 transition">✉️</button>
+                        <button onclick="openDirectMessage('${msg.sender_id}', '${msg.sender_name}')" class="hover:scale-110 transition bg-green-900/40 border border-green-800 px-1 rounded text-green-400" title="Send Private Message">✉️ DM</button>
                     </span> 
                     ${menuHTML}
                    </div>`;
@@ -1012,9 +1050,81 @@
                     <div id="msg-bubble-content-${msg.id}" class="p-2.5 rounded-lg max-w-[85%] break-words shadow-md ${isMe ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-gray-700 text-gray-200 rounded-tl-none'}">
                         ${processed.html}
                     </div>
+                    <div id="reactions-mount-${msg.id}" class="flex flex-wrap gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'} max-w-[85%]"></div>
                 </div>`;
                 
+            redrawMessageReactions(msg.id);
             container.scrollTop = container.scrollHeight;
+        }
+
+        // --- MESSAGE REACTIONS ---
+        function openReactionPicker(event, msgId) {
+            activeReactionMsgId = msgId;
+            const modal = document.getElementById('reaction-picker-modal');
+            const box = document.getElementById('reaction-picker-box');
+            modal.classList.remove('hidden');
+
+            const x = Math.min(event.clientX, window.innerWidth - 200);
+            const y = Math.max(event.clientY - 50, 10);
+            box.style.left = `${x}px`;
+            box.style.top = `${y}px`;
+        }
+
+        function closeReactionPicker() {
+            document.getElementById('reaction-picker-modal').classList.add('hidden');
+            activeReactionMsgId = null;
+        }
+
+        async function submitReaction(emoji) {
+            if (activeReactionMsgId) {
+                await toggleReaction(activeReactionMsgId, emoji);
+            }
+            closeReactionPicker();
+        }
+
+        async function toggleReaction(msgId, emoji) {
+            const rxList = loadedReactionsMap[msgId] || [];
+            const existing = rxList.find(r => r.user_id == sessionUserObj.id && r.emoji === emoji);
+            
+            if (existing) {
+                await _supabase.from('chat_reactions').delete().eq('id', existing.id);
+            } else {
+                await _supabase.from('chat_reactions').insert([{ 
+                    message_id: msgId, 
+                    room_id: activeRoomId, 
+                    user_id: sessionUserObj.id, 
+                    emoji: emoji 
+                }]);
+            }
+        }
+
+        function redrawMessageReactions(msgId) {
+            const mount = document.getElementById(`reactions-mount-${msgId}`);
+            if (!mount) return;
+
+            const rxList = loadedReactionsMap[msgId] || [];
+            if (rxList.length === 0) {
+                mount.innerHTML = '';
+                return;
+            }
+
+            const grouped = {};
+            rxList.forEach(r => {
+                if (!grouped[r.emoji]) grouped[r.emoji] = { count: 0, iReacted: false };
+                grouped[r.emoji].count++;
+                if (r.user_id == sessionUserObj.id) grouped[r.emoji].iReacted = true;
+            });
+
+            let html = '';
+            for (const [emoji, data] of Object.entries(grouped)) {
+                const bgClass = data.iReacted ? 'bg-blue-900/60 border-blue-500 text-blue-200 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-800/80 border-gray-600 text-gray-300';
+                html += `
+                    <button onclick="toggleReaction('${msgId}', '${emoji}')" class="flex items-center space-x-1.5 px-2 py-0.5 rounded-full border ${bgClass} text-xs hover:bg-gray-700 transition" title="Toggle reaction">
+                        <span>${emoji}</span> <span class="font-bold">${data.count}</span>
+                    </button>
+                `;
+            }
+            mount.innerHTML = html;
         }
 
         // --- MSG MENU ACTIONS ---
@@ -1131,7 +1241,7 @@
             
             if (mediaRecorder && mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(t => t.stop()); // Explicitly release hardware
+                mediaRecorder.stream.getTracks().forEach(t => t.stop()); 
                 btn.classList.remove('bg-red-600', 'animate-pulse');
                 btn.classList.add('bg-gray-800');
                 return;
@@ -1174,7 +1284,6 @@
             
             modal.classList.remove('hidden');
             try {
-                // Low res required to keep base64 payload under DB limits
                 mediaStreamTrackInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } }, audio: true });
                 video.srcObject = mediaStreamTrackInstance;
                 video.muted = true; 
