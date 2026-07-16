@@ -644,7 +644,10 @@
         }
 
         async function syncChatSidebarRoster() {
-            const { data: globalRoster } = await _supabase.from('alumni').select('*').eq('is_placeholder', false);
+            const { data: globalRoster } = await _supabase.from('alumni').select('*')
+                .eq('is_placeholder', false)
+                .neq('full_name', 'System Administrator'); // This completely removes the admin from the chat list
+            
             const { data: groups } = await _supabase.from('chat_rooms').select('*');
             
             const groupMount = document.getElementById('chat-rooms-mount');
