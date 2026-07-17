@@ -10,10 +10,11 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icon.png", "sw.js"],
+      includeAssets: ["icon.png"],
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webp}"],
         navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/webhook-chat/],
       },
       manifest: {
         name: "Alumni Inner Circle",
@@ -25,10 +26,51 @@ export default defineConfig({
         orientation: "portrait-primary",
         scope: "/",
         start_url: "/",
+        categories: ["social", "education"],
         icons: [
           {
             src: "/icon.png",
+            sizes: "48x48",
+            type: "image/png",
+          },
+          {
+            src: "/icon.png",
+            sizes: "72x72",
+            type: "image/png",
+          },
+          {
+            src: "/icon.png",
+            sizes: "96x96",
+            type: "image/png",
+          },
+          {
+            src: "/icon.png",
+            sizes: "128x128",
+            type: "image/png",
+          },
+          {
+            src: "/icon.png",
+            sizes: "144x144",
+            type: "image/png",
+          },
+          {
+            src: "/icon.png",
+            sizes: "152x152",
+            type: "image/png",
+          },
+          {
+            src: "/icon.png",
             sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "/icon.png",
+            sizes: "256x256",
+            type: "image/png",
+          },
+          {
+            src: "/icon.png",
+            sizes: "384x384",
             type: "image/png",
           },
           {

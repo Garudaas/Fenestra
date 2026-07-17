@@ -1,5 +1,7 @@
 export const VAPID_PUBLIC_KEY = 'BEfci1SY-xyIq3MtS10Q1kibOKAk2ijtyR3zlLBJz48o5mYUeL5Olmpj6ah-TGMx29fS3DJwPc5DT9E2lFR-KVU'
 
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
 export const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
