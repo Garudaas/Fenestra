@@ -17,10 +17,10 @@ export default function LandingPage() {
       <Card className="relative w-full max-w-md border-border/50 bg-card/80 backdrop-blur-xl shadow-2xl shadow-black/40">
         <CardHeader className="text-center space-y-4 pb-2">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border gold-border bg-background/50 p-1 shadow-lg animate-glow">
-            <img src="/icon.png" alt="Alumni Inner Circle" className="h-full w-full rounded-xl object-contain" />
+            <img src="/icon.png" alt="Fenestrians" className="h-full w-full rounded-xl object-contain" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold tracking-tight text-primary">Alumni Inner Circle</CardTitle>
+            <CardTitle className="text-2xl font-bold tracking-tight text-primary">Fenestrians</CardTitle>
             <CardDescription className="mt-1 text-muted-foreground">Private and secure network for classmates</CardDescription>
           </div>
         </CardHeader>

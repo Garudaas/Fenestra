@@ -88,7 +88,7 @@ export default function MemberDashboard() {
               <img src="/icon.png" alt="Logo" className="h-full w-full rounded-md object-contain" />
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-sm font-bold text-primary leading-tight">Alumni Inner Circle</h1>
+              <h1 className="text-sm font-bold text-primary leading-tight">Fenestrians</h1>
               <p className="text-[10px] text-muted-foreground">Exclusive Network</p>
             </div>
           </div>
