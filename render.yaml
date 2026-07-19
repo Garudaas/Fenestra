@@ -1,7 +1,7 @@
 services:
   # Backend: Push Notification Server
   - type: web
-    name: Fenestrians
+    name: fenestrians-server    # Changed from Fenestrians
     runtime: node
     rootDir: ./server
     buildCommand: npm install
