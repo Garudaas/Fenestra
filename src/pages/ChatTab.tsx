@@ -559,6 +559,8 @@ export default function ChatTab() {
 }
 
 function MessageBubble({ msg, isMe, reactions, userId, onReact, onTranslate, onCopy, onReply, onForward, onEdit, onDelete, onMention, onDM, reactionPickerOpen, onOpenReactionPicker, onPollVote, onRsvp, currentUserName, currentUserNickname }: any) {
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+
   const renderContent = () => {
     const text = msg.message_text
 
@@ -637,10 +639,16 @@ function MessageBubble({ msg, isMe, reactions, userId, onReact, onTranslate, onC
             <button onClick={onDM} className="inline-flex h-4 w-4 items-center justify-center rounded border border-primary/20 bg-primary/5 text-primary/70 transition-all hover:scale-110 hover:border-primary/40 hover:bg-primary/15 hover:text-primary hover:shadow-sm hover:shadow-primary/10" title="Direct Message">
               <MessageSquare className="h-2.5 w-2.5" />
             </button>
+            <button onClick={onReply} className="inline-flex h-4 w-4 items-center justify-center rounded hover:text-primary" title="Reply">
+                <Hash className="h-2.5 w-2.5" />
+            </button>
           </span>
         )}
         {isMe && <span className="font-bold">{msg.sender_name}</span>}
-        <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
+        
+        <button onClick={() => setShowMobileMenu(!showMobileMenu)} className="md:hidden ml-auto px-1 font-bold">⋮</button>
+
+        <div className={`flex items-center gap-1 transition ${showMobileMenu ? 'opacity-100 flex-wrap' : 'opacity-0 md:group-hover:opacity-100'}`}>
           <button onClick={onOpenReactionPicker} className="transition hover:text-primary"><Smile className="h-3 w-3" /></button>
           <button onClick={onTranslate} className="transition hover:text-primary"><Globe className="h-3 w-3" /></button>
           <button onClick={onCopy} className="transition hover:text-foreground"><Copy className="h-3 w-3" /></button>
