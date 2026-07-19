@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .or(`custom_username.ilike.${identifier},email.ilike.${identifier},contact_number.eq.${identifier}`)
       .eq('custom_password', password)
       .eq('is_placeholder', false)
-      .single()
+      .maybeSingle() // Fixed
 
     if (data) {
       setUser(data)
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq('custom_username', username)
       .eq('custom_password', password)
       .eq('is_admin', true)
-      .single()
+      .maybeSingle() // Fixed
 
     if (data) {
       setUser(data)
@@ -100,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('*')
       .eq('placeholder_code', code)
       .eq('is_placeholder', true)
-      .single()
+      .maybeSingle() // Fixed
 
     if (!slot) {
       return { success: false, error: 'Invalid Passcode.' }
