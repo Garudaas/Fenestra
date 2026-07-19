@@ -310,7 +310,7 @@ export default function ChatTab() {
 
   const handleRsvp = async (eventTitle: string, status: string) => {
     if (!user) return
-    const { data: ev } = await supabase.from('calendar_events').select('id').eq('title', eventTitle).single()
+    const { data: ev } = await supabase.from('calendar_events').select('id').eq('title', eventTitle).maybeSingle()
     if (ev) {
       await supabase.from('event_rsvps').delete().eq('event_id', ev.id).eq('alumni_id', user.id)
       await supabase.from('event_rsvps').insert([{ event_id: ev.id, alumni_id: user.id, status }])
