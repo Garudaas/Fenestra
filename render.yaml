@@ -1,7 +1,7 @@
 services:
   # Backend: Push Notification Server
   - type: web
-    name: fenestrians-server    # Changed from Fenestrians
+    name: fenestrians-server
     runtime: node
     rootDir: ./server
     buildCommand: npm install
@@ -13,9 +13,8 @@ services:
         value: production
 
   # Frontend: Static Site
-  - type: web
-    name: Fenestrians-App    # Changed from Fenestrians
-    runtime: static
+  - type: static
+    name: Fenestrians-App
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     headers:
