@@ -1,7 +1,7 @@
 services:
   # Backend: Push Notification Server
   - type: web
-    name: alumni-notification-server
+    name: Fenestrians
     runtime: node
     rootDir: ./server
     buildCommand: npm install
@@ -14,7 +14,7 @@ services:
 
   # Frontend: Static Site
   - type: web
-    name: alumni-inner-circle
+    name: Fenestrians
     runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
