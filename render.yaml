@@ -14,7 +14,7 @@ services:
 
   # Frontend: Static Site
   - type: web
-    name: Fenestrians
+    name: Fenestrians-App    # Changed from Fenestrians
     runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
