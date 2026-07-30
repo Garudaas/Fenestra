@@ -58,9 +58,6 @@ export default function ProfileTab() {
         .eq('id', user.id)
         .single()
         
-      console.log("Database Error:", error)
-      console.log("Fetched Data:", data)
-        
       if (data && !error) {
         hydrate({ ...user, ...data }) 
       } else {
@@ -91,9 +88,9 @@ export default function ProfileTab() {
     setHidePeers(d.hide_from_peers || false)
     setHideAdmin(d.hide_from_admin || false)
 
-    // Hydrate credentials
-    setCurrentUsername(d.username || '')
-    setCurrentPassword(d.password || '')
+    // Hydrate credentials using correct DB column names
+    setCurrentUsername(d.custom_username || '')
+    setCurrentPassword(d.custom_password || '')
 
     const cRaw = d.contact_number || ''
     const cParts = cRaw.split(' ')
@@ -149,8 +146,9 @@ export default function ProfileTab() {
       hide_from_admin: hideAdmin,
     }
 
-    if (newUsername.trim()) updatePayload.username = newUsername.trim()
-    if (newPassword) updatePayload.password = newPassword
+    // Save to the correct DB column names
+    if (newUsername.trim()) updatePayload.custom_username = newUsername.trim()
+    if (newPassword) updatePayload.custom_password = newPassword
 
     const { error } = await supabase.from('alumni').update(updatePayload).eq('id', user.id)
     
