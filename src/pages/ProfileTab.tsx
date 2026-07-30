@@ -9,10 +9,12 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import CameraModal from '@/components/shared/CameraModal'
 import { readFileAsDataURL } from '@/lib/helpers'
-import { User, Camera, Upload, MapPin, Heart, Shield, EyeOff, Save } from 'lucide-react'
+import { User, Camera, Upload, MapPin, Heart, Shield, EyeOff, Eye, Lock, Save } from 'lucide-react'
 
 export default function ProfileTab() {
   const { user } = useAuth()
+  
+  // Existing states
   const [nickname, setNickname] = useState('')
   const [blood, setBlood] = useState('')
   const [status, setStatus] = useState('Employed')
@@ -36,11 +38,22 @@ export default function ProfileTab() {
   const [waNum, setWaNum] = useState('')
   const [showCamera, setShowCamera] = useState(false)
 
+  // Credentials states
+  const [currentUsername, setCurrentUsername] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newUsername, setNewUsername] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showNewPass, setShowNewPass] = useState(false)
+  const [showConfirmPass, setShowConfirmPass] = useState(false)
+
   useEffect(() => {
     if (user) hydrate(user)
   }, [user])
 
   const hydrate = (d: any) => {
+    // Hydrate existing fields
     setNickname(d.class_nickname || '')
     setBlood(d.blood_group || '')
     setStatus(d.current_status || 'Employed')
@@ -58,6 +71,10 @@ export default function ProfileTab() {
     setDiary(d.diary_logs || '')
     setHidePeers(d.hide_from_peers || false)
     setHideAdmin(d.hide_from_admin || false)
+
+    // Hydrate credentials
+    setCurrentUsername(d.username || '')
+    setCurrentPassword(d.password || '')
 
     const cRaw = d.contact_number || ''
     const cParts = cRaw.split(' ')
@@ -82,10 +99,16 @@ export default function ProfileTab() {
 
   const handleSave = async () => {
     if (!user) return
+
+    if (newPassword && newPassword !== confirmPassword) {
+      alert('New passwords do not match. Please retype carefully.')
+      return
+    }
+
     const finalWA = waNum ? `${waCC} ${waNum}` : ''
     const finalPh = phoneNum ? `${phoneCC} ${phoneNum}` : ''
 
-    await supabase.from('alumni').update({
+    const updatePayload: any = {
       class_nickname: nickname,
       whatsapp_number: finalWA,
       contact_number: finalPh,
@@ -105,8 +128,23 @@ export default function ProfileTab() {
       diary_logs: diary,
       hide_from_peers: hidePeers,
       hide_from_admin: hideAdmin,
-    }).eq('id', user.id)
-    alert('Profile Updated')
+    }
+
+    if (newUsername.trim()) updatePayload.username = newUsername.trim()
+    if (newPassword) updatePayload.password = newPassword
+
+    const { error } = await supabase.from('alumni').update(updatePayload).eq('id', user.id)
+    
+    if (error) {
+      alert('Error updating profile: ' + error.message)
+    } else {
+      alert('Profile Updated Successfully')
+      if (newUsername.trim()) setCurrentUsername(newUsername.trim())
+      if (newPassword) setCurrentPassword(newPassword)
+      setNewUsername('')
+      setNewPassword('')
+      setConfirmPassword('')
+    }
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,6 +166,54 @@ export default function ProfileTab() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
+        
+        {/* Credentials Section */}
+        <h3 className="flex items-center gap-2 font-bold text-primary">
+          <Lock className="h-4 w-4" />
+          Account Credentials
+        </h3>
+        <div className="space-y-3 rounded-lg border border-border/50 bg-background/40 p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Current Username: <strong>{currentUsername}</strong></span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Current Password:</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-mono">{showPassword ? currentPassword : '••••••••'}</span>
+              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setShowPassword(!showPassword)}>
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          <hr className="border-border/30 my-2" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="col-span-1 md:col-span-2">
+              <Label>Update Username</Label>
+              <Input value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="Leave blank to keep current" className="mt-1" />
+            </div>
+            <div>
+              <Label>Update Password</Label>
+              <div className="relative mt-1">
+                <Input type={showNewPass ? 'text' : 'password'} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New Password" />
+                <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 h-7 w-7 p-0" onClick={() => setShowNewPass(!showNewPass)}>
+                  {showNewPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+            </div>
+            <div>
+              <Label>Retype New Password</Label>
+              <div className="relative mt-1">
+                <Input type={showConfirmPass ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Confirm New Password" />
+                <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 h-7 w-7 p-0" onClick={() => setShowConfirmPass(!showConfirmPass)}>
+                  {showConfirmPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <hr className="border-border/30" />
+
         <div className="grid grid-cols-2 gap-3">
           <div><Label>Nickname</Label><Input value={nickname} onChange={e => setNickname(e.target.value)} className="mt-1" /></div>
           <div><Label>Blood Group</Label><Input value={blood} onChange={e => setBlood(e.target.value)} className="mt-1" /></div>
