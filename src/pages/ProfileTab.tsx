@@ -68,7 +68,13 @@ export default function ProfileTab() {
     fetchLatestProfile()
   }, [user])
 
-  const hydrate = (d: any) => {
+  const hydrate = (d) => {
+    console.log("Hydrating UI with Username:", d.custom_username, "Password:", d.custom_password)
+    
+    // Hydrate credentials using correct DB column names
+    setCurrentUsername(d.custom_username || '')
+    setCurrentPassword(d.custom_password || '')
+
     // Hydrate existing fields
     setNickname(d.class_nickname || '')
     setBlood(d.blood_group || '')
@@ -87,10 +93,6 @@ export default function ProfileTab() {
     setDiary(d.diary_logs || '')
     setHidePeers(d.hide_from_peers || false)
     setHideAdmin(d.hide_from_admin || false)
-
-    // Hydrate credentials using correct DB column names
-    setCurrentUsername(d.custom_username || '')
-    setCurrentPassword(d.custom_password || '')
 
     const cRaw = d.contact_number || ''
     const cParts = cRaw.split(' ')
@@ -124,7 +126,7 @@ export default function ProfileTab() {
     const finalWA = waNum ? `${waCC} ${waNum}` : ''
     const finalPh = phoneNum ? `${phoneCC} ${phoneNum}` : ''
 
-    const updatePayload: any = {
+    const updatePayload = {
       class_nickname: nickname,
       whatsapp_number: finalWA,
       contact_number: finalPh,
@@ -164,7 +166,7 @@ export default function ProfileTab() {
     }
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files?.[0]
     if (file) {
       const data = await readFileAsDataURL(file)
