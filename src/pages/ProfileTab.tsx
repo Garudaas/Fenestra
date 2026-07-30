@@ -69,11 +69,9 @@ export default function ProfileTab() {
   }, [user])
 
   const hydrate = (d: any) => {
-    // Hydrate credentials using correct DB column names
     setCurrentUsername(d.custom_username || '')
     setCurrentPassword(d.custom_password || '')
 
-    // Hydrate existing fields
     setNickname(d.class_nickname || '')
     setBlood(d.blood_group || '')
     setStatus(d.current_status || 'Employed')
@@ -117,7 +115,7 @@ export default function ProfileTab() {
     if (!user) return
 
     if (newPassword && newPassword !== confirmPassword) {
-      alert('New passwords do not match. Please retype carefully.')
+      alert('New passwords do not match. Please resolve the error before saving.')
       return
     }
 
@@ -146,7 +144,6 @@ export default function ProfileTab() {
       hide_from_admin: hideAdmin,
     }
 
-    // Save to the correct DB column names
     if (newUsername.trim()) updatePayload.custom_username = newUsername.trim()
     if (newPassword) updatePayload.custom_password = newPassword
 
@@ -171,8 +168,6 @@ export default function ProfileTab() {
       setPic(data)
     }
   }
-
-  const isPasswordMismatch = confirmPassword.length > 0 && newPassword !== confirmPassword
 
   if (!user) return null
 
@@ -247,13 +242,13 @@ export default function ProfileTab() {
                   value={confirmPassword} 
                   onChange={e => setConfirmPassword(e.target.value)} 
                   placeholder="Confirm New Password" 
-                  className={isPasswordMismatch ? "border-red-500 focus-visible:ring-red-500" : ""}
+                  className={confirmPassword && newPassword !== confirmPassword ? "border-red-500 focus-visible:ring-red-500" : ""}
                 />
                 <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 h-7 w-7 p-0" onClick={() => setShowConfirmPass(!showConfirmPass)}>
                   {showConfirmPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                 </Button>
               </div>
-              {isPasswordMismatch && (
+              {confirmPassword && newPassword !== confirmPassword && (
                 <p className="mt-1 text-xs text-red-500 font-medium">Passwords do not match</p>
               )}
             </div>
@@ -373,11 +368,7 @@ export default function ProfileTab() {
           </label>
         </div>
 
-        <Button 
-          onClick={handleSave} 
-          disabled={isPasswordMismatch}
-          className="w-full gold-gradient text-gold-foreground gap-2"
-        >
+        <Button onClick={handleSave} className="w-full gold-gradient text-gold-foreground gap-2">
           <Save className="h-4 w-4" />
           Save Profile Settings
         </Button>
