@@ -1,3 +1,83 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { UserPlus, Eye, EyeOff, LogIn } from 'lucide-react'
+
+export function MemberLoginPage() {
+  const [identifier, setIdentifier] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPass, setShowPass] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const { login } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogin = async () => {
+    if (!identifier || !password) {
+      alert('Please fill in both fields')
+      return
+    }
+    setLoading(true)
+    const result = await login(identifier, password)
+    setLoading(false)
+    if (result.success) {
+      navigate('/dashboard')
+    } else {
+      alert(result.error)
+    }
+  }
+
+  return (
+    <div className="flex min-h-svh items-center justify-center p-6 relative overflow-hidden">
+      <div className="absolute inset-0 royal-gradient" />
+      <Card className="relative w-full max-w-md border-border/50 bg-card/80 backdrop-blur-xl shadow-2xl shadow-black/40">
+        <CardHeader className="text-center space-y-3">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-primary/30 bg-primary/10">
+            <LogIn className="h-5 w-5 text-primary" />
+          </div>
+          <CardTitle className="text-xl text-primary">Member Login</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Input
+            placeholder="Username"
+            value={identifier}
+            onChange={e => setIdentifier(e.target.value)}
+            className="bg-input/50 border-border/50"
+          />
+          <div className="relative">
+            <Input
+              type={showPass ? 'text' : 'password'}
+              placeholder="Password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="bg-input/50 border-border/50 pr-10"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground"
+              onClick={() => setShowPass(!showPass)}
+            >
+              {showPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            </Button>
+          </div>
+          <Button onClick={handleLogin} className="w-full gold-gradient text-gold-foreground font-semibold shadow-lg" disabled={loading}>
+            {loading ? 'Logging in...' : 'Login'}
+          </Button>
+          <div className="text-center mt-4">
+            <Button variant="link" onClick={() => navigate('/register')} className="text-sm text-muted-foreground">
+              First time? Register here
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export function RegisterPage() {
   const [code, setCode] = useState('')
   const [username, setUsername] = useState('')
