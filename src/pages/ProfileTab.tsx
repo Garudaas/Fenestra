@@ -52,15 +52,17 @@ export default function ProfileTab() {
     const fetchLatestProfile = async () => {
       if (!user) return
       
-      // Fetch full record directly from the database to ensure username/password are pulled
       const { data, error } = await supabase
         .from('alumni')
         .select('*')
         .eq('id', user.id)
         .single()
         
+      console.log("Database Error:", error)
+      console.log("Fetched Data:", data)
+        
       if (data && !error) {
-        hydrate(data)
+        hydrate({ ...user, ...data }) 
       } else {
         hydrate(user)
       }
