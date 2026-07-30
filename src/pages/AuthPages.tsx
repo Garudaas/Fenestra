@@ -211,12 +211,26 @@ export function RegisterPage() {
               {showPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             </Button>
           </div>
-          <div className="relative">
-            <Input type={showConfirmPass ? 'text' : 'password'} placeholder="Retype Password *" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="bg-input/50 border-border/50 pr-10" />
-            <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground" onClick={() => setShowConfirmPass(!showConfirmPass)}>
-              {showConfirmPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-            </Button>
+          
+          {/* Updated Retype Password Field with Real-time Check */}
+          <div>
+            <div className="relative">
+              <Input 
+                type={showConfirmPass ? 'text' : 'password'} 
+                placeholder="Retype Password *" 
+                value={confirmPassword} 
+                onChange={e => setConfirmPassword(e.target.value)} 
+                className={confirmPassword && password !== confirmPassword ? "bg-input/50 border-red-500 focus-visible:ring-red-500 pr-10" : "bg-input/50 border-border/50 pr-10"} 
+              />
+              <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground" onClick={() => setShowConfirmPass(!showConfirmPass)}>
+                {showConfirmPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+            {confirmPassword && password !== confirmPassword && (
+              <p className="mt-1 text-xs text-red-500 font-medium px-1">Passwords do not match</p>
+            )}
           </div>
+
           <div className="border-t border-border/30 my-1" />
           <Input placeholder="Full Name *" value={name} onChange={e => setName(e.target.value)} className="bg-input/50 border-border/50" />
           <select value={gender} onChange={e => setGender(e.target.value)} className="w-full rounded-lg border border-border/50 bg-input/50 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50">
