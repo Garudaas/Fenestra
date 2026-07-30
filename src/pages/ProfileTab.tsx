@@ -172,6 +172,8 @@ export default function ProfileTab() {
     }
   }
 
+  const isPasswordMismatch = confirmPassword.length > 0 && newPassword !== confirmPassword
+
   if (!user) return null
 
   return (
@@ -240,11 +242,20 @@ export default function ProfileTab() {
             <div>
               <Label>Retype New Password</Label>
               <div className="relative mt-1">
-                <Input type={showConfirmPass ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Confirm New Password" />
+                <Input 
+                  type={showConfirmPass ? 'text' : 'password'} 
+                  value={confirmPassword} 
+                  onChange={e => setConfirmPassword(e.target.value)} 
+                  placeholder="Confirm New Password" 
+                  className={isPasswordMismatch ? "border-red-500 focus-visible:ring-red-500" : ""}
+                />
                 <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 h-7 w-7 p-0" onClick={() => setShowConfirmPass(!showConfirmPass)}>
                   {showConfirmPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                 </Button>
               </div>
+              {isPasswordMismatch && (
+                <p className="mt-1 text-xs text-red-500 font-medium">Passwords do not match</p>
+              )}
             </div>
           </div>
         </div>
@@ -362,7 +373,11 @@ export default function ProfileTab() {
           </label>
         </div>
 
-        <Button onClick={handleSave} className="w-full gold-gradient text-gold-foreground gap-2">
+        <Button 
+          onClick={handleSave} 
+          disabled={isPasswordMismatch}
+          className="w-full gold-gradient text-gold-foreground gap-2"
+        >
           <Save className="h-4 w-4" />
           Save Profile Settings
         </Button>
