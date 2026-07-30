@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -68,9 +68,7 @@ export default function ProfileTab() {
     fetchLatestProfile()
   }, [user])
 
-  const hydrate = (d) => {
-    console.log("Hydrating UI with Username:", d.custom_username, "Password:", d.custom_password)
-    
+  const hydrate = (d: any) => {
     // Hydrate credentials using correct DB column names
     setCurrentUsername(d.custom_username || '')
     setCurrentPassword(d.custom_password || '')
@@ -126,7 +124,7 @@ export default function ProfileTab() {
     const finalWA = waNum ? `${waCC} ${waNum}` : ''
     const finalPh = phoneNum ? `${phoneCC} ${phoneNum}` : ''
 
-    const updatePayload = {
+    const updatePayload: any = {
       class_nickname: nickname,
       whatsapp_number: finalWA,
       contact_number: finalPh,
@@ -166,7 +164,7 @@ export default function ProfileTab() {
     }
   }
 
-  const handleFileUpload = async (e) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       const data = await readFileAsDataURL(file)
