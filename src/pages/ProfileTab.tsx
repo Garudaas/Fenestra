@@ -49,7 +49,24 @@ export default function ProfileTab() {
   const [showConfirmPass, setShowConfirmPass] = useState(false)
 
   useEffect(() => {
-    if (user) hydrate(user)
+    const fetchLatestProfile = async () => {
+      if (!user) return
+      
+      // Fetch full record directly from the database to ensure username/password are pulled
+      const { data, error } = await supabase
+        .from('alumni')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+        
+      if (data && !error) {
+        hydrate(data)
+      } else {
+        hydrate(user)
+      }
+    }
+
+    fetchLatestProfile()
   }, [user])
 
   const hydrate = (d: any) => {
