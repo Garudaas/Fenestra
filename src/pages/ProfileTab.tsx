@@ -173,16 +173,36 @@ export default function ProfileTab() {
           Account Credentials
         </h3>
         <div className="space-y-3 rounded-lg border border-border/50 bg-background/40 p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Current Username: <strong>{currentUsername}</strong></span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Current Password:</span>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-mono">{showPassword ? currentPassword : '••••••••'}</span>
-              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setShowPassword(!showPassword)}>
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label>Current Username</Label>
+              <Input 
+                value={currentUsername} 
+                readOnly 
+                className="mt-1 bg-input/30 text-muted-foreground" 
+                placeholder="No username set" 
+              />
+            </div>
+            <div>
+              <Label>Current Password</Label>
+              <div className="relative mt-1">
+                <Input 
+                  type={showPassword ? 'text' : 'password'} 
+                  value={currentPassword} 
+                  readOnly 
+                  className="bg-input/30 text-muted-foreground pr-10" 
+                  placeholder="No password set" 
+                />
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="sm" 
+                  className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground" 
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
             </div>
           </div>
           <hr className="border-border/30 my-2" />
