@@ -12,12 +12,40 @@ app.use(bodyParser.json());
 const supabase = createClient('https://dojlbfnfhkfltlxggxiy.supabase.co', 'sb_publishable_CmCFzsQ_L8dk7NxUmIVZ0g_pl_jq0fV');
 
 const vapidKeys = {
-  publicKey: 'BEfci1SY-xyIq3MtS10Q1kibOKAk2ijtyR3zlLBJz48o5mYUeL5Olmpj6ah-TGMx29fS3DJwPc5DT9E2lFR-KVU',
-  privateKey: '7Qmkx7tMlxVKJVCEZZm5o8l0Kx2x-G983q8zUzXuWcY'
+  publicKey: 'BE2kBYowcgm6plSQzZzQi4wqYgnwMc2L9QgPKNcbk6ns41WWtf9v0UjCB9c5wp6-q-KB2ZwZC42E0kQwj6zKjLc',
+  privateKey: 'FqTllc1bnS_v_oMX2cCSrJV-oEFT1No_F1rHbx4PrEs'
 };
 
-webpush.setVapidDetails('mailto:admin@your-alumni-network.com', vapidKeys.publicKey, vapidKeys.privateKey);
+webpush.setVapidDetails('mailto:eagle.garudaa@gmail.com', vapidKeys.publicKey, vapidKeys.privateKey);
 
+// Endpoint to save new device subscriptions from the frontend
+app.post('/api/notifications/subscribe', async (req, res) => {
+  const subscription = req.body;
+  const { error } = await supabase.from('push_subscriptions').insert([{ sub_data: subscription }]);
+  
+  if (error) return res.status(500).json({ error: 'Failed to save subscription' });
+  res.status(201).json({ success: true });
+});
+
+// Endpoint to trigger custom event/online/birthday notifications
+app.post('/api/notifications/send', async (req, res) => {
+  const { title, body, url } = req.body;
+  const { data: subs, error } = await supabase.from('push_subscriptions').select('*');
+  
+  if (error || !subs) return res.status(500).send('Error fetching subscriptions');
+
+  const pushPromises = subs.map(sub => {
+    return webpush.sendNotification(
+      sub.sub_data,
+      JSON.stringify({ title: title || 'Fenestrians Alert', body: body, url: url || '/' })
+    ).catch(() => console.log('Subscription likely expired.'));
+  });
+
+  await Promise.all(pushPromises);
+  res.status(200).json({ success: true, notifications_sent: pushPromises.length });
+});
+
+// Maintained your existing webhook for chat insertions
 app.post('/webhook-chat', async (req, res) => {
   const payload = req.body;
 
