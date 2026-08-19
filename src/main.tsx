@@ -13,8 +13,7 @@ async function subscribeToPushNotifications() {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        // We will replace this placeholder in the next step
-        applicationServerKey: 'YOUR_PUBLIC_VAPID_KEY_HERE' 
+        applicationServerKey: 'BE2kBYowcgm6plSQzZzQi4wqYgnwMc2L9QgPKNcbk6ns41WWtf9v0UjCB9c5wp6-q-KB2ZwZC42E0kQwj6zKjLc' 
       });
       
       await fetch('/api/notifications/subscribe', {
