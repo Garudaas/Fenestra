@@ -16,7 +16,7 @@ async function subscribeToPushNotifications() {
         applicationServerKey: 'BE2kBYowcgm6plSQzZzQi4wqYgnwMc2L9QgPKNcbk6ns41WWtf9v0UjCB9c5wp6-q-KB2ZwZC42E0kQwj6zKjLc' 
       });
       
-      await fetch('/api/notifications/subscribe', {
+      await fetch('https://alumni-notification-server-1.onrender.com/api/notifications/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(subscription)
