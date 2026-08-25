@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
-import { Users, Heart, Image, CalendarDays, MessageCircle, Phone, Video, User, Settings, LogOut, X, Crown } from 'lucide-react'
+import { Users, Heart, Image, CalendarDays, MessageCircle, Phone, Video, User, Settings, LogOut, X, Crown, Building2 } from 'lucide-react'
 import DirectoryTab from '@/pages/DirectoryTab'
 import ProfileTab from '@/pages/ProfileTab'
 import FamilyTab from '@/pages/FamilyTab'
@@ -67,7 +67,8 @@ export default function MemberDashboard() {
 
   if (!user) return null
 
-  const navItems: { id: TabName; label: string; icon: typeof Users; group: string }[] = [
+  const navItems: { id: string; label: string; icon: any; group: string }[] = [
+    { id: 'alumni', label: 'Alumni', icon: Building2, group: 'Network' },
     { id: 'directory', label: 'Directory', icon: Users, group: 'Network' },
     { id: 'family', label: 'Family', icon: Heart, group: 'Network' },
     { id: 'gallery', label: 'Gallery', icon: Image, group: 'Network' },
@@ -102,7 +103,13 @@ export default function MemberDashboard() {
                   size="sm"
                   variant={activeTab === item.id ? 'default' : 'ghost'}
                   className={`h-8 gap-1.5 px-2.5 text-xs transition-all duration-200 ${activeTab === item.id ? 'gold-gradient text-gold-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => {
+                    if (item.id === 'alumni') {
+                      navigate('/alumni-association')
+                    } else {
+                      setActiveTab(item.id as TabName)
+                    }
+                  }}
                 >
                   <Icon className="h-3.5 w-3.5" />
                   <span className="hidden lg:inline">{item.label}</span>
