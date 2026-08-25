@@ -9,12 +9,13 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      strategies: "injectManifest",
+      srcDir: "public",
+      filename: "sw.js",
       registerType: "autoUpdate",
       includeAssets: ["icon.png"],
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,webp}"],
-        navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/webhook-chat/],
+      injectManifest: {
+        injectionPoint: undefined,
       },
       manifest: {
         name: "Fenestrians",
