@@ -49,7 +49,7 @@ export default function DirectoryTab({ onStartDM, onStartVideoCall }: DirectoryT
   if (!user) return null
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-4 md:grid-cols-2">
+    <div className="mx-auto grid max-w-5xl gap-3 md:grid-cols-2">
       {members.map(m => {
         const memberFamily = familyData.filter(f => f.alumni_id === m.id)
         const isExpanded = expanded.has(m.id)
@@ -57,11 +57,11 @@ export default function DirectoryTab({ onStartDM, onStartVideoCall }: DirectoryT
 
         return (
           <Card key={m.id} className="overflow-hidden border-border/40 bg-card/60 backdrop-blur-sm transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
-            <div className="flex items-center gap-3 p-4">
+            <div className="flex items-center gap-2.5 p-2">
               {m.profile_picture_url ? (
-                <img src={m.profile_picture_url} className="h-12 w-12 rounded-full border-2 border-primary/20 object-cover shadow-md" alt="" />
+                <img src={m.profile_picture_url} className="h-9 w-9 rounded-full border-2 border-primary/20 object-cover shadow-md" alt="" />
               ) : (
-                <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-primary/20 bg-gradient-to-br from-primary/20 to-accent text-lg font-bold text-primary shadow-md">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-primary/20 bg-gradient-to-br from-primary/20 to-accent text-sm font-bold text-primary shadow-md">
                   {m.full_name?.[0] || '?'}
                 </div>
               )}
@@ -73,15 +73,15 @@ export default function DirectoryTab({ onStartDM, onStartVideoCall }: DirectoryT
                   {m.current_status || 'Member'}
                 </p>
                 {m.id !== user.id && (
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-primary/80 hover:text-primary hover:bg-primary/10" onClick={e => { e.stopPropagation(); onStartVideoCall(`DM-${Math.min(user.id, m.id)}-${Math.max(user.id, m.id)}`) }}>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <Button variant="ghost" size="sm" className="h-5 gap-1 px-1.5 text-[10px] text-primary/80 hover:text-primary hover:bg-primary/10" onClick={e => { e.stopPropagation(); onStartVideoCall(`DM-${Math.min(user.id, m.id)}-${Math.max(user.id, m.id)}`) }}>
                       <Video className="h-3 w-3" /> Call
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-emerald-500/80 hover:text-emerald-400 hover:bg-emerald-500/10" onClick={e => { e.stopPropagation(); onStartDM(m.id, m.full_name) }}>
+                    <Button variant="ghost" size="sm" className="h-5 gap-1 px-1.5 text-[10px] text-emerald-500/80 hover:text-emerald-400 hover:bg-emerald-500/10" onClick={e => { e.stopPropagation(); onStartDM(m.id, m.full_name) }}>
                       <MessageCircle className="h-3 w-3" /> DM
                     </Button>
                     {m.email && (
-                      <a href={`mailto:${m.email}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                      <a href={`mailto:${m.email}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
                         <Mail className="h-3 w-3" />
                       </a>
                     )}
@@ -94,7 +94,7 @@ export default function DirectoryTab({ onStartDM, onStartVideoCall }: DirectoryT
             </div>
 
             {isExpanded && (
-              <CardContent className="space-y-3 border-t border-border/30 bg-muted/20 pt-4 text-xs">
+              <CardContent className="space-y-3 border-t border-border/30 bg-muted/20 pt-3 pb-3 text-xs">
                 <div className="grid grid-cols-2 gap-2">
                   {m.whatsapp_number && (
                     <div className="flex items-center gap-1.5">
@@ -116,7 +116,7 @@ export default function DirectoryTab({ onStartDM, onStartVideoCall }: DirectoryT
                     </div>
                   )}
                 </div>
-                <div className="space-y-1.5 rounded-lg border border-border/30 bg-background/50 p-2.5">
+                <div className="space-y-1.5 rounded-lg border border-border/30 bg-background/50 p-2">
                   <div className="flex items-start gap-1.5">
                     <MapPin className="h-3 w-3 mt-0.5 text-muted-foreground" />
                     <div>
@@ -142,7 +142,7 @@ export default function DirectoryTab({ onStartDM, onStartVideoCall }: DirectoryT
                           return <div key={f.id} className="flex items-center gap-1.5 rounded border border-border/20 bg-muted/30 px-2 py-1 text-[11px] italic text-muted-foreground"><Lock className="h-3 w-3" /> Private {f.relationship}</div>
                         }
                         return (
-                          <div key={f.id} className="rounded border border-border/20 bg-muted/20 px-2.5 py-1.5">
+                          <div key={f.id} className="rounded border border-border/20 bg-muted/20 px-2 py-1.5">
                             <span className="font-semibold">{f.name}</span>
                             <Badge variant="outline" className="ml-1.5 text-[9px] px-1.5 py-0">{f.relationship}</Badge>
                             {f.blood_group && <span className="ml-2 text-muted-foreground">Blood: {f.blood_group}</span>}
