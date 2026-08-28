@@ -81,10 +81,10 @@ export default function MemberDashboard() {
   ]
 
   return (
-    <div className="flex min-h-svh flex-col bg-background">
+    <div className="flex min-h-svh flex-col bg-background overflow-x-hidden">
       <header className="sticky top-0 z-40 border-b border-border/50 bg-card/80 backdrop-blur-xl shadow-lg shadow-black/10">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2.5">
-          <div className="flex items-center gap-3">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-2.5">
+          <div className="flex shrink-0 items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg gold-border bg-background/50 p-0.5 shadow-md">
               <img src="/icon.png" alt="Logo" className="h-full w-full rounded-md object-contain" />
             </div>
@@ -94,7 +94,7 @@ export default function MemberDashboard() {
             </div>
           </div>
 
-          <nav className="flex items-center gap-1">
+          <nav className="flex flex-1 items-center gap-1 overflow-x-auto touch-pan-x pb-1 scrollbar-hide">
             {navItems.map(item => {
               const Icon = item.icon
               return (
@@ -102,7 +102,7 @@ export default function MemberDashboard() {
                   key={item.id}
                   size="sm"
                   variant={activeTab === item.id ? 'default' : 'ghost'}
-                  className={`h-8 gap-1.5 px-2.5 text-xs transition-all duration-200 ${activeTab === item.id ? 'gold-gradient text-gold-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
+                  className={`shrink-0 h-8 gap-1.5 px-2.5 text-xs transition-all duration-200 ${activeTab === item.id ? 'gold-gradient text-gold-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
                   onClick={() => {
                     if (item.id === 'alumni') {
                       navigate('/alumni-association')
@@ -116,8 +116,8 @@ export default function MemberDashboard() {
                 </Button>
               )
             })}
-            <div className="ml-2 h-6 w-px bg-border/50" />
-            <Button size="sm" variant="ghost" className="h-8 gap-1.5 px-2.5 text-xs text-destructive/80 hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>
+            <div className="ml-2 h-6 w-px shrink-0 bg-border/50" />
+            <Button size="sm" variant="ghost" className="shrink-0 h-8 gap-1.5 px-2.5 text-xs text-destructive/80 hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>
               <LogOut className="h-3.5 w-3.5" />
               <span className="hidden md:inline">Log Out</span>
             </Button>
