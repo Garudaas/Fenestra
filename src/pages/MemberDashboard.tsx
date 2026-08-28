@@ -81,8 +81,8 @@ export default function MemberDashboard() {
   ]
 
   return (
-    <div className="flex min-h-svh flex-col bg-background overflow-x-hidden">
-      <header className="sticky top-0 z-40 border-b border-border/50 bg-card/80 backdrop-blur-xl shadow-lg shadow-black/10">
+    <div className="flex min-h-svh flex-col bg-background pt-14 overflow-x-hidden">
+      <header className="fixed top-0 left-0 right-0 z-40 border-b border-border/50 bg-card/80 backdrop-blur-xl shadow-lg shadow-black/10">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-2.5">
           <div className="flex shrink-0 items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg gold-border bg-background/50 p-0.5 shadow-md">
