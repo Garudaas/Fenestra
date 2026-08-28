@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export interface AlumniUser {
@@ -46,17 +46,35 @@ const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AlumniUser | null>(() => {
-    const saved = localStorage.getItem('alumni_session')
-    return saved ? JSON.parse(saved) : null
-  })
-  const [isAdmin, setIsAdmin] = useState(() => {
-    const saved = localStorage.getItem('alumni_session')
-    if (saved) {
-      const parsed = JSON.parse(saved)
-      return parsed.is_admin || false
+    try {
+      const saved = localStorage.getItem('alumni_session')
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
     }
-    return false
   })
+  
+  const [isAdmin, setIsAdmin] = useState(() => {
+    try {
+      const saved = localStorage.getItem('alumni_session')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        return parsed.is_admin || false
+      }
+      return false
+    } catch {
+      return false
+    }
+  })
+
+  // Guarantee persistent storage stays synced with user state
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('alumni_session', JSON.stringify(user))
+    } else {
+      localStorage.removeItem('alumni_session')
+    }
+  }, [user])
 
   const login = useCallback(async (identifier: string, password: string) => {
     const { data, error } = await supabase
@@ -65,12 +83,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .or(`custom_username.ilike.${identifier},email.ilike.${identifier},contact_number.eq.${identifier}`)
       .eq('custom_password', password)
       .eq('is_placeholder', false)
-      .maybeSingle() // Fixed
+      .maybeSingle()
 
     if (data) {
       setUser(data)
       setIsAdmin(false)
-      localStorage.setItem('alumni_session', JSON.stringify(data))
       return { success: true }
     }
     return { success: false, error: error?.message || 'Login failed. Please check your credentials.' }
@@ -83,12 +100,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq('custom_username', username)
       .eq('custom_password', password)
       .eq('is_admin', true)
-      .maybeSingle() // Fixed
+      .maybeSingle()
 
     if (data) {
       setUser(data)
       setIsAdmin(true)
-      localStorage.setItem('alumni_session', JSON.stringify(data))
       return { success: true }
     }
     return { success: false, error: 'Access Denied.' }
@@ -100,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('*')
       .eq('placeholder_code', code)
       .eq('is_placeholder', true)
-      .maybeSingle() // Fixed
+      .maybeSingle()
 
     if (!slot) {
       return { success: false, error: 'Invalid Passcode.' }
@@ -129,7 +145,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setUser(null)
     setIsAdmin(false)
-    localStorage.removeItem('alumni_session')
   }, [])
 
   return (
