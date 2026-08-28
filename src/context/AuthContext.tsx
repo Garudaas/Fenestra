@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export interface AlumniUser {
@@ -67,15 +67,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   })
 
-  // Guarantee persistent storage stays synced with user state
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('alumni_session', JSON.stringify(user))
-    } else {
-      localStorage.removeItem('alumni_session')
-    }
-  }, [user])
-
   const login = useCallback(async (identifier: string, password: string) => {
     const { data, error } = await supabase
       .from('alumni')
@@ -88,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data) {
       setUser(data)
       setIsAdmin(false)
+      localStorage.setItem('alumni_session', JSON.stringify(data))
       return { success: true }
     }
     return { success: false, error: error?.message || 'Login failed. Please check your credentials.' }
@@ -105,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data) {
       setUser(data)
       setIsAdmin(true)
+      localStorage.setItem('alumni_session', JSON.stringify(data))
       return { success: true }
     }
     return { success: false, error: 'Access Denied.' }
@@ -145,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setUser(null)
     setIsAdmin(false)
+    localStorage.removeItem('alumni_session')
   }, [])
 
   return (
