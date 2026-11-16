@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import OneSignal from 'react-onesignal'
 import { AuthProvider } from '@/context/AuthContext'
 import LandingPage, { MemberLoginPage, AdminLoginPage, RegisterPage } from '@/pages/AuthPages'
 import MemberDashboard from '@/pages/MemberDashboard'
@@ -6,6 +8,18 @@ import AdminDashboard from '@/pages/AdminDashboard'
 import AlumniAssociationHome from '@/pages/AlumniAssociationHome'
 
 export function App() {
+  useEffect(() => {
+    const initOneSignal = async () => {
+      await OneSignal.init({
+        appId: "b7497f89-baee-4453-aed3-94e7380e7007",
+        allowLocalhostAsSecureOrigin: true
+      })
+      OneSignal.Slidedown.promptPush()
+    }
+    
+    initOneSignal()
+  }, [])
+
   return (
     <AuthProvider>
       <BrowserRouter>
