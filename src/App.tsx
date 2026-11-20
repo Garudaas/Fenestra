@@ -6,6 +6,7 @@ import LandingPage, { MemberLoginPage, AdminLoginPage, RegisterPage } from '@/pa
 import MemberDashboard from '@/pages/MemberDashboard'
 import AdminDashboard from '@/pages/AdminDashboard'
 import AlumniAssociationHome from '@/pages/AlumniAssociationHome'
+import InvitePage from '@/pages/InvitePage'
 
 export function App() {
   useEffect(() => {
@@ -18,6 +19,13 @@ export function App() {
     }
     
     initOneSignal()
+
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault()
+      ;(window as any).deferredInstallPrompt = e
+    }
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall)
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
   }, [])
 
   return (
@@ -27,6 +35,7 @@ export function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<MemberLoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/invite" element={<InvitePage />} />
           <Route path="/admin" element={<AdminLoginPage />} />
           <Route path="/dashboard" element={<MemberDashboard />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
