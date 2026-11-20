@@ -1,11 +1,19 @@
 {
-  "version": "V1.37",
-  "timestamp": "21 Nov 2026, 03:16 AM IST",
-  "formatted": "V1.37, 21 Nov 2026, 03:16 AM IST",
+  "version": "V1.38",
+  "timestamp": "21 Nov 2026, 03:18 AM IST",
+  "formatted": "V1.38, 21 Nov 2026, 03:18 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Update manifest.json with application ID)",
+  "summary": "Minor technical update (Add SmartAppLauncher route to App component)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.38",
+      "timestamp": "21 Nov 2026, 03:18 AM IST",
+      "formatted": "V1.38, 21 Nov 2026, 03:18 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Add SmartAppLauncher route to App component)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.37",
       "timestamp": "21 Nov 2026, 03:16 AM IST",
@@ -196,14 +204,6 @@
       "formatted": "V1.14, 21 Nov 2026, 01:52 AM IST",
       "type": "minor",
       "summary": "Minor general update (Implement privacy controls in SettingsTab)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.13",
-      "timestamp": "21 Nov 2026, 01:49 AM IST",
-      "formatted": "V1.13, 21 Nov 2026, 01:49 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add SplashScreen component to App)",
       "requiresReinstall": false
     }
   ]
