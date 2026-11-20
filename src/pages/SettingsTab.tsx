@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import OneSignal from 'react-onesignal'
 import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabase'
 import { APP_VERSION_INFO, type AppVersionData, type VersionEntry } from '@/lib/appVersion'
+import { getUserStorageUsage, formatBytes } from '@/lib/fenestriansCore'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -22,6 +24,8 @@ import {
   History,
   ChevronDown,
   ChevronUp,
+  Lock,
+  HardDrive,
 } from 'lucide-react'
 
 type CheckResultState =
@@ -47,12 +51,63 @@ export default function SettingsTab() {
       : [APP_VERSION_INFO]
   )
 
+  // Privacy & storage states
+  const [allowProfilePicDownload, setAllowProfilePicDownload] = useState(true)
+  const [allowMediaDownload, setAllowMediaDownload] = useState(true)
+  const [defaultMediaPrivate, setDefaultMediaPrivate] = useState(false)
+  const [savingPrivacy, setSavingPrivacy] = useState(false)
+  const [storageStats, setStorageStats] = useState({ usedBytes: 0, quotaMb: 100 })
+
   useEffect(() => {
     const saved = localStorage.getItem('pref_lang') || 'en'
     setLang(saved)
     checkOneSignalState()
     loadVersionHistory()
-  }, [])
+    if (user && !user.is_placeholder) {
+      loadPrivacyAndStorage(user.id)
+    }
+  }, [user])
+
+  const loadPrivacyAndStorage = async (userId: number) => {
+    const [{ data }, usage] = await Promise.all([
+      supabase
+        .from('alumni')
+        .select('allow_profile_pic_download, allow_media_download, default_media_private')
+        .eq('id', userId)
+        .maybeSingle(),
+      getUserStorageUsage(userId),
+    ])
+
+    if (data) {
+      setAllowProfilePicDownload(data.allow_profile_pic_download ?? true)
+      setAllowMediaDownload(data.allow_media_download ?? true)
+      setDefaultMediaPrivate(data.default_media_private ?? false)
+    }
+    setStorageStats({ usedBytes: usage.usedBytes, quotaMb: usage.quotaMb })
+  }
+
+  const handleSavePrivacy = async (
+    nextProfilePic: boolean,
+    nextMediaDl: boolean,
+    nextDefaultPriv: boolean
+  ) => {
+    if (!user) return
+    setAllowProfilePicDownload(nextProfilePic)
+    setAllowMediaDownload(nextMediaDl)
+    setDefaultMediaPrivate(nextDefaultPriv)
+    setSavingPrivacy(true)
+
+    await supabase
+      .from('alumni')
+      .update({
+        allow_profile_pic_download: nextProfilePic,
+        allow_media_download: nextMediaDl,
+        default_media_private: nextDefaultPriv,
+      })
+      .eq('id', user.id)
+
+    setSavingPrivacy(false)
+  }
 
   const loadVersionHistory = async () => {
     try {
@@ -64,7 +119,7 @@ export default function SettingsTab() {
         }
       }
     } catch {
-      // Keep bundled APP_VERSION_INFO.history fallback
+      // Fallback to bundled APP_VERSION_INFO.history
     }
   }
 
@@ -137,7 +192,7 @@ export default function SettingsTab() {
           return true
         }
       } catch {
-        // Ignore if unsupported by browser
+        // Ignore if unsupported
       }
     }
 
@@ -198,7 +253,7 @@ export default function SettingsTab() {
         await Promise.all(regs.map(r => r.update()))
       }
     } catch {
-      // Proceed to reload even if cache clear is partial
+      // Proceed to reload
     }
     window.location.reload()
   }
@@ -213,6 +268,88 @@ export default function SettingsTab() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Media & Profile Picture Privacy */}
+          {user && !user.is_placeholder && (
+            <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="flex items-center gap-2 font-bold text-primary">
+                  <Lock className="h-4 w-4" />
+                  Media &amp; Profile Picture Privacy
+                </h3>
+                <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+                  <HardDrive className="h-3.5 w-3.5 text-primary" />
+                  {formatBytes(storageStats.usedBytes)} / {storageStats.quotaMb} MB used
+                </span>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Control how other members can view, save, or capture your profile picture and shared files.
+              </p>
+
+              <div className="space-y-2.5 pt-1">
+                <label className="flex items-start gap-3 rounded-lg border border-border/30 bg-background/50 p-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allowProfilePicDownload}
+                    disabled={savingPrivacy}
+                    onChange={e =>
+                      handleSavePrivacy(e.target.checked, allowMediaDownload, defaultMediaPrivate)
+                    }
+                    className="mt-0.5 h-4 w-4 accent-amber-500"
+                  />
+                  <div className="text-xs">
+                    <p className="font-semibold text-foreground">
+                      Allow members to enlarge &amp; save my Profile Picture
+                    </p>
+                    <p className="text-muted-foreground">
+                      When turned off, members cannot save or download your profile photo from the Member Directory.
+                    </p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 rounded-lg border border-border/30 bg-background/50 p-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allowMediaDownload}
+                    disabled={savingPrivacy}
+                    onChange={e =>
+                      handleSavePrivacy(allowProfilePicDownload, e.target.checked, defaultMediaPrivate)
+                    }
+                    className="mt-0.5 h-4 w-4 accent-amber-500"
+                  />
+                  <div className="text-xs">
+                    <p className="font-semibold text-foreground">
+                      Allow members to download my shared Gallery &amp; Folder files
+                    </p>
+                    <p className="text-muted-foreground">
+                      When turned off, shared media is view-only without a download option.
+                    </p>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 rounded-lg border border-border/30 bg-background/50 p-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={defaultMediaPrivate}
+                    disabled={savingPrivacy}
+                    onChange={e =>
+                      handleSavePrivacy(allowProfilePicDownload, allowMediaDownload, e.target.checked)
+                    }
+                    className="mt-0.5 h-4 w-4 accent-amber-500"
+                  />
+                  <div className="text-xs">
+                    <p className="font-semibold text-foreground">
+                      Keep newly uploaded files &amp; media private by default
+                    </p>
+                    <p className="text-muted-foreground">
+                      Private files stay hidden from all members (and cannot be opened by admins, though storage space used is counted toward your quota).
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+          )}
+
           {/* App Installation, Updates & Version History */}
           <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
             <div className="flex items-center justify-between gap-2">
@@ -231,6 +368,7 @@ export default function SettingsTab() {
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
+                title="Check App Status & Updates"
                 onClick={handleCheckAppAndUpdates}
                 disabled={updateState.status === 'checking'}
                 variant="outline"
@@ -244,6 +382,7 @@ export default function SettingsTab() {
                 type="button"
                 variant="ghost"
                 size="sm"
+                title="View Update History"
                 onClick={() => setShowHistory(prev => !prev)}
                 className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
               >
@@ -253,7 +392,6 @@ export default function SettingsTab() {
               </Button>
             </div>
 
-            {/* Expandable Version History Log */}
             {showHistory && (
               <div className="space-y-2 rounded-lg border border-border/40 bg-background/70 p-3 max-h-64 overflow-y-auto">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-primary">
@@ -294,7 +432,6 @@ export default function SettingsTab() {
               </div>
             )}
 
-            {/* Case 1: App Not Installed */}
             {updateState.status === 'not-installed' && (
               <div className="space-y-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3.5">
                 <p className="text-xs font-semibold text-amber-200">
@@ -322,7 +459,6 @@ export default function SettingsTab() {
               </div>
             )}
 
-            {/* Case 2: Installed and Up to Date */}
             {updateState.status === 'up-to-date' && (
               <div className="space-y-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3.5">
                 <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-300">
@@ -338,7 +474,6 @@ export default function SettingsTab() {
               </div>
             )}
 
-            {/* Case 3: Update Available (Ask Permission) */}
             {updateState.status === 'update-available' && (
               <div className="space-y-2.5 rounded-lg border border-primary/40 bg-background/80 p-3.5">
                 <p className="text-xs font-bold text-primary">
@@ -360,130 +495,3 @@ export default function SettingsTab() {
                     size="sm"
                     disabled={applyingUpdate}
                     onClick={handleApplyUpdate}
-                    className="gold-gradient text-gold-foreground font-semibold"
-                  >
-                    {applyingUpdate ? 'Updating...' : 'Yes, Update Now'}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setUpdateState({ status: 'idle' })}
-                    className="text-xs"
-                  >
-                    Not Now
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Case 4: Reinstall Required */}
-            {updateState.status === 'reinstall-required' && (
-              <div className="space-y-2.5 rounded-lg border border-red-500/40 bg-red-500/10 p-3.5">
-                <p className="flex items-center gap-1.5 text-xs font-bold text-red-300">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  Reinstall Required for {updateState.latest.version}
-                </p>
-                <p className="text-xs text-foreground/90">
-                  {updateState.latest.summary} — Please reinstall the app icon by following these steps:
-                </p>
-                <ol className="list-decimal list-inside space-y-1 text-xs text-muted-foreground">
-                  <li>Press and hold the existing <span className="font-semibold text-foreground">Fenestrians</span> icon on your phone screen and tap <span className="font-semibold text-foreground">Uninstall</span> or <span className="font-semibold text-foreground">Remove</span>.</li>
-                  <li>Tap the button below to open the installation guide and add the updated app icon back to your screen.</li>
-                </ol>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => navigate('/install')}
-                  className="gold-gradient text-gold-foreground font-semibold"
-                >
-                  Open Reinstall Guide
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {user && !user.is_placeholder && (
-            <div className="space-y-2 rounded-xl border border-primary/30 bg-primary/5 p-4">
-              <h3 className="flex items-center gap-2 font-bold text-primary">
-                <UserPlus className="h-4 w-4" />
-                Invite a New Member
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Generate a phone install shortcut link and temporary passcode for a new friend to join Fenestrians.
-              </p>
-              <Button
-                onClick={() => navigate('/invite')}
-                className="gold-gradient text-gold-foreground font-semibold gap-1.5"
-              >
-                Create Member Invite
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
-
-          <div className="space-y-2.5 rounded-xl border border-border/30 bg-muted/20 p-4">
-            <h3 className="flex items-center gap-2 font-bold text-primary">
-              <Bell className="h-4 w-4" />
-              Push Notifications
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Receive birthday, anniversary, and new member alerts on this device.
-            </p>
-            {pushEnabled && (
-              <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-400">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Notifications are active on this device
-              </p>
-            )}
-            <Button
-              onClick={toggleAlerts}
-              disabled={alertLoading}
-              variant={pushEnabled ? 'outline' : 'default'}
-              className={pushEnabled ? '' : 'gold-gradient text-gold-foreground font-semibold'}
-            >
-              {alertLoading ? 'Updating...' : pushEnabled ? 'Disable Alerts on This Device' : 'Enable Alerts on This Device'}
-            </Button>
-          </div>
-
-          <div className="space-y-3 rounded-xl border border-border/30 bg-muted/20 p-4">
-            <h3 className="flex items-center gap-2 font-bold text-primary">
-              <Globe className="h-4 w-4" />
-              Chat &amp; Translation Preferences
-            </h3>
-            <div>
-              <Label>Default Translation Language</Label>
-              <select
-                value={lang}
-                onChange={e => saveLang(e.target.value)}
-                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-bold"
-              >
-                <option value="en">English (Default)</option>
-                <option value="ta">Tamil</option>
-                <option value="ml">Malayalam</option>
-              </select>
-              <p className="mt-2 text-[10px] italic text-muted-foreground">
-                Note: Chat hub voice messages are always enabled via the hybrid input system. You can freely type using English, Tamil, and Malayalam directly from your local keyboard.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-2 rounded-xl border border-border/30 bg-muted/20 p-4">
-            <h3 className="flex items-center gap-2 font-bold text-primary">
-              <Shield className="h-4 w-4" />
-              Voice &amp; Video Controls
-            </h3>
-            <p className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Mic className="h-3.5 w-3.5 shrink-0" />
-              All ecosystem calls are secured. Voice calls will automatically launch in audio-only mode.
-            </p>
-            <p className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Video className="h-3.5 w-3.5 shrink-0" />
-              Video calls require explicit camera permission per session.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
