@@ -1,0 +1,18 @@
+{
+  "version": "V1.00",
+  "timestamp": "20 Nov 2026, 11:10 PM IST",
+  "formatted": "V1.00, 20 Nov 2026, 11:10 PM IST",
+  "type": "major",
+  "summary": "App update checker and automatic version tracking added.",
+  "requiresReinstall": false,
+  "history": [
+    {
+      "version": "V1.00",
+      "timestamp": "20 Nov 2026, 11:10 PM IST",
+      "formatted": "V1.00, 20 Nov 2026, 11:10 PM IST",
+      "type": "major",
+      "summary": "App update checker and automatic version tracking added.",
+      "requiresReinstall": false
+    }
+  ]
+}
