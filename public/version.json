@@ -1,11 +1,19 @@
 {
-  "version": "V1.11",
-  "timestamp": "21 Nov 2026, 01:47 AM IST",
-  "formatted": "V1.11, 21 Nov 2026, 01:47 AM IST",
+  "version": "V1.12",
+  "timestamp": "21 Nov 2026, 01:48 AM IST",
+  "formatted": "V1.12, 21 Nov 2026, 01:48 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Create fenestriansCore.ts)",
+  "summary": "Minor general update (Add constants and functions for family and blood group management)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.12",
+      "timestamp": "21 Nov 2026, 01:48 AM IST",
+      "formatted": "V1.12, 21 Nov 2026, 01:48 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Add constants and functions for family and blood group management)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.11",
       "timestamp": "21 Nov 2026, 01:47 AM IST",
