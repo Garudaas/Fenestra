@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.29",
-  "timestamp": "21 Nov 2026, 02:18 AM IST",
-  "formatted": "V1.29, 21 Nov 2026, 02:18 AM IST",
+  "version": "V1.30",
+  "timestamp": "21 Nov 2026, 02:19 AM IST",
+  "formatted": "V1.30, 21 Nov 2026, 02:19 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Notification alerts updated)",
+  "summary": "Minor technical update (Add extra line in VoiceTab component)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.30",
+      "timestamp": "21 Nov 2026, 02:19 AM IST",
+      "formatted": "V1.30, 21 Nov 2026, 02:19 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Add extra line in VoiceTab component)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.29",
       "timestamp": "21 Nov 2026, 02:18 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.06, 21 Nov 2026, 12:42 AM IST",
       "type": "minor",
       "summary": "Minor general update (Add Notifications listing Page for user notifications)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.05",
-      "timestamp": "21 Nov 2026, 12:40 AM IST",
-      "formatted": "V1.05, 21 Nov 2026, 12:40 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Notification alerts updated)",
       "requiresReinstall": false
     }
   ]
