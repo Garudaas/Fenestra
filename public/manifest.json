@@ -1,7 +1,9 @@
 {
+  "id": "/",
   "name": "Fenestrians",
   "short_name": "Fenestrians",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
@@ -9,7 +11,8 @@
   "related_applications": [
     {
       "platform": "webapp",
-      "url": "https://fenestrians.salmaali.in/manifest.json"
+      "url": "https://fenestrians.salmaali.in/manifest.json",
+      "id": "/"
     }
   ],
   "icons": [
