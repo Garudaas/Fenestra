@@ -1,11 +1,19 @@
 {
-  "version": "V1.28",
-  "timestamp": "21 Nov 2026, 02:17 AM IST",
-  "formatted": "V1.28, 21 Nov 2026, 02:17 AM IST",
+  "version": "V1.29",
+  "timestamp": "21 Nov 2026, 02:18 AM IST",
+  "formatted": "V1.29, 21 Nov 2026, 02:18 AM IST",
   "type": "minor",
   "summary": "Minor general update (Notification alerts updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.29",
+      "timestamp": "21 Nov 2026, 02:18 AM IST",
+      "formatted": "V1.29, 21 Nov 2026, 02:18 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Notification alerts updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.28",
       "timestamp": "21 Nov 2026, 02:17 AM IST",
@@ -196,14 +204,6 @@
       "formatted": "V1.05, 21 Nov 2026, 12:40 AM IST",
       "type": "minor",
       "summary": "Minor general update (Notification alerts updated)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.04",
-      "timestamp": "21 Nov 2026, 12:06 AM IST",
-      "formatted": "V1.04, 21 Nov 2026, 12:06 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (V2 of Add detailed installation steps for Android and iPhone)",
       "requiresReinstall": false
     }
   ]
