@@ -1,0 +1,188 @@
+name: Auto Increment App Version
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  bump-version:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Calculate and update version files
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          node -e '
+          const fs = require("fs");
+
+          const rawMsg = (process.env.COMMIT_MSG || "App update").split("\n")[0].trim();
+          const versionFilePath = "public/version.json";
+          const tsFilePath = "src/lib/appVersion.ts";
+
+          let current = {
+            version: "V1.00",
+            timestamp: "",
+            formatted: "",
+            type: "major",
+            summary: "Initial version",
+            requiresReinstall: false,
+            history: []
+          };
+
+          if (fs.existsSync(versionFilePath)) {
+            current = JSON.parse(fs.readFileSync(versionFilePath, "utf8"));
+          }
+
+          const match = /^V(\d+)\.(\d{2})$/.exec(current.version || "V1.00");
+          let major = match ? parseInt(match[1], 10) : 1;
+          let minor = match ? parseInt(match[2], 10) : 0;
+
+          const isMajor = /^major\s*:/i.test(rawMsg) || /\[major\]/i.test(rawMsg);
+          const requiresReinstall = /\[reinstall\]/i.test(rawMsg);
+
+          let cleanedMsg = rawMsg
+            .replace(/^major\s*:\s*/i, "")
+            .replace(/\[major\]/gi, "")
+            .replace(/\[reinstall\]/gi, "")
+            .trim();
+
+          if (isMajor) {
+            major += 1;
+            minor = 0;
+          } else {
+            minor += 1;
+            if (minor > 99) {
+              major += 1;
+              minor = 0;
+            }
+          }
+
+          const newVersion = `V${major}.${String(minor).padStart(2, "0")}`;
+
+          const now = new Date();
+          const datePart = new Intl.DateTimeFormat("en-GB", {
+            timeZone: "Asia/Kolkata",
+            day: "2-digit",
+            month: "short",
+            year: "numeric"
+          }).format(now);
+          const timePart = new Intl.DateTimeFormat("en-US", {
+            timeZone: "Asia/Kolkata",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+          }).format(now);
+          const timestamp = `${datePart}, ${timePart} IST`;
+
+          function formatDescription(msg, majorFlag) {
+            if (majorFlag) {
+              return msg.charAt(0).toUpperCase() + msg.slice(1);
+            }
+
+            const lower = msg.toLowerCase();
+            const hasCodeJargon = /\.(tsx|ts|jsx|js|css|html|sql|yml|yaml)\b|\b(export|import|constraint|schema|async|await|useeffect|usestate|cors|api|endpoint|supabase|props|interface|regex|refactor|lint|tsc|vite|enum|null|undefined|payload|component)\b/i.test(msg);
+
+            const laymanRules = [
+              { test: /manifest.*icon|icon.*manifest|purpose.*icon|icon.*purpose/i, text: "App icon display changed" },
+              { test: /\bicon\b/i, text: "App icon appearance updated" },
+              { test: /\bbutton/i, text: "Button appearance or behavior updated" },
+              { test: /\b(color|colour|theme|style|css|ui|layout|spacing)\b/i, text: "Screen appearance and layout improved" },
+              { test: /\b(tamil|malayalam|language|translation|multilingual)\b/i, text: "Language and translation text updated" },
+              { test: /\b(invite|passcode)\b/i, text: "Member invitation steps updated" },
+              { test: /\b(notification|alert|onesignal|push)\b/i, text: "Notification alerts updated" },
+              { test: /\b(birthday|anniversary)\b/i, text: "Birthday and anniversary alerts updated" },
+              { test: /\b(gender|profile|name|dob|birth|wedding)\b/i, text: "Member profile details updated" },
+              { test: /\b(login|password|register|registration|sign.?up)\b/i, text: "Login and registration screen updated" },
+              { test: /\b(chat|message|voice|video|call)\b/i, text: "Chat and calling screen updated" },
+              { test: /\b(gallery|photo|image)\b/i, text: "Photo gallery updated" },
+              { test: /\b(setting|settings)\b/i, text: "Settings page updated" }
+            ];
+
+            if (!hasCodeJargon) {
+              for (const rule of laymanRules) {
+                if (rule.test.test(lower)) {
+                  return `Minor general update (${rule.text})`;
+                }
+              }
+              const plain = msg.charAt(0).toUpperCase() + msg.slice(1);
+              return `Minor general update (${plain})`;
+            }
+
+            return `Minor technical update (${msg})`;
+          }
+
+          const summary = formatDescription(cleanedMsg, isMajor);
+          const formatted = `${newVersion}, ${timestamp}`;
+
+          const entry = {
+            version: newVersion,
+            timestamp,
+            formatted,
+            type: isMajor ? "major" : "minor",
+            summary,
+            requiresReinstall
+          };
+
+          const history = [entry, ...(Array.isArray(current.history) ? current.history : [])].slice(0, 25);
+          const updatedData = { ...entry, history };
+
+          fs.mkdirSync("public", { recursive: true });
+          fs.mkdirSync("src/lib", { recursive: true });
+          fs.writeFileSync(versionFilePath, JSON.stringify(updatedData, null, 2) + "\n");
+
+          const tsContent = `export interface VersionEntry {
+  version: string
+  timestamp: string
+  formatted: string
+  type: \x27major\x27 | \x27minor\x27
+  summary: string
+  requiresReinstall: boolean
+}
+
+export interface AppVersionData extends VersionEntry {
+  history: VersionEntry[]
+}
+
+export const APP_VERSION_INFO: AppVersionData = ${JSON.stringify(updatedData, null, 2)}
+`;
+          fs.writeFileSync(tsFilePath, tsContent);
+
+          fetch("https://dojlbfnfhkfltlxggxiy.supabase.co/rest/v1/app_versions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": "sb_publishable_CmCFzsQ_L8dk7NxUmIVZ0g_pl_jq0fV",
+              "Authorization": "Bearer sb_publishable_CmCFzsQ_L8dk7NxUmIVZ0g_pl_jq0fV"
+            },
+            body: JSON.stringify({
+              version: newVersion,
+              formatted_label: formatted,
+              change_type: isMajor ? "major" : "minor",
+              summary,
+              requires_reinstall: requiresReinstall
+            })
+          }).catch(() => {});
+          '
+
+      - name: Commit updated version files
+        run: |
+          git config user.name "Fenestrians Version Bot"
+          git config user.email "actions@github.com"
+          git add public/version.json src/lib/appVersion.ts
+          git diff --staged --quiet || git commit -m "chore: update app version [skip ci]"
+          git push
