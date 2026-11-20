@@ -1,11 +1,19 @@
 {
-  "version": "V1.15",
-  "timestamp": "21 Nov 2026, 01:53 AM IST",
-  "formatted": "V1.15, 21 Nov 2026, 01:53 AM IST",
+  "version": "V1.16",
+  "timestamp": "21 Nov 2026, 01:54 AM IST",
+  "formatted": "V1.16, 21 Nov 2026, 01:54 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Notification alerts updated)",
+  "summary": "Minor technical update (Add FolderTab component for file management)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.16",
+      "timestamp": "21 Nov 2026, 01:54 AM IST",
+      "formatted": "V1.16, 21 Nov 2026, 01:54 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Add FolderTab component for file management)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.15",
       "timestamp": "21 Nov 2026, 01:53 AM IST",
