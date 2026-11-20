@@ -2,10 +2,19 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import OneSignal from 'react-onesignal'
 import { useAuth } from '@/context/AuthContext'
+import { APP_VERSION_INFO, type AppVersionData } from '@/lib/appVersion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Settings, Bell, CheckCircle2, Globe, Shield, Video, Mic, UserPlus, ArrowRight } from 'lucide-react'
+import { Settings, Bell, CheckCircle2, Globe, Shield, Video, Mic, UserPlus, ArrowRight, RefreshCw, Smartphone, AlertCircle } from 'lucide-react'
+
+type CheckResultState =
+  | { status: 'idle' }
+  | { status: 'checking' }
+  | { status: 'not-installed' }
+  | { status: 'up-to-date'; current: AppVersionData }
+  | { status: 'update-available'; current: AppVersionData; latest: AppVersionData }
+  | { status: 'reinstall-required'; current: AppVersionData; latest: AppVersionData }
 
 export default function SettingsTab() {
   const { user } = useAuth()
@@ -13,6 +22,8 @@ export default function SettingsTab() {
   const [pushEnabled, setPushEnabled] = useState(false)
   const [alertLoading, setAlertLoading] = useState(false)
   const [lang, setLang] = useState('en')
+  const [updateState, setUpdateState] = useState<CheckResultState>({ status: 'idle' })
+  const [applyingUpdate, setApplyingUpdate] = useState(false)
 
   useEffect(() => {
     const saved = localStorage.getItem('pref_lang') || 'en'
@@ -73,6 +84,84 @@ export default function SettingsTab() {
     localStorage.setItem('pref_lang', value)
   }
 
+  const detectStandaloneInstalled = async (): Promise<boolean> => {
+    const isStandaloneDisplay =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true ||
+      document.referrer.startsWith('android-app://') ||
+      Boolean((window as any).Capacitor || (window as any).cordova)
+
+    if (isStandaloneDisplay) return true
+
+    if ('getInstalledRelatedApps' in navigator) {
+      try {
+        const relatedApps = await (navigator as any).getInstalledRelatedApps()
+        if (Array.isArray(relatedApps) && relatedApps.length > 0) {
+          return true
+        }
+      } catch {
+        // Ignore if unsupported by browser
+      }
+    }
+
+    return false
+  }
+
+  const handleCheckAppAndUpdates = async () => {
+    setUpdateState({ status: 'checking' })
+    try {
+      const installed = await detectStandaloneInstalled()
+      if (!installed) {
+        setUpdateState({ status: 'not-installed' })
+        return
+      }
+
+      const res = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' })
+      if (!res.ok) {
+        setUpdateState({ status: 'up-to-date', current: APP_VERSION_INFO })
+        return
+      }
+
+      const latest: AppVersionData = await res.json()
+      if (latest.version !== APP_VERSION_INFO.version) {
+        if (latest.requiresReinstall) {
+          setUpdateState({
+            status: 'reinstall-required',
+            current: APP_VERSION_INFO,
+            latest,
+          })
+        } else {
+          setUpdateState({
+            status: 'update-available',
+            current: APP_VERSION_INFO,
+            latest,
+          })
+        }
+      } else {
+        setUpdateState({ status: 'up-to-date', current: latest })
+      }
+    } catch {
+      setUpdateState({ status: 'up-to-date', current: APP_VERSION_INFO })
+    }
+  }
+
+  const handleApplyUpdate = async () => {
+    setApplyingUpdate(true)
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(keys.map(k => caches.delete(k)))
+      }
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(regs.map(r => r.update()))
+      }
+    } catch {
+      // Proceed to reload even if cache clear is partial
+    }
+    window.location.reload()
+  }
+
   return (
     <div className="mx-auto max-w-2xl">
       <Card className="border-border/40 bg-card/60 backdrop-blur-sm">
@@ -83,6 +172,141 @@ export default function SettingsTab() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* App Installation & Update Checker */}
+          <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="flex items-center gap-2 font-bold text-primary">
+                <Smartphone className="h-4 w-4" />
+                App Installation &amp; Updates
+              </h3>
+              <span className="text-[11px] font-medium text-muted-foreground">
+                {APP_VERSION_INFO.formatted}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Check whether the standalone Fenestrians app is installed on this device and whether it has the latest updates.
+            </p>
+
+            <Button
+              type="button"
+              onClick={handleCheckAppAndUpdates}
+              disabled={updateState.status === 'checking'}
+              variant="outline"
+              className="gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${updateState.status === 'checking' ? 'animate-spin' : ''}`} />
+              {updateState.status === 'checking' ? 'Checking Device...' : 'Check App Status & Updates'}
+            </Button>
+
+            {/* Case 1: App Not Installed */}
+            {updateState.status === 'not-installed' && (
+              <div className="space-y-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3.5">
+                <p className="text-xs font-semibold text-amber-200">
+                  The Fenestrians app is not installed on this device. Would you like to install it now?
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => navigate('/install')}
+                    className="gold-gradient text-gold-foreground font-semibold"
+                  >
+                    Yes, Install App
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setUpdateState({ status: 'idle' })}
+                    className="text-xs"
+                  >
+                    No, Later
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Case 2: Installed and Up to Date */}
+            {updateState.status === 'up-to-date' && (
+              <div className="space-y-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3.5">
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  Your Fenestrians app is installed and completely up to date!
+                </p>
+                <p className="text-[11px] text-emerald-100/80">
+                  Current Version: <span className="font-semibold">{updateState.current.formatted}</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Latest Change: {updateState.current.summary}
+                </p>
+              </div>
+            )}
+
+            {/* Case 3: Update Available (Ask Permission) */}
+            {updateState.status === 'update-available' && (
+              <div className="space-y-2.5 rounded-lg border border-primary/40 bg-background/80 p-3.5">
+                <p className="text-xs font-bold text-primary">
+                  A new update ({updateState.latest.version}) is available!
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Installed: <span className="text-foreground">{updateState.current.formatted}</span>
+                  <br />
+                  Latest: <span className="text-foreground">{updateState.latest.formatted}</span>
+                  <br />
+                  What changed: <span className="text-foreground">{updateState.latest.summary}</span>
+                </p>
+                <p className="text-xs font-medium text-foreground">
+                  Do you want to update the app now?
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={applyingUpdate}
+                    onClick={handleApplyUpdate}
+                    className="gold-gradient text-gold-foreground font-semibold"
+                  >
+                    {applyingUpdate ? 'Updating...' : 'Yes, Update Now'}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setUpdateState({ status: 'idle' })}
+                    className="text-xs"
+                  >
+                    Not Now
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Case 4: Reinstall Required */}
+            {updateState.status === 'reinstall-required' && (
+              <div className="space-y-2.5 rounded-lg border border-red-500/40 bg-red-500/10 p-3.5">
+                <p className="flex items-center gap-1.5 text-xs font-bold text-red-300">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  Reinstall Required for {updateState.latest.version}
+                </p>
+                <p className="text-xs text-foreground/90">
+                  {updateState.latest.summary} — Please reinstall the app icon by following these steps:
+                </p>
+                <ol className="list-decimal list-inside space-y-1 text-xs text-muted-foreground">
+                  <li>Press and hold the existing <span className="font-semibold text-foreground">Fenestrians</span> icon on your phone screen and tap <span className="font-semibold text-foreground">Uninstall</span> or <span className="font-semibold text-foreground">Remove</span>.</li>
+                  <li>Tap the button below to open the installation guide and add the updated app icon back to your screen.</li>
+                </ol>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => navigate('/install')}
+                  className="gold-gradient text-gold-foreground font-semibold"
+                >
+                  Open Reinstall Guide
+                </Button>
+              </div>
+            )}
+          </div>
+
           {user && !user.is_placeholder && (
             <div className="space-y-2 rounded-xl border border-primary/30 bg-primary/5 p-4">
               <h3 className="flex items-center gap-2 font-bold text-primary">
