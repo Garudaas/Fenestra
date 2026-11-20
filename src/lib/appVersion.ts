@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.32",
-  "timestamp": "21 Nov 2026, 02:22 AM IST",
-  "formatted": "V1.32, 21 Nov 2026, 02:22 AM IST",
+  "version": "V1.33",
+  "timestamp": "21 Nov 2026, 02:31 AM IST",
+  "formatted": "V1.33, 21 Nov 2026, 02:31 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Add notification badges and refactor tab handling)",
+  "summary": "Minor technical update (Remove unnecessary comments in ChatTab component)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.33",
+      "timestamp": "21 Nov 2026, 02:31 AM IST",
+      "formatted": "V1.33, 21 Nov 2026, 02:31 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Remove unnecessary comments in ChatTab component)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.32",
       "timestamp": "21 Nov 2026, 02:22 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.09, 21 Nov 2026, 12:46 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor headers in auto-version workflow)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.08",
-      "timestamp": "21 Nov 2026, 12:44 AM IST",
-      "formatted": "V1.08, 21 Nov 2026, 12:44 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add NotificationsPage and OneSignalUserSync component)",
       "requiresReinstall": false
     }
   ]
