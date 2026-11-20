@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,8 +10,49 @@ export default function VoiceTab() {
   const { user } = useAuth()
   const [roomName, setRoomName] = useState('Audio-Lounge')
 
-  const joinVoiceCall = () => {
+  useEffect(() => {
     if (!user) return
+    supabase
+      .from('user_notifications')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('category', 'group_call')
+      .then(() => window.dispatchEvent(new Event('fenestrians-notifications-updated')))
+  }, [user])
+
+  const joinVoiceCall = async () => {
+    if (!user) return
+
+    // Clear caller's own group_call badge immediately
+    await supabase
+      .from('user_notifications')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('category', 'group_call')
+    window.dispatchEvent(new Event('fenestrians-notifications-updated'))
+
+    // Notify other members of the live voice room
+    const { data: members } = await supabase
+      .from('alumni')
+      .select('id')
+      .eq('is_placeholder', false)
+      .neq('id', user.id)
+      .neq('full_name', 'System Administrator')
+
+    if (members && members.length > 0) {
+      await supabase.from('user_notifications').insert(
+        members.map(m => ({
+          user_id: m.id,
+          archive_id: null,
+          short_title: 'Group call',
+          category: 'group_call',
+          full_message: `${user.full_name} started a group voice call in ${roomName}.`,
+          status: 'unread',
+          unread_count: 1,
+        }))
+      )
+    }
+
     const roomUrl = `https://meet.jit.si/${roomName}-${user.id}#config.startAudioOnly=true&config.startWithVideoMuted=true`
     window.open(roomUrl, '_blank')
   }
@@ -23,12 +65,23 @@ export default function VoiceTab() {
             <Headphones className="h-5 w-5" />
             Voice Call Lounge
           </CardTitle>
-          <CardDescription>Join an audio-only secure call. Your camera is automatically disabled upon entry.</CardDescription>
+          <CardDescription>
+            Join an audio-only secure call. Your camera is automatically disabled upon entry.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex max-w-md items-center gap-2">
-            <Input value={roomName} onChange={e => setRoomName(e.target.value)} placeholder="Room Name" className="font-mono" />
-            <Button onClick={joinVoiceCall} className="gold-gradient text-gold-foreground whitespace-nowrap">
+            <Input
+              value={roomName}
+              onChange={e => setRoomName(e.target.value)}
+              placeholder="Room Name"
+              className="font-mono"
+            />
+            <Button
+              onClick={joinVoiceCall}
+              title="Join Voice Call"
+              className="gold-gradient text-gold-foreground whitespace-nowrap"
+            >
               <Phone className="h-4 w-4 mr-2" />
               Join Voice Call
             </Button>
