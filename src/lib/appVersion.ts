@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.36",
-  "timestamp": "21 Nov 2026, 03:02 AM IST",
-  "formatted": "V1.36, 21 Nov 2026, 03:02 AM IST",
+  "version": "V1.37",
+  "timestamp": "21 Nov 2026, 03:16 AM IST",
+  "formatted": "V1.37, 21 Nov 2026, 03:16 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor InvitePage layout and improve user prompts)",
+  "summary": "Minor general update (Update manifest.json with application ID)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.37",
+      "timestamp": "21 Nov 2026, 03:16 AM IST",
+      "formatted": "V1.37, 21 Nov 2026, 03:16 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Update manifest.json with application ID)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.36",
       "timestamp": "21 Nov 2026, 03:02 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.13, 21 Nov 2026, 01:49 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add SplashScreen component to App)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.12",
-      "timestamp": "21 Nov 2026, 01:48 AM IST",
-      "formatted": "V1.12, 21 Nov 2026, 01:48 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Add constants and functions for family and blood group management)",
       "requiresReinstall": false
     }
   ]
