@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.22",
-  "timestamp": "21 Nov 2026, 02:06 AM IST",
-  "formatted": "V1.22, 21 Nov 2026, 02:06 AM IST",
+  "version": "V1.23",
+  "timestamp": "21 Nov 2026, 02:07 AM IST",
+  "formatted": "V1.23, 21 Nov 2026, 02:07 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor FamilyTab component state management)",
+  "summary": "Minor technical update (Refactor CalendarTab component for readability)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.23",
+      "timestamp": "21 Nov 2026, 02:07 AM IST",
+      "formatted": "V1.23, 21 Nov 2026, 02:07 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor CalendarTab component for readability)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.22",
       "timestamp": "21 Nov 2026, 02:06 AM IST",
