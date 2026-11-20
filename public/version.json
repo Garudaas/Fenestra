@@ -1,11 +1,19 @@
 {
-  "version": "V1.23",
-  "timestamp": "21 Nov 2026, 02:07 AM IST",
-  "formatted": "V1.23, 21 Nov 2026, 02:07 AM IST",
+  "version": "V1.24",
+  "timestamp": "21 Nov 2026, 02:08 AM IST",
+  "formatted": "V1.24, 21 Nov 2026, 02:08 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor CalendarTab component for readability)",
+  "summary": "Minor general update (Member profile details updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.24",
+      "timestamp": "21 Nov 2026, 02:08 AM IST",
+      "formatted": "V1.24, 21 Nov 2026, 02:08 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Member profile details updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.23",
       "timestamp": "21 Nov 2026, 02:07 AM IST",
