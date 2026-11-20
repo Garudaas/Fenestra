@@ -1,11 +1,19 @@
 {
-  "version": "V1.09",
-  "timestamp": "21 Nov 2026, 12:46 AM IST",
-  "formatted": "V1.09, 21 Nov 2026, 12:46 AM IST",
+  "version": "V1.10",
+  "timestamp": "21 Nov 2026, 01:46 AM IST",
+  "formatted": "V1.10, 21 Nov 2026, 01:46 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor headers in auto-version workflow)",
+  "summary": "Minor technical update (Add SplashScreen component with session storage logic)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.10",
+      "timestamp": "21 Nov 2026, 01:46 AM IST",
+      "formatted": "V1.10, 21 Nov 2026, 01:46 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Add SplashScreen component with session storage logic)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.09",
       "timestamp": "21 Nov 2026, 12:46 AM IST",
