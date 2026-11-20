@@ -164,13 +164,15 @@ jobs:
           ];
           fs.writeFileSync(tsFilePath, tsLines.join("\n"));
 
+          const headers = {
+            "Content-Type": "application/json",
+            "apikey": "sb_publishable_CmCFzsQ_L8dk7NxUmIVZ0g_pl_jq0fV",
+            "Authorization": "Bearer sb_publishable_CmCFzsQ_L8dk7NxUmIVZ0g_pl_jq0fV"
+          };
+
           fetch("https://dojlbfnfhkfltlxggxiy.supabase.co/rest/v1/app_versions", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "apikey": "sb_publishable_CmCFzsQ_L8dk7NxUmIVZ0g_pl_jq0fV",
-              "Authorization": "Bearer sb_publishable_CmCFzsQ_L8dk7NxUmIVZ0g_pl_jq0fV"
-            },
+            headers,
             body: JSON.stringify({
               version: newVersion,
               formatted_label: formatted,
@@ -179,6 +181,18 @@ jobs:
               requires_reinstall: requiresReinstall
             })
           }).catch(() => {});
+
+          if (isMajor || requiresReinstall) {
+            fetch("https://dojlbfnfhkfltlxggxiy.supabase.co/rest/v1/notifications_archive", {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                short_title: "Important app update",
+                category: "app_update",
+                full_message: `${newVersion}: ${summary}`
+              })
+            }).catch(() => {});
+          }
           '
 
       - name: Commit updated version files
