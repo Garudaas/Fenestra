@@ -1,11 +1,19 @@
 {
-  "version": "V1.20",
-  "timestamp": "21 Nov 2026, 01:59 AM IST",
-  "formatted": "V1.20, 21 Nov 2026, 01:59 AM IST",
+  "version": "V1.21",
+  "timestamp": "21 Nov 2026, 02:05 AM IST",
+  "formatted": "V1.21, 21 Nov 2026, 02:05 AM IST",
   "type": "minor",
-  "summary": "Minor general update (App icon appearance updated)",
+  "summary": "Minor general update (Member profile details updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.21",
+      "timestamp": "21 Nov 2026, 02:05 AM IST",
+      "formatted": "V1.21, 21 Nov 2026, 02:05 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Member profile details updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.20",
       "timestamp": "21 Nov 2026, 01:59 AM IST",
