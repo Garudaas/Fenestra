@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.27",
-  "timestamp": "21 Nov 2026, 02:15 AM IST",
-  "formatted": "V1.27, 21 Nov 2026, 02:15 AM IST",
+  "version": "V1.28",
+  "timestamp": "21 Nov 2026, 02:17 AM IST",
+  "formatted": "V1.28, 21 Nov 2026, 02:17 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor ChatTab component for clarity and maintainability)",
+  "summary": "Minor general update (Notification alerts updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.28",
+      "timestamp": "21 Nov 2026, 02:17 AM IST",
+      "formatted": "V1.28, 21 Nov 2026, 02:17 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Notification alerts updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.27",
       "timestamp": "21 Nov 2026, 02:15 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.04, 21 Nov 2026, 12:06 AM IST",
       "type": "minor",
       "summary": "Minor general update (V2 of Add detailed installation steps for Android and iPhone)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.03",
-      "timestamp": "21 Nov 2026, 12:02 AM IST",
-      "formatted": "V1.03, 21 Nov 2026, 12:02 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Update installation steps for Android and iPhone)",
       "requiresReinstall": false
     }
   ]
