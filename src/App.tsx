@@ -10,6 +10,7 @@ import InvitePage from '@/pages/InvitePage'
 import InstallAppPage from '@/pages/InstallAppPage'
 import NotificationsPage from '@/pages/NotificationsPage'
 import NotificationQuickBar from '@/components/NotificationQuickBar'
+import SplashScreen from '@/components/SplashScreen'
 
 function OneSignalUserSync() {
   const { user } = useAuth()
@@ -45,6 +46,7 @@ export function App() {
 
   return (
     <AuthProvider>
+      <SplashScreen />
       <OneSignalUserSync />
       <BrowserRouter>
         <Routes>
