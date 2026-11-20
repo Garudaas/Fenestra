@@ -1,11 +1,19 @@
 {
-  "version": "V1.26",
-  "timestamp": "21 Nov 2026, 02:10 AM IST",
-  "formatted": "V1.26, 21 Nov 2026, 02:10 AM IST",
+  "version": "V1.27",
+  "timestamp": "21 Nov 2026, 02:15 AM IST",
+  "formatted": "V1.27, 21 Nov 2026, 02:15 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Update family member checks to use alumni_id)",
+  "summary": "Minor technical update (Refactor ChatTab component for clarity and maintainability)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.27",
+      "timestamp": "21 Nov 2026, 02:15 AM IST",
+      "formatted": "V1.27, 21 Nov 2026, 02:15 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor ChatTab component for clarity and maintainability)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.26",
       "timestamp": "21 Nov 2026, 02:10 AM IST",
@@ -196,14 +204,6 @@
       "formatted": "V1.03, 21 Nov 2026, 12:02 AM IST",
       "type": "minor",
       "summary": "Minor general update (Update installation steps for Android and iPhone)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.02",
-      "timestamp": "20 Nov 2026, 11:43 PM IST",
-      "formatted": "V1.02, 20 Nov 2026, 11:43 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Implement version history tracking in SettingsTab)",
       "requiresReinstall": false
     }
   ]
