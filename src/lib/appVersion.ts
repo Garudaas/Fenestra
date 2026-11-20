@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.31",
-  "timestamp": "21 Nov 2026, 02:21 AM IST",
-  "formatted": "V1.31, 21 Nov 2026, 02:21 AM IST",
+  "version": "V1.32",
+  "timestamp": "21 Nov 2026, 02:22 AM IST",
+  "formatted": "V1.32, 21 Nov 2026, 02:22 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor VideoTab component for improved functionality)",
+  "summary": "Minor technical update (Add notification badges and refactor tab handling)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.32",
+      "timestamp": "21 Nov 2026, 02:22 AM IST",
+      "formatted": "V1.32, 21 Nov 2026, 02:22 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Add notification badges and refactor tab handling)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.31",
       "timestamp": "21 Nov 2026, 02:21 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.08, 21 Nov 2026, 12:44 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add NotificationsPage and OneSignalUserSync component)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.07",
-      "timestamp": "21 Nov 2026, 12:43 AM IST",
-      "formatted": "V1.07, 21 Nov 2026, 12:43 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add NotificationQuickBar component for alerts and chats)",
       "requiresReinstall": false
     }
   ]
