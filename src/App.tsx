@@ -1,13 +1,27 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import OneSignal from 'react-onesignal'
-import { AuthProvider } from '@/context/AuthContext'
+import { AuthProvider, useAuth } from '@/context/AuthContext'
 import LandingPage, { MemberLoginPage, AdminLoginPage, RegisterPage } from '@/pages/AuthPages'
 import MemberDashboard from '@/pages/MemberDashboard'
 import AdminDashboard from '@/pages/AdminDashboard'
 import AlumniAssociationHome from '@/pages/AlumniAssociationHome'
 import InvitePage from '@/pages/InvitePage'
 import InstallAppPage from '@/pages/InstallAppPage'
+import NotificationsPage from '@/pages/NotificationsPage'
+import NotificationQuickBar from '@/components/NotificationQuickBar'
+
+function OneSignalUserSync() {
+  const { user } = useAuth()
+
+  useEffect(() => {
+    if (user && !user.is_placeholder) {
+      OneSignal.login(String(user.id)).catch(() => {})
+    }
+  }, [user])
+
+  return null
+}
 
 export function App() {
   useEffect(() => {
@@ -31,6 +45,7 @@ export function App() {
 
   return (
     <AuthProvider>
+      <OneSignalUserSync />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -38,11 +53,13 @@ export function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/invite" element={<InvitePage />} />
           <Route path="/install" element={<InstallAppPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/admin" element={<AdminLoginPage />} />
           <Route path="/dashboard" element={<MemberDashboard />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/alumni-association" element={<AlumniAssociationHome />} />
         </Routes>
+        <NotificationQuickBar />
       </BrowserRouter>
     </AuthProvider>
   )
