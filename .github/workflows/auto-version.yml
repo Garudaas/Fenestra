@@ -21,7 +21,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Calculate and update version files
         env:
@@ -72,7 +72,7 @@ jobs:
             }
           }
 
-          const newVersion = `V${major}.${String(minor).padStart(2, "0")}`;
+          const newVersion = "V" + major + "." + String(minor).padStart(2, "0");
 
           const now = new Date();
           const datePart = new Intl.DateTimeFormat("en-GB", {
@@ -87,7 +87,7 @@ jobs:
             minute: "2-digit",
             hour12: true
           }).format(now);
-          const timestamp = `${datePart}, ${timePart} IST`;
+          const timestamp = datePart + ", " + timePart + " IST";
 
           function formatDescription(msg, majorFlag) {
             if (majorFlag) {
@@ -116,18 +116,18 @@ jobs:
             if (!hasCodeJargon) {
               for (const rule of laymanRules) {
                 if (rule.test.test(lower)) {
-                  return `Minor general update (${rule.text})`;
+                  return "Minor general update (" + rule.text + ")";
                 }
               }
               const plain = msg.charAt(0).toUpperCase() + msg.slice(1);
-              return `Minor general update (${plain})`;
+              return "Minor general update (" + plain + ")";
             }
 
-            return `Minor technical update (${msg})`;
+            return "Minor technical update (" + msg + ")";
           }
 
           const summary = formatDescription(cleanedMsg, isMajor);
-          const formatted = `${newVersion}, ${timestamp}`;
+          const formatted = newVersion + ", " + timestamp;
 
           const entry = {
             version: newVersion,
@@ -145,22 +145,24 @@ jobs:
           fs.mkdirSync("src/lib", { recursive: true });
           fs.writeFileSync(versionFilePath, JSON.stringify(updatedData, null, 2) + "\n");
 
-          const tsContent = `export interface VersionEntry {
-  version: string
-  timestamp: string
-  formatted: string
-  type: \x27major\x27 | \x27minor\x27
-  summary: string
-  requiresReinstall: boolean
-}
-
-export interface AppVersionData extends VersionEntry {
-  history: VersionEntry[]
-}
-
-export const APP_VERSION_INFO: AppVersionData = ${JSON.stringify(updatedData, null, 2)}
-`;
-          fs.writeFileSync(tsFilePath, tsContent);
+          const tsLines = [
+            "export interface VersionEntry {",
+            "  version: string",
+            "  timestamp: string",
+            "  formatted: string",
+            "  type: \x27major\x27 | \x27minor\x27",
+            "  summary: string",
+            "  requiresReinstall: boolean",
+            "}",
+            "",
+            "export interface AppVersionData extends VersionEntry {",
+            "  history: VersionEntry[]",
+            "}",
+            "",
+            "export const APP_VERSION_INFO: AppVersionData = " + JSON.stringify(updatedData, null, 2),
+            ""
+          ];
+          fs.writeFileSync(tsFilePath, tsLines.join("\n"));
 
           fetch("https://dojlbfnfhkfltlxggxiy.supabase.co/rest/v1/app_versions", {
             method: "POST",
