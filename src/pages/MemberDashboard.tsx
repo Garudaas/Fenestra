@@ -1,26 +1,66 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
-import { Users, Heart, Image, CalendarDays, MessageCircle, Phone, Video, User, Settings, LogOut, X, Crown, Building2 } from 'lucide-react'
+import {
+  Users,
+  Heart,
+  Image,
+  Folder,
+  HandHeart,
+  CalendarDays,
+  MessageCircle,
+  Phone,
+  Video,
+  User,
+  Settings,
+  Wrench,
+  LogOut,
+  X,
+  Crown,
+  Building2,
+} from 'lucide-react'
 import DirectoryTab from '@/pages/DirectoryTab'
 import ProfileTab from '@/pages/ProfileTab'
 import FamilyTab from '@/pages/FamilyTab'
 import GalleryTab from '@/pages/GalleryTab'
+import FolderTab from '@/pages/FolderTab'
+import SupportTab from '@/pages/SupportTab'
 import CalendarTab from '@/pages/CalendarTab'
 import ChatTab from '@/pages/ChatTab'
 import VoiceTab from '@/pages/VoiceTab'
 import VideoTab from '@/pages/VideoTab'
 import SettingsTab from '@/pages/SettingsTab'
+import MaintenanceTab from '@/pages/MaintenanceTab'
 
-type TabName = 'directory' | 'profile' | 'family' | 'gallery' | 'calendar' | 'chat' | 'voice' | 'video' | 'settings'
+type TabName =
+  | 'directory'
+  | 'profile'
+  | 'family'
+  | 'gallery'
+  | 'folder'
+  | 'support'
+  | 'calendar'
+  | 'chat'
+  | 'voice'
+  | 'video'
+  | 'settings'
+  | 'maintenance'
 
 export default function MemberDashboard() {
+  const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<TabName>('directory')
   const [alerts, setAlerts] = useState<string[]>([])
-  const { user, logout } = useAuth()
+  const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const requestedTab = searchParams.get('tab') as TabName | null
+    if (requestedTab) {
+      setActiveTab(requestedTab)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     if (!user) {
@@ -45,7 +85,14 @@ export default function MemberDashboard() {
       if (u.dob && new Date(u.dob).getDate() === currentDay && new Date(u.dob).getMonth() === currentMonth) {
         celebrations.push(`Today is ${u.full_name}'s Birthday!`)
       }
-      if (u.wedding_date && new Date(u.wedding_date).getDate() === currentDay && new Date(u.wedding_date).getMonth() === currentMonth) {
+      const isDivorced =
+        u.marital_status?.toLowerCase() === 'divorced' || Boolean(u.divorce_date)
+      if (
+        !isDivorced &&
+        u.wedding_date &&
+        new Date(u.wedding_date).getDate() === currentDay &&
+        new Date(u.wedding_date).getMonth() === currentMonth
+      ) {
         celebrations.push(`Happy Anniversary to ${u.full_name}!`)
       }
     })
@@ -53,9 +100,16 @@ export default function MemberDashboard() {
 
     for (const celeb of celebrations) {
       const uniqueTrace = `[AUTO-ALERT:${datestampTodayStr}]: ${celeb}`
-      const { data: m } = await supabase.from('chat_messages').select('id').eq('room_id', 'global').eq('message_text', uniqueTrace).limit(1)
+      const { data: m } = await supabase
+        .from('chat_messages')
+        .select('id')
+        .eq('room_id', 'global')
+        .eq('message_text', uniqueTrace)
+        .limit(1)
       if (!m || m.length === 0) {
-        await supabase.from('chat_messages').insert([{ room_id: 'global', sender_id: 0, sender_name: '🛡️ System Bot', message_text: uniqueTrace }])
+        await supabase
+          .from('chat_messages')
+          .insert([{ room_id: 'global', sender_id: 0, sender_name: '🛡️ System Bot', message_text: uniqueTrace }])
       }
     }
   }
@@ -67,24 +121,31 @@ export default function MemberDashboard() {
 
   if (!user) return null
 
-  const navItems: { id: string; label: string; icon: any; group: string }[] = [
-    { id: 'alumni', label: 'Alumni', icon: Building2, group: 'Network' },
-    { id: 'directory', label: 'Directory', icon: Users, group: 'Network' },
-    { id: 'family', label: 'Family', icon: Heart, group: 'Network' },
-    { id: 'gallery', label: 'Gallery', icon: Image, group: 'Network' },
-    { id: 'calendar', label: 'Calendar', icon: CalendarDays, group: 'Network' },
-    { id: 'chat', label: 'Chat', icon: MessageCircle, group: 'Comms' },
-    { id: 'voice', label: 'Voice', icon: Phone, group: 'Comms' },
-    { id: 'video', label: 'Video', icon: Video, group: 'Comms' },
-    { id: 'profile', label: 'Profile', icon: User, group: 'Account' },
-    { id: 'settings', label: 'Settings', icon: Settings, group: 'Account' },
+  const userIsAdmin = Boolean(isAdmin || user.is_admin)
+
+  const navItems: { id: string; label: string; tooltip: string; icon: any; group: string }[] = [
+    { id: 'alumni', label: 'Alumni', tooltip: 'Alumni Association Home', icon: Building2, group: 'Network' },
+    { id: 'directory', label: 'Directory', tooltip: 'Member Directory', icon: Users, group: 'Network' },
+    { id: 'family', label: 'Family', tooltip: 'Family Members', icon: Heart, group: 'Network' },
+    { id: 'support', label: 'Support', tooltip: 'Family Support Requests', icon: HandHeart, group: 'Network' },
+    { id: 'gallery', label: 'Gallery', tooltip: 'Photo Gallery', icon: Image, group: 'Network' },
+    { id: 'folder', label: 'Folder', tooltip: 'Member Folders & Shared Files', icon: Folder, group: 'Network' },
+    { id: 'calendar', label: 'Calendar', tooltip: 'Class Calendar', icon: CalendarDays, group: 'Network' },
+    { id: 'chat', label: 'Chat', tooltip: 'Group & Private Chat', icon: MessageCircle, group: 'Comms' },
+    { id: 'voice', label: 'Voice', tooltip: 'Voice Calls', icon: Phone, group: 'Comms' },
+    { id: 'video', label: 'Video', tooltip: 'Video Calls', icon: Video, group: 'Comms' },
+    { id: 'profile', label: 'Profile', tooltip: 'My Profile', icon: User, group: 'Account' },
+    { id: 'settings', label: 'Settings', tooltip: 'User Settings & Privacy', icon: Settings, group: 'Account' },
+    ...(userIsAdmin
+      ? [{ id: 'maintenance', label: 'Maintenance', tooltip: 'Admin Maintenance & Audits', icon: Wrench, group: 'Admin' }]
+      : []),
   ]
 
   return (
     <div className="flex min-h-svh flex-col bg-background pt-14 overflow-x-hidden">
       <header className="fixed top-0 left-0 right-0 z-40 border-b border-border/50 bg-card/80 backdrop-blur-xl shadow-lg shadow-black/10">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-2.5">
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3" title="Fenestrians Exclusive Network">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg gold-border bg-background/50 p-0.5 shadow-md">
               <img src="/icon.png" alt="Logo" className="h-full w-full rounded-md object-contain" />
             </div>
@@ -101,6 +162,7 @@ export default function MemberDashboard() {
                 <Button
                   key={item.id}
                   size="sm"
+                  title={item.tooltip}
                   variant={activeTab === item.id ? 'default' : 'ghost'}
                   className={`shrink-0 h-8 gap-1.5 px-2.5 text-xs transition-all duration-200 ${activeTab === item.id ? 'gold-gradient text-gold-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
                   onClick={() => {
@@ -117,7 +179,13 @@ export default function MemberDashboard() {
               )
             })}
             <div className="ml-2 h-6 w-px shrink-0 bg-border/50" />
-            <Button size="sm" variant="ghost" className="shrink-0 h-8 gap-1.5 px-2.5 text-xs text-destructive/80 hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>
+            <Button
+              size="sm"
+              title="Log Out"
+              variant="ghost"
+              className="shrink-0 h-8 gap-1.5 px-2.5 text-xs text-destructive/80 hover:text-destructive hover:bg-destructive/10"
+              onClick={handleLogout}
+            >
               <LogOut className="h-3.5 w-3.5" />
               <span className="hidden md:inline">Log Out</span>
             </Button>
@@ -133,7 +201,13 @@ export default function MemberDashboard() {
                 <Crown className="h-3.5 w-3.5" />
                 {a}
               </span>
-              <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground" onClick={() => setAlerts(prev => prev.filter((_, idx) => idx !== i))}>
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Dismiss Alert"
+                className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                onClick={() => setAlerts(prev => prev.filter((_, idx) => idx !== i))}
+              >
                 <X className="h-3 w-3" />
               </Button>
             </div>
@@ -142,15 +216,36 @@ export default function MemberDashboard() {
       )}
 
       <main className="flex-1 p-4">
-        {activeTab === 'directory' && <DirectoryTab onStartDM={(id, name) => { setActiveTab('chat'); setTimeout(() => window.dispatchEvent(new CustomEvent('open-dm', { detail: { id, name } })), 100) }} onStartVideoCall={(roomName) => { setActiveTab('video'); setTimeout(() => window.dispatchEvent(new CustomEvent('join-video', { detail: { roomName } })), 100) }} />}
+        {activeTab === 'directory' && (
+          <DirectoryTab
+            onStartDM={(id, name) => {
+              setActiveTab('chat')
+              setTimeout(() => window.dispatchEvent(new CustomEvent('open-dm', { detail: { id, name } })), 100)
+            }}
+            onStartVideoCall={roomName => {
+              setActiveTab('video')
+              setTimeout(() => window.dispatchEvent(new CustomEvent('join-video', { detail: { roomName } })), 100)
+            }}
+          />
+        )}
         {activeTab === 'profile' && <ProfileTab />}
         {activeTab === 'family' && <FamilyTab />}
+        {activeTab === 'support' && <SupportTab />}
         {activeTab === 'gallery' && <GalleryTab />}
-        {activeTab === 'calendar' && <CalendarTab onJoinCall={(roomName) => { setActiveTab('video'); setTimeout(() => window.dispatchEvent(new CustomEvent('join-video', { detail: { roomName } })), 100) }} />}
+        {activeTab === 'folder' && <FolderTab />}
+        {activeTab === 'calendar' && (
+          <CalendarTab
+            onJoinCall={roomName => {
+              setActiveTab('video')
+              setTimeout(() => window.dispatchEvent(new CustomEvent('join-video', { detail: { roomName } })), 100)
+            }}
+          />
+        )}
         {activeTab === 'chat' && <ChatTab />}
         {activeTab === 'voice' && <VoiceTab />}
         {activeTab === 'video' && <VideoTab />}
         {activeTab === 'settings' && <SettingsTab />}
+        {activeTab === 'maintenance' && userIsAdmin && <MaintenanceTab />}
       </main>
     </div>
   )
