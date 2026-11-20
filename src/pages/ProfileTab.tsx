@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
+import {
+  fetchAllBloodGroups,
+  syncCustomBloodGroupOnChange,
+  saveAuditPreference,
+  EDUCATION_LEVELS,
+} from '@/lib/fenestriansCore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -13,12 +19,16 @@ import { User, Camera, Upload, MapPin, Heart, Shield, EyeOff, Eye, Lock, Save } 
 
 export default function ProfileTab() {
   const { user } = useAuth()
-  
-  // Existing states
+
   const [nickname, setNickname] = useState('')
+  const [gender, setGender] = useState('')
   const [blood, setBlood] = useState('')
+  const [previousBlood, setPreviousBlood] = useState('')
+  const [bloodOptions, setBloodOptions] = useState<string[]>([])
+  const [educationLevel, setEducationLevel] = useState('')
   const [status, setStatus] = useState('Employed')
   const [pic, setPic] = useState('')
+  const [previousPic, setPreviousPic] = useState('')
   const [permAddr, setPermAddr] = useState('')
   const [permGeo, setPermGeo] = useState('')
   const [currAddr, setCurrAddr] = useState('')
@@ -51,15 +61,16 @@ export default function ProfileTab() {
   useEffect(() => {
     const fetchLatestProfile = async () => {
       if (!user) return
-      
-      const { data, error } = await supabase
-        .from('alumni')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-        
-      if (data && !error) {
-        hydrate({ ...user, ...data }) 
+
+      const [profileRes, bgs] = await Promise.all([
+        supabase.from('alumni').select('*').eq('id', user.id).single(),
+        fetchAllBloodGroups(),
+      ])
+
+      setBloodOptions(bgs)
+
+      if (profileRes.data && !profileRes.error) {
+        hydrate({ ...user, ...profileRes.data })
       } else {
         hydrate(user)
       }
@@ -73,9 +84,13 @@ export default function ProfileTab() {
     setCurrentPassword(d.custom_password || '')
 
     setNickname(d.class_nickname || '')
+    setGender(d.gender || '')
     setBlood(d.blood_group || '')
+    setPreviousBlood(d.blood_group || '')
+    setEducationLevel(d.education_level || '')
     setStatus(d.current_status || 'Employed')
     setPic(d.profile_picture_url || '')
+    setPreviousPic(d.profile_picture_url || '')
     setPermAddr(d.permanent_address || '')
     setPermGeo(d.permanent_geo_location || '')
     setCurrAddr(d.current_address || '')
@@ -111,6 +126,35 @@ export default function ProfileTab() {
     }
   }
 
+  const archiveProfilePictureCopy = async (imageUrl: string) => {
+    if (!user || !imageUrl) return
+    const approxSizeBytes = Math.round(imageUrl.length * 0.75)
+
+    // Save non-deletable copy in member's individual Gallery archive
+    await supabase.from('member_media_files').insert([
+      {
+        owner_id: user.id,
+        owner_name: user.full_name,
+        folder_category: 'gallery',
+        file_name: `${user.full_name}_profile_picture_${new Date().toISOString().slice(0, 10)}.jpg`,
+        file_url: imageUrl,
+        storage_path: `profile_copy_${user.id}_${Date.now()}`,
+        mime_type: 'image/jpeg',
+        file_size_bytes: approxSizeBytes,
+        is_private: false,
+        is_profile_picture: true,
+      },
+    ])
+
+    await supabase.from('photo_gallery').insert([
+      {
+        alumni_id: user.id,
+        image_url: imageUrl,
+        description: `${user.full_name} — Profile Picture Copy`,
+      },
+    ])
+  }
+
   const handleSave = async () => {
     if (!user) return
 
@@ -119,14 +163,33 @@ export default function ProfileTab() {
       return
     }
 
-    const finalWA = waNum ? `${waCC} ${waNum}` : ''
-    const finalPh = phoneNum ? `${phoneCC} ${phoneNum}` : ''
+    let finalWA = waNum ? `${waCC} ${waNum}` : ''
+    let finalPh = phoneNum ? `${phoneCC} ${phoneNum}` : ''
+
+    // Double-dip check on identical phone & WhatsApp numbers or identical addresses
+    if (
+      finalPh &&
+      finalWA &&
+      finalPh.replace(/\D/g, '') === finalWA.replace(/\D/g, '')
+    ) {
+      const removeDuplicate = window.confirm(
+        `Duplicate Entry Detected: Your Contact Number (${finalPh}) and WhatsApp Number (${finalWA}) are identical.\n\nClick OK to remove the duplicate WhatsApp entry, or click Cancel to RETAIN both.`
+      )
+      if (removeDuplicate) {
+        finalWA = ''
+        setWaNum('')
+      } else {
+        await saveAuditPreference(user.id, 'retain_duplicate', 'duplicate_phone_numbers')
+      }
+    }
 
     const updatePayload: any = {
       class_nickname: nickname,
+      gender,
       whatsapp_number: finalWA,
       contact_number: finalPh,
-      blood_group: blood,
+      blood_group: blood.trim(),
+      education_level: educationLevel,
       current_status: status,
       profile_picture_url: pic,
       permanent_address: permAddr,
@@ -148,17 +211,34 @@ export default function ProfileTab() {
     if (newPassword) updatePayload.custom_password = newPassword
 
     const { error } = await supabase.from('alumni').update(updatePayload).eq('id', user.id)
-    
+
     if (error) {
       alert('Error updating profile: ' + error.message)
-    } else {
-      alert('Profile Updated Successfully')
-      if (newUsername.trim()) setCurrentUsername(newUsername.trim())
-      if (newPassword) setCurrentPassword(newPassword)
-      setNewUsername('')
-      setNewPassword('')
-      setConfirmPassword('')
+      return
     }
+
+    // Update custom blood group table & clean up edited typos
+    await syncCustomBloodGroupOnChange({
+      userId: user.id,
+      newBloodGroup: blood.trim(),
+      previousBloodGroup: previousBlood,
+    })
+
+    // Save a copy of the updated profile picture to the member's Gallery archive
+    if (pic && pic !== previousPic) {
+      await archiveProfilePictureCopy(pic)
+      setPreviousPic(pic)
+    }
+
+    alert('Profile Updated Successfully')
+    setPreviousBlood(blood.trim())
+    const refreshedBgs = await fetchAllBloodGroups()
+    setBloodOptions(refreshedBgs)
+    if (newUsername.trim()) setCurrentUsername(newUsername.trim())
+    if (newPassword) setCurrentPassword(newPassword)
+    setNewUsername('')
+    setNewPassword('')
+    setConfirmPassword('')
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -180,7 +260,6 @@ export default function ProfileTab() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
-        
         {/* Credentials Section */}
         <h3 className="flex items-center gap-2 font-bold text-primary">
           <Lock className="h-4 w-4" />
@@ -190,28 +269,28 @@ export default function ProfileTab() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <Label>Current Username</Label>
-              <Input 
-                value={currentUsername} 
-                readOnly 
-                className="mt-1 bg-input/30 text-muted-foreground" 
-                placeholder="No username set" 
+              <Input
+                value={currentUsername}
+                readOnly
+                className="mt-1 bg-input/30 text-muted-foreground"
+                placeholder="No username set"
               />
             </div>
             <div>
               <Label>Current Password</Label>
               <div className="relative mt-1">
-                <Input 
-                  type={showPassword ? 'text' : 'password'} 
-                  value={currentPassword} 
-                  readOnly 
-                  className="bg-input/30 text-muted-foreground pr-10" 
-                  placeholder="No password set" 
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  value={currentPassword}
+                  readOnly
+                  className="bg-input/30 text-muted-foreground pr-10"
+                  placeholder="No password set"
                 />
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="sm" 
-                  className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground" 
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -223,13 +302,29 @@ export default function ProfileTab() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="col-span-1 md:col-span-2">
               <Label>Update Username</Label>
-              <Input value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="Leave blank to keep current" className="mt-1" />
+              <Input
+                value={newUsername}
+                onChange={e => setNewUsername(e.target.value)}
+                placeholder="Leave blank to keep current"
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>Update Password</Label>
               <div className="relative mt-1">
-                <Input type={showNewPass ? 'text' : 'password'} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New Password" />
-                <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 h-7 w-7 p-0" onClick={() => setShowNewPass(!showNewPass)}>
+                <Input
+                  type={showNewPass ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="New Password"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1 h-7 w-7 p-0"
+                  onClick={() => setShowNewPass(!showNewPass)}
+                >
                   {showNewPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                 </Button>
               </div>
@@ -237,14 +332,20 @@ export default function ProfileTab() {
             <div>
               <Label>Retype New Password</Label>
               <div className="relative mt-1">
-                <Input 
-                  type={showConfirmPass ? 'text' : 'password'} 
-                  value={confirmPassword} 
-                  onChange={e => setConfirmPassword(e.target.value)} 
-                  placeholder="Confirm New Password" 
-                  className={confirmPassword && newPassword !== confirmPassword ? "border-red-500 focus-visible:ring-red-500" : ""}
+                <Input
+                  type={showConfirmPass ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm New Password"
+                  className={confirmPassword && newPassword !== confirmPassword ? 'border-red-500 focus-visible:ring-red-500' : ''}
                 />
-                <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 h-7 w-7 p-0" onClick={() => setShowConfirmPass(!showConfirmPass)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1 h-7 w-7 p-0"
+                  onClick={() => setShowConfirmPass(!showConfirmPass)}
+                >
                   {showConfirmPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                 </Button>
               </div>
@@ -258,8 +359,52 @@ export default function ProfileTab() {
         <hr className="border-border/30" />
 
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>Nickname</Label><Input value={nickname} onChange={e => setNickname(e.target.value)} className="mt-1" /></div>
-          <div><Label>Blood Group</Label><Input value={blood} onChange={e => setBlood(e.target.value)} className="mt-1" /></div>
+          <div>
+            <Label>Nickname</Label>
+            <Input value={nickname} onChange={e => setNickname(e.target.value)} className="mt-1" />
+          </div>
+          <div>
+            <Label>Gender</Label>
+            <select
+              value={gender}
+              onChange={e => setGender(e.target.value)}
+              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Select Gender...</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          </div>
+          <div>
+            <Label>Blood Group</Label>
+            <Input
+              list="profile-blood-groups"
+              value={blood}
+              onChange={e => setBlood(e.target.value)}
+              placeholder="Select or type..."
+              className="mt-1"
+            />
+            <datalist id="profile-blood-groups">
+              {bloodOptions.map(bg => (
+                <option key={bg} value={bg} />
+              ))}
+            </datalist>
+          </div>
+          <div>
+            <Label>Education Level</Label>
+            <select
+              value={educationLevel}
+              onChange={e => setEducationLevel(e.target.value)}
+              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Select Education Level...</option>
+              {EDUCATION_LEVELS.map(level => (
+                <option key={level} value={level}>
+                  {level}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <Label>Contact Number</Label>
             <div className="mt-1 flex gap-1">
@@ -276,7 +421,11 @@ export default function ProfileTab() {
           </div>
           <div className="col-span-2">
             <Label>Current Career Status</Label>
-            <select value={status} onChange={e => setStatus(e.target.value)} className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <select
+              value={status}
+              onChange={e => setStatus(e.target.value)}
+              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
               <option value="Noble Services">Noble Services</option>
               <option value="Freelancer">Freelancer</option>
               <option value="Business">Business</option>
@@ -287,15 +436,29 @@ export default function ProfileTab() {
         </div>
 
         <div>
-          <Label>Profile Photo</Label>
+          <Label>Profile Photo (A copy is automatically archived in your Gallery folder)</Label>
           <Input value={pic} onChange={e => setPic(e.target.value)} className="mt-1" placeholder="URL or Data String" />
           <div className="mt-1.5 flex gap-2">
             <input type="file" accept="image/*" id="profile-pic-file" className="hidden" onChange={handleFileUpload} />
-            <Button type="button" variant="outline" size="sm" className="gap-1.5 border-primary/30 hover:shadow-primary/5" onClick={() => document.getElementById('profile-pic-file')?.click()}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              title="Upload Profile Image"
+              className="gap-1.5 border-primary/30 hover:shadow-primary/5"
+              onClick={() => document.getElementById('profile-pic-file')?.click()}
+            >
               <Upload className="h-3.5 w-3.5" />
               Upload Image
             </Button>
-            <Button type="button" variant="outline" size="sm" className="gap-1.5 border-primary/30 hover:shadow-primary/5" onClick={() => setShowCamera(true)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              title="Capture Profile Photo with Camera"
+              className="gap-1.5 border-primary/30 hover:shadow-primary/5"
+              onClick={() => setShowCamera(true)}
+            >
               <Camera className="h-3.5 w-3.5" />
               Use Camera
             </Button>
@@ -309,7 +472,10 @@ export default function ProfileTab() {
           </Label>
           <Textarea value={permAddr} onChange={e => setPermAddr(e.target.value)} className="mt-1 h-12" />
         </div>
-        <div><Label>Permanent Google Map Link</Label><Input value={permGeo} onChange={e => setPermGeo(e.target.value)} className="mt-1" placeholder="https://maps.google.com/..." /></div>
+        <div>
+          <Label>Permanent Google Map Link</Label>
+          <Input value={permGeo} onChange={e => setPermGeo(e.target.value)} className="mt-1" placeholder="https://maps.google.com/..." />
+        </div>
         <div>
           <Label className="flex items-center gap-1.5">
             <MapPin className="h-3.5 w-3.5 text-primary" />
@@ -317,7 +483,10 @@ export default function ProfileTab() {
           </Label>
           <Textarea value={currAddr} onChange={e => setCurrAddr(e.target.value)} className="mt-1 h-12" />
         </div>
-        <div><Label>Current Google Map Link</Label><Input value={currGeo} onChange={e => setCurrGeo(e.target.value)} className="mt-1" placeholder="https://maps.google.com/..." /></div>
+        <div>
+          <Label>Current Google Map Link</Label>
+          <Input value={currGeo} onChange={e => setCurrGeo(e.target.value)} className="mt-1" placeholder="https://maps.google.com/..." />
+        </div>
 
         <hr className="border-border/30" />
         <div className="grid grid-cols-3 gap-2">
@@ -326,29 +495,60 @@ export default function ProfileTab() {
               <Heart className="h-3.5 w-3.5 text-primary" />
               Marital Status
             </Label>
-            <select value={marital} onChange={e => setMarital(e.target.value)} className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <select
+              value={marital}
+              onChange={e => setMarital(e.target.value)}
+              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
               <option value="Single">Single</option>
               <option value="Married">Married</option>
               <option value="Divorced">Divorced</option>
             </select>
           </div>
-          {marital !== 'Single' && <div><Label>Wedding Date</Label><Input type="date" value={wedding} onChange={e => setWedding(e.target.value)} className="mt-1" /></div>}
-          {marital === 'Divorced' && <div><Label>Divorce Date</Label><Input type="date" value={divorce} onChange={e => setDivorce(e.target.value)} className="mt-1" /></div>}
+          {marital !== 'Single' && (
+            <div>
+              <Label>Wedding Date</Label>
+              <Input type="date" value={wedding} onChange={e => setWedding(e.target.value)} className="mt-1" />
+            </div>
+          )}
+          {marital === 'Divorced' && (
+            <div>
+              <Label>Divorce Date</Label>
+              <Input type="date" value={divorce} onChange={e => setDivorce(e.target.value)} className="mt-1" />
+            </div>
+          )}
         </div>
 
         {marital === 'Married' && (
           <Card className="border-primary/20 bg-primary/5">
             <CardContent className="space-y-2 p-3">
               <div className="grid grid-cols-2 gap-2">
-                <div><Label>Spouse Name</Label><Input value={spouseName} onChange={e => setSpouseName(e.target.value)} className="mt-1" /></div>
-                <div><Label>Spouse DOB</Label><Input type="date" value={spouseDob} onChange={e => setSpouseDob(e.target.value)} className="mt-1" /></div>
+                <div>
+                  <Label>Spouse Name</Label>
+                  <Input value={spouseName} onChange={e => setSpouseName(e.target.value)} className="mt-1" />
+                </div>
+                <div>
+                  <Label>Spouse DOB</Label>
+                  <Input type="date" value={spouseDob} onChange={e => setSpouseDob(e.target.value)} className="mt-1" />
+                </div>
               </div>
-              <div><Label>Spouse Details</Label><Input value={spouseDetails} onChange={e => setSpouseDetails(e.target.value)} className="mt-1" /></div>
+              <div>
+                <Label>Spouse Details</Label>
+                <Input value={spouseDetails} onChange={e => setSpouseDetails(e.target.value)} className="mt-1" />
+              </div>
             </CardContent>
           </Card>
         )}
 
-        <div><Label>Personal Timeline / Notes</Label><Textarea value={diary} onChange={e => setDiary(e.target.value)} className="mt-1 h-24 font-mono text-xs" placeholder="Add important life events here..." /></div>
+        <div>
+          <Label>Personal Timeline / Notes</Label>
+          <Textarea
+            value={diary}
+            onChange={e => setDiary(e.target.value)}
+            className="mt-1 h-24 font-mono text-xs"
+            placeholder="Add important life events here..."
+          />
+        </div>
 
         <hr className="border-border/30" />
         <h3 className="flex items-center gap-2 font-bold text-primary">
@@ -368,13 +568,21 @@ export default function ProfileTab() {
           </label>
         </div>
 
-        <Button onClick={handleSave} className="w-full gold-gradient text-gold-foreground gap-2">
+        <Button onClick={handleSave} title="Save Profile Settings" className="w-full gold-gradient text-gold-foreground gap-2">
           <Save className="h-4 w-4" />
           Save Profile Settings
         </Button>
       </CardContent>
 
-      {showCamera && <CameraModal onCapture={data => { setPic(data); setShowCamera(false) }} onClose={() => setShowCamera(false)} />}
+      {showCamera && (
+        <CameraModal
+          onCapture={data => {
+            setPic(data)
+            setShowCamera(false)
+          }}
+          onClose={() => setShowCamera(false)}
+        />
+      )}
     </Card>
   )
 }
