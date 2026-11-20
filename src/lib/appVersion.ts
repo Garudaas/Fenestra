@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.07",
-  "timestamp": "21 Nov 2026, 12:43 AM IST",
-  "formatted": "V1.07, 21 Nov 2026, 12:43 AM IST",
+  "version": "V1.08",
+  "timestamp": "21 Nov 2026, 12:44 AM IST",
+  "formatted": "V1.08, 21 Nov 2026, 12:44 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Add NotificationQuickBar component for alerts and chats)",
+  "summary": "Minor technical update (Add NotificationsPage and OneSignalUserSync component)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.08",
+      "timestamp": "21 Nov 2026, 12:44 AM IST",
+      "formatted": "V1.08, 21 Nov 2026, 12:44 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Add NotificationsPage and OneSignalUserSync component)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.07",
       "timestamp": "21 Nov 2026, 12:43 AM IST",
