@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.10",
-  "timestamp": "21 Nov 2026, 01:46 AM IST",
-  "formatted": "V1.10, 21 Nov 2026, 01:46 AM IST",
+  "version": "V1.11",
+  "timestamp": "21 Nov 2026, 01:47 AM IST",
+  "formatted": "V1.11, 21 Nov 2026, 01:47 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Add SplashScreen component with session storage logic)",
+  "summary": "Minor technical update (Create fenestriansCore.ts)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.11",
+      "timestamp": "21 Nov 2026, 01:47 AM IST",
+      "formatted": "V1.11, 21 Nov 2026, 01:47 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Create fenestriansCore.ts)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.10",
       "timestamp": "21 Nov 2026, 01:46 AM IST",
