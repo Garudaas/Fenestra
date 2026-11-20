@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.14",
-  "timestamp": "21 Nov 2026, 01:52 AM IST",
-  "formatted": "V1.14, 21 Nov 2026, 01:52 AM IST",
+  "version": "V1.15",
+  "timestamp": "21 Nov 2026, 01:53 AM IST",
+  "formatted": "V1.15, 21 Nov 2026, 01:53 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement privacy controls in SettingsTab)",
+  "summary": "Minor general update (Notification alerts updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.15",
+      "timestamp": "21 Nov 2026, 01:53 AM IST",
+      "formatted": "V1.15, 21 Nov 2026, 01:53 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Notification alerts updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.14",
       "timestamp": "21 Nov 2026, 01:52 AM IST",
