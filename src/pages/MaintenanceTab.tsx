@@ -96,14 +96,14 @@ export default function MaintenanceTab() {
     }
 
     for (const fm of familyRows ?? []) {
-      const owner = (members ?? []).find(m => m.id === fm.member_id)
+      const owner = (members ?? []).find(m => m.id === fm.alumni_id)
       if (!owner) continue
       const famChecks: Array<{ col: string; label: string }> = [
-        { col: 'relationship', label: `Relationship for ${fm.full_name}` },
-        { col: 'gender', label: `Gender for ${fm.full_name}` },
-        { col: 'dob', label: `Birthday for ${fm.full_name}` },
-        { col: 'blood_group', label: `Blood Group for ${fm.full_name}` },
-        { col: 'education_level', label: `Education Level for ${fm.full_name}` },
+        { col: 'relationship', label: `Relationship for ${fm.name}` },
+        { col: 'gender', label: `Gender for ${fm.name}` },
+        { col: 'dob', label: `Birthday for ${fm.name}` },
+        { col: 'blood_group', label: `Blood Group for ${fm.name}` },
+        { col: 'education_level', label: `Education Level for ${fm.name}` },
       ]
       for (const fc of famChecks) {
         if (!fm[fc.col] || String(fm[fc.col]).trim() === '') {
@@ -145,7 +145,6 @@ export default function MaintenanceTab() {
     setStaleGroups(stale)
   }
 
-  // PROFILE AUDITS (Respects user's saved audit_preferences for retained duplicates & skipped fields)
   const runProfileAudits = async () => {
     setBusyAction('audit')
     setStatusMessage('')
@@ -161,7 +160,6 @@ export default function MaintenanceTab() {
     for (const m of members ?? []) {
       const issues: string[] = []
 
-      // 1. Missing profile picture check
       if (!m.profile_picture_url) {
         const skipped = await hasAuditPreference(m.id, 'skip_missing_field', 'profile_picture_url')
         if (!skipped) {
@@ -169,7 +167,6 @@ export default function MaintenanceTab() {
         }
       }
 
-      // 2. Missing key fields check (respecting user preference)
       const fieldsToAudit = [
         { col: 'dob', name: 'Date of Birth' },
         { col: 'blood_group', name: 'Blood Group' },
@@ -185,7 +182,6 @@ export default function MaintenanceTab() {
         }
       }
 
-      // 3. Double dips check (e.g., contact_number === whatsapp_number or duplicate family member names)
       if (
         m.contact_number &&
         m.whatsapp_number &&
@@ -197,20 +193,19 @@ export default function MaintenanceTab() {
         }
       }
 
-      const myFamily = (familyRows ?? []).filter(fm => fm.member_id === m.id)
+      const myFamily = (familyRows ?? []).filter(fm => fm.alumni_id === m.id)
       const seenNames = new Set<string>()
       for (const fm of myFamily) {
-        const lowerName = fm.full_name.trim().toLowerCase()
-        if (seenNames.has(lowerName)) {
+        const lowerName = (fm.name || '').trim().toLowerCase()
+        if (lowerName && seenNames.has(lowerName)) {
           const retained = await hasAuditPreference(m.id, 'retain_duplicate', `family_name_${lowerName}`)
           if (!retained) {
-            issues.push(`• Duplicate family member entry: "${fm.full_name}" appears twice`)
+            issues.push(`• Duplicate family member entry: "${fm.name}" appears twice`)
           }
         }
-        seenNames.add(lowerName)
+        if (lowerName) seenNames.add(lowerName)
       }
 
-      // 4. Storage overrun check
       const st = (storageRows ?? []).find(s => s.user_id === m.id)
       if (st && Number(st.total_used_bytes) > Number(st.storage_quota_mb) * 1024 * 1024) {
         issues.push(
@@ -246,22 +241,18 @@ export default function MaintenanceTab() {
     setStatusMessage(`Profile Audit complete: Sent ${tasksCreated} personalized audit task(s).`)
   }
 
-  // Tool 1: Archive all chats & clear chats from all devices
   const handleArchiveAndClearChats = async () => {
     if (!window.confirm('Archive all chats and clear chat history from all devices?')) return
     setBusyAction('tool1')
     const { data: allMsgs } = await supabase.from('chat_messages').select('*')
     if (allMsgs && allMsgs.length > 0) {
-      await supabase.from('chat_archives').insert([
-        { archived_by: user.id, messages_json: allMsgs },
-      ])
+      await supabase.from('chat_archives').insert([{ archived_by: user.id, messages_json: allMsgs }])
       await supabase.from('chat_messages').delete().neq('id', 0)
     }
     setBusyAction(null)
     setStatusMessage(`Archived ${allMsgs?.length ?? 0} chat message(s) and cleared all chat windows.`)
   }
 
-  // Tool 2: Remove only auto alerts from general chat window
   const handleRemoveGeneralAutoAlerts = async () => {
     setBusyAction('tool2')
     const { data: autoRows } = await supabase
@@ -280,7 +271,6 @@ export default function MaintenanceTab() {
     setStatusMessage(`Removed ${autoRows?.length ?? 0} auto-alert message(s) from general chat.`)
   }
 
-  // Tool 3: Delete private group unused for > 1 month
   const handleDeleteStaleGroup = async (roomId: string) => {
     if (!window.confirm(`Delete private group "${roomId}" (inactive for over 30 days)?`)) return
     setBusyAction('tool3')
@@ -290,7 +280,6 @@ export default function MaintenanceTab() {
     setStatusMessage(`Deleted inactive private group "${roomId}".`)
   }
 
-  // Tool 4: Clear unused / closed video & audio chat rooms
   const handleClearUnusedAVRooms = async () => {
     setBusyAction('tool4')
     await supabase.from('user_notifications').delete().in('category', ['group_call', 'video_call'])
@@ -298,7 +287,6 @@ export default function MaintenanceTab() {
     setStatusMessage('Cleared inactive and ended audio/video call room alerts.')
   }
 
-  // Tool 5: Clear meeting videos
   const handleClearMeetingVideos = async () => {
     if (!window.confirm('Delete all recorded meeting videos from storage?')) return
     setBusyAction('tool5')
@@ -313,7 +301,6 @@ export default function MaintenanceTab() {
     setStatusMessage(`Cleared ${vids?.length ?? 0} meeting video recording(s).`)
   }
 
-  // Tool 6: Clear accessible folder files & alert users to remove large/private files
   const handleClearPrivateFolders = async () => {
     if (!window.confirm('Delete accessible folder files and send alerts to members with large or private files?')) {
       return
@@ -335,7 +322,6 @@ export default function MaintenanceTab() {
         .in('id', accessible.map(f => f.id))
     }
 
-    // Alert members who still have private or large files (> 25 MB)
     const { data: summaries } = await supabase.from('admin_user_storage_summary').select('*')
     let alertedCount = 0
     for (const s of summaries ?? []) {
@@ -356,7 +342,6 @@ export default function MaintenanceTab() {
     )
   }
 
-  // Tool 7: Clear support requirements where support is achieved
   const handleClearAchievedSupport = async () => {
     setBusyAction('tool7')
     const { data: doneRows } = await supabase
@@ -374,25 +359,25 @@ export default function MaintenanceTab() {
     setStatusMessage(`Cleared ${doneRows?.length ?? 0} achieved family support request(s).`)
   }
 
-  // Tool 8: Clear completed tasks
   const handleClearCompletedTasks = async () => {
     setBusyAction('tool8')
-    const { data: doneTasks } = await supabase
-      .from('member_tasks')
-      .select('id')
-      .eq('status', 'completed')
+    const [{ data: doneMemberTasks }, { data: doneCalTasks }] = await Promise.all([
+      supabase.from('member_tasks').select('id').eq('status', 'completed'),
+      supabase.from('tasks').select('id').eq('is_completed', true),
+    ])
 
-    if (doneTasks && doneTasks.length > 0) {
-      await supabase
-        .from('member_tasks')
-        .delete()
-        .in('id', doneTasks.map(t => t.id))
+    if (doneMemberTasks && doneMemberTasks.length > 0) {
+      await supabase.from('member_tasks').delete().in('id', doneMemberTasks.map(t => t.id))
     }
+    if (doneCalTasks && doneCalTasks.length > 0) {
+      await supabase.from('tasks').delete().in('id', doneCalTasks.map(t => t.id))
+    }
+
+    const totalCleared = (doneMemberTasks?.length ?? 0) + (doneCalTasks?.length ?? 0)
     setBusyAction(null)
-    setStatusMessage(`Cleared ${doneTasks?.length ?? 0} completed task(s).`)
+    setStatusMessage(`Cleared ${totalCleared} completed task(s).`)
   }
 
-  // Tool 9: Send bulk micromanaged tasks for checked missing fields (bypasses general audit skip preference)
   const handleSendBulkMissingTasks = async () => {
     const chosen = missingEntries.filter(e => selectedMissingKeys[e.key])
     if (chosen.length === 0) {
@@ -472,7 +457,6 @@ export default function MaintenanceTab() {
         </CardContent>
       </Card>
 
-      {/* Cleanup Action Buttons (Tools 1, 2, 4, 5, 6, 7, 8) */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Button
           type="button"
@@ -559,7 +543,6 @@ export default function MaintenanceTab() {
         </Button>
       </div>
 
-      {/* Tool 3: Private Groups Unused for > 1 Month */}
       <Card className="border-border/40 bg-card/70">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm text-primary">
@@ -599,7 +582,6 @@ export default function MaintenanceTab() {
         </CardContent>
       </Card>
 
-      {/* Tool 9: Bulk Missing Profile & Family Details Matrix */}
       <Card className="border-border/40 bg-card/70">
         <CardHeader className="pb-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
