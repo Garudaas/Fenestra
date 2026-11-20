@@ -9,6 +9,7 @@ import AlumniAssociationHome from '@/pages/AlumniAssociationHome'
 import InvitePage from '@/pages/InvitePage'
 import InstallAppPage from '@/pages/InstallAppPage'
 import NotificationsPage from '@/pages/NotificationsPage'
+import SmartAppLauncher from '@/pages/SmartAppLauncher'
 import NotificationQuickBar from '@/components/NotificationQuickBar'
 import SplashScreen from '@/components/SplashScreen'
 
@@ -51,6 +52,7 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/app" element={<SmartAppLauncher />} />
           <Route path="/login" element={<MemberLoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/invite" element={<InvitePage />} />
