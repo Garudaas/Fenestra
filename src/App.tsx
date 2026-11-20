@@ -7,6 +7,7 @@ import MemberDashboard from '@/pages/MemberDashboard'
 import AdminDashboard from '@/pages/AdminDashboard'
 import AlumniAssociationHome from '@/pages/AlumniAssociationHome'
 import InvitePage from '@/pages/InvitePage'
+import InstallAppPage from '@/pages/InstallAppPage'
 
 export function App() {
   useEffect(() => {
@@ -17,7 +18,7 @@ export function App() {
       })
       OneSignal.Slidedown.promptPush()
     }
-    
+
     initOneSignal()
 
     const handleBeforeInstall = (e: Event) => {
@@ -36,6 +37,7 @@ export function App() {
           <Route path="/login" element={<MemberLoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/invite" element={<InvitePage />} />
+          <Route path="/install" element={<InstallAppPage />} />
           <Route path="/admin" element={<AdminLoginPage />} />
           <Route path="/dashboard" element={<MemberDashboard />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
