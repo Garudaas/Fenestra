@@ -29,7 +29,10 @@ export default function SmartAppLauncher() {
   const navigate = useNavigate()
 
   const [phase, setPhase] = useState<LauncherPhase>('scanning')
-  const [canOneTapInstall, setCanOneTapInstall] = useState(false)
+  const [canOneTapInstall, setCanOneTapInstall] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? Boolean((window as any).deferredInstallPrompt) : false
+  )
+  const [showManualBackup, setShowManualBackup] = useState(false)
   const [latestInfo, setLatestInfo] = useState<AppVersionData>(APP_VERSION_INFO)
   const [copiedUrl, setCopiedUrl] = useState(false)
 
@@ -59,30 +62,6 @@ export default function SmartAppLauncher() {
     return false
   }
 
-  const triggerNativeInstall = useCallback(async (): Promise<boolean> => {
-    const promptEvent = (window as any).deferredInstallPrompt
-    if (!promptEvent) return false
-
-    try {
-      setPhase('installing')
-      promptEvent.prompt()
-      const choice = await promptEvent.userChoice
-      ;(window as any).deferredInstallPrompt = null
-      setCanOneTapInstall(false)
-
-      if (choice?.outcome === 'accepted') {
-        setPhase('up-to-date')
-        setTimeout(() => navigate(destinationRoute, { replace: true }), 1200)
-        return true
-      }
-      setPhase('not-installed')
-      return false
-    } catch {
-      setPhase('not-installed')
-      return false
-    }
-  }, [navigate, destinationRoute])
-
   const checkAndApplyUpdate = useCallback(async () => {
     setPhase('checking-update')
     try {
@@ -102,7 +81,6 @@ export default function SmartAppLauncher() {
           return
         }
 
-        // Automatically update the installed app
         setPhase('updating')
         if ('caches' in window) {
           const keys = await caches.keys()
@@ -130,11 +108,16 @@ export default function SmartAppLauncher() {
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault()
       ;(window as any).deferredInstallPrompt = e
-      if (!cancelled) setCanOneTapInstall(true)
+      if (!cancelled) {
+        setCanOneTapInstall(true)
+        setPhase(prev => (prev === 'scanning' ? 'not-installed' : prev))
+      }
     }
 
     const handleAppInstalled = () => {
+      ;(window as any).deferredInstallPrompt = null
       if (!cancelled) {
+        setCanOneTapInstall(false)
         setPhase('up-to-date')
         setTimeout(() => navigate(destinationRoute, { replace: true }), 1200)
       }
@@ -152,18 +135,20 @@ export default function SmartAppLauncher() {
         return
       }
 
-      // Wait briefly in case browser fires beforeinstallprompt right after load
-      if (!(window as any).deferredInstallPrompt) {
-        await new Promise(resolve => setTimeout(resolve, 900))
+      if ((window as any).deferredInstallPrompt) {
+        setCanOneTapInstall(true)
+        setPhase('not-installed')
+        return
       }
+
+      // Brief wait for browser's beforeinstallprompt event
+      await new Promise(resolve => setTimeout(resolve, 800))
       if (cancelled) return
 
       if ((window as any).deferredInstallPrompt) {
         setCanOneTapInstall(true)
-        await triggerNativeInstall()
-      } else {
-        setPhase('not-installed')
       }
+      setPhase('not-installed')
     }
 
     runSmartScan()
@@ -173,7 +158,39 @@ export default function SmartAppLauncher() {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
-  }, [checkAndApplyUpdate, triggerNativeInstall, navigate, destinationRoute])
+  }, [checkAndApplyUpdate, navigate, destinationRoute])
+
+  const handleInstallClick = async () => {
+    const promptEvent = (window as any).deferredInstallPrompt
+    if (!promptEvent) {
+      setCanOneTapInstall(false)
+      setShowManualBackup(true)
+      return
+    }
+
+    try {
+      setPhase('installing')
+      await promptEvent.prompt()
+
+      const timeoutPromise = new Promise<{ outcome: string }>(resolve =>
+        setTimeout(() => resolve({ outcome: 'timeout' }), 6000)
+      )
+      const choice = await Promise.race([promptEvent.userChoice, timeoutPromise])
+
+      if (choice?.outcome === 'accepted') {
+        ;(window as any).deferredInstallPrompt = null
+        setCanOneTapInstall(false)
+        setPhase('up-to-date')
+        setTimeout(() => navigate(destinationRoute, { replace: true }), 1200)
+      } else {
+        setPhase('not-installed')
+        setShowManualBackup(true)
+      }
+    } catch {
+      setPhase('not-installed')
+      setShowManualBackup(true)
+    }
+  }
 
   const handleCopyUrl = async () => {
     await navigator.clipboard.writeText(appSmartUrl)
@@ -246,24 +263,26 @@ export default function SmartAppLauncher() {
 
           {(phase === 'not-installed' || phase === 'installing') && (
             <div className="space-y-3 text-left">
-              <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2.5">
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
                 <p className="flex items-center gap-2 text-xs font-bold text-primary">
                   <Smartphone className="h-4 w-4 shrink-0" />
                   Fenestrians is not installed on this device
                 </p>
 
-                {canOneTapInstall ? (
+                {canOneTapInstall && (
                   <Button
                     type="button"
                     disabled={phase === 'installing'}
-                    onClick={triggerNativeInstall}
+                    onClick={handleInstallClick}
                     className="w-full gold-gradient text-gold-foreground font-bold gap-2 py-5"
                   >
                     <Download className="h-4 w-4" />
-                    {phase === 'installing' ? 'Installing...' : 'Install Fenestrians App Now'}
+                    {phase === 'installing' ? 'Opening Permission Window...' : 'Install Fenestrians App Now'}
                   </Button>
-                ) : (
-                  <div className="space-y-2 text-xs text-muted-foreground">
+                )}
+
+                {(!canOneTapInstall || showManualBackup) && (
+                  <div className="space-y-2 text-xs text-muted-foreground pt-1">
                     <p>
                       • <span className="font-semibold text-foreground">Android (Chrome):</span> Tap the{' '}
                       <span className="font-semibold text-foreground">⋮</span> menu at the top right and select{' '}
@@ -275,15 +294,12 @@ export default function SmartAppLauncher() {
                       <span className="font-semibold text-foreground">Share</span> button at the bottom and select{' '}
                       <span className="font-semibold text-foreground">Add to Home Screen</span>.
                     </p>
-                    <p className="text-[11px] italic text-amber-300/90">
-                      If you opened this inside WhatsApp or Gmail, copy the link below and open it in Chrome or Safari.
-                    </p>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={handleCopyUrl}
-                      className="w-full gap-1.5 text-xs"
+                      className="w-full gap-1.5 text-xs mt-1"
                     >
                       {copiedUrl ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
                       {copiedUrl ? 'Link Copied!' : 'Copy Smart App Link'}
