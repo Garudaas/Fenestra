@@ -1,8 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
+import {
+  fetchUserNotifications,
+  clearChatNotifications,
+  isChatNotification,
+} from '@/lib/notificationService'
 import {
   Users,
   Heart,
@@ -52,8 +57,35 @@ export default function MemberDashboard() {
   const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<TabName>('directory')
   const [alerts, setAlerts] = useState<string[]>([])
+  const [chatBadge, setChatBadge] = useState(0)
+  const [voiceBadge, setVoiceBadge] = useState(0)
+  const [videoBadge, setVideoBadge] = useState(0)
   const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
+
+  const syncHeaderBadges = useCallback(async () => {
+    if (!user || user.is_placeholder) return
+    const list = await fetchUserNotifications(user.id)
+    const unread = list.filter(i => i.status === 'unread')
+
+    let chats = 0
+    let voiceCalls = 0
+    let videoCalls = 0
+
+    for (const item of unread) {
+      if (isChatNotification(item.category)) {
+        chats += item.unread_count || 1
+      } else if (item.category === 'group_call') {
+        voiceCalls += item.unread_count || 1
+      } else if (item.category === 'video_call') {
+        videoCalls += item.unread_count || 1
+      }
+    }
+
+    setChatBadge(chats)
+    setVoiceBadge(voiceCalls)
+    setVideoBadge(videoCalls)
+  }, [user])
 
   useEffect(() => {
     const requestedTab = searchParams.get('tab') as TabName | null
@@ -68,7 +100,15 @@ export default function MemberDashboard() {
       return
     }
     triggerAlerts()
-  }, [user, navigate])
+    syncHeaderBadges()
+
+    const interval = setInterval(syncHeaderBadges, 20000)
+    window.addEventListener('fenestrians-notifications-updated', syncHeaderBadges)
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('fenestrians-notifications-updated', syncHeaderBadges)
+    }
+  }, [user, navigate, syncHeaderBadges])
 
   const triggerAlerts = async () => {
     if (!user) return
@@ -85,8 +125,7 @@ export default function MemberDashboard() {
       if (u.dob && new Date(u.dob).getDate() === currentDay && new Date(u.dob).getMonth() === currentMonth) {
         celebrations.push(`Today is ${u.full_name}'s Birthday!`)
       }
-      const isDivorced =
-        u.marital_status?.toLowerCase() === 'divorced' || Boolean(u.divorce_date)
+      const isDivorced = u.marital_status?.toLowerCase() === 'divorced' || Boolean(u.divorce_date)
       if (
         !isDivorced &&
         u.wedding_date &&
@@ -114,6 +153,29 @@ export default function MemberDashboard() {
     }
   }
 
+  const handleTabSelect = async (tabId: string) => {
+    if (tabId === 'alumni') {
+      navigate('/alumni-association')
+      return
+    }
+    setActiveTab(tabId as TabName)
+
+    if (!user) return
+    if (tabId === 'chat') {
+      await clearChatNotifications(user.id)
+      setChatBadge(0)
+      window.dispatchEvent(new Event('fenestrians-notifications-updated'))
+    } else if (tabId === 'voice') {
+      await supabase.from('user_notifications').delete().eq('user_id', user.id).eq('category', 'group_call')
+      setVoiceBadge(0)
+      window.dispatchEvent(new Event('fenestrians-notifications-updated'))
+    } else if (tabId === 'video') {
+      await supabase.from('user_notifications').delete().eq('user_id', user.id).eq('category', 'video_call')
+      setVideoBadge(0)
+      window.dispatchEvent(new Event('fenestrians-notifications-updated'))
+    }
+  }
+
   const handleLogout = () => {
     logout()
     navigate('/')
@@ -123,7 +185,7 @@ export default function MemberDashboard() {
 
   const userIsAdmin = Boolean(isAdmin || user.is_admin)
 
-  const navItems: { id: string; label: string; tooltip: string; icon: any; group: string }[] = [
+  const navItems: { id: string; label: string; tooltip: string; icon: any; group: string; badge?: number }[] = [
     { id: 'alumni', label: 'Alumni', tooltip: 'Alumni Association Home', icon: Building2, group: 'Network' },
     { id: 'directory', label: 'Directory', tooltip: 'Member Directory', icon: Users, group: 'Network' },
     { id: 'family', label: 'Family', tooltip: 'Family Members', icon: Heart, group: 'Network' },
@@ -131,9 +193,9 @@ export default function MemberDashboard() {
     { id: 'gallery', label: 'Gallery', tooltip: 'Photo Gallery', icon: Image, group: 'Network' },
     { id: 'folder', label: 'Folder', tooltip: 'Member Folders & Shared Files', icon: Folder, group: 'Network' },
     { id: 'calendar', label: 'Calendar', tooltip: 'Class Calendar', icon: CalendarDays, group: 'Network' },
-    { id: 'chat', label: 'Chat', tooltip: 'Group & Private Chat', icon: MessageCircle, group: 'Comms' },
-    { id: 'voice', label: 'Voice', tooltip: 'Voice Calls', icon: Phone, group: 'Comms' },
-    { id: 'video', label: 'Video', tooltip: 'Video Calls', icon: Video, group: 'Comms' },
+    { id: 'chat', label: 'Chat', tooltip: 'Group & Private Chat', icon: MessageCircle, group: 'Comms', badge: chatBadge },
+    { id: 'voice', label: 'Voice', tooltip: 'Voice Calls', icon: Phone, group: 'Comms', badge: voiceBadge },
+    { id: 'video', label: 'Video', tooltip: 'Video Calls', icon: Video, group: 'Comms', badge: videoBadge },
     { id: 'profile', label: 'Profile', tooltip: 'My Profile', icon: User, group: 'Account' },
     { id: 'settings', label: 'Settings', tooltip: 'User Settings & Privacy', icon: Settings, group: 'Account' },
     ...(userIsAdmin
@@ -164,17 +226,20 @@ export default function MemberDashboard() {
                   size="sm"
                   title={item.tooltip}
                   variant={activeTab === item.id ? 'default' : 'ghost'}
-                  className={`shrink-0 h-8 gap-1.5 px-2.5 text-xs transition-all duration-200 ${activeTab === item.id ? 'gold-gradient text-gold-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
-                  onClick={() => {
-                    if (item.id === 'alumni') {
-                      navigate('/alumni-association')
-                    } else {
-                      setActiveTab(item.id as TabName)
-                    }
-                  }}
+                  className={`relative shrink-0 h-8 gap-1.5 px-2.5 text-xs transition-all duration-200 ${
+                    activeTab === item.id
+                      ? 'gold-gradient text-gold-foreground shadow-md'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onClick={() => handleTabSelect(item.id)}
                 >
                   <Icon className="h-3.5 w-3.5" />
                   <span className="hidden lg:inline">{item.label}</span>
+                  {item.badge && item.badge > 0 ? (
+                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                      {item.badge}
+                    </span>
+                  ) : null}
                 </Button>
               )
             })}
@@ -196,7 +261,10 @@ export default function MemberDashboard() {
       {alerts.length > 0 && (
         <div className="mx-auto w-full max-w-5xl space-y-1.5 px-4 pt-3">
           {alerts.map((a, i) => (
-            <div key={i} className="flex items-center justify-between rounded-lg gold-border bg-primary/5 px-4 py-2.5 text-xs shadow-sm">
+            <div
+              key={i}
+              className="flex items-center justify-between rounded-lg gold-border bg-primary/5 px-4 py-2.5 text-xs shadow-sm"
+            >
               <span className="flex items-center gap-2 text-primary font-medium">
                 <Crown className="h-3.5 w-3.5" />
                 {a}
@@ -219,11 +287,11 @@ export default function MemberDashboard() {
         {activeTab === 'directory' && (
           <DirectoryTab
             onStartDM={(id, name) => {
-              setActiveTab('chat')
+              handleTabSelect('chat')
               setTimeout(() => window.dispatchEvent(new CustomEvent('open-dm', { detail: { id, name } })), 100)
             }}
             onStartVideoCall={roomName => {
-              setActiveTab('video')
+              handleTabSelect('video')
               setTimeout(() => window.dispatchEvent(new CustomEvent('join-video', { detail: { roomName } })), 100)
             }}
           />
@@ -236,7 +304,7 @@ export default function MemberDashboard() {
         {activeTab === 'calendar' && (
           <CalendarTab
             onJoinCall={roomName => {
-              setActiveTab('video')
+              handleTabSelect('video')
               setTimeout(() => window.dispatchEvent(new CustomEvent('join-video', { detail: { roomName } })), 100)
             }}
           />
