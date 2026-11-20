@@ -82,7 +82,6 @@ export default function ChatTab() {
   useEffect(() => {
     if (!user) return
 
-    // Reset unread chat count immediately when user opens the chat window
     clearChatNotifications(user.id).then(() => {
       window.dispatchEvent(new Event('fenestrians-notifications-updated'))
     })
@@ -233,7 +232,6 @@ export default function ChatTab() {
       ? 'Sent a video message'
       : text.slice(0, 80)
 
-    // Determine chat type & recipients for aggregated unread chat counter
     let chatType: 'common_chat' | 'private_chat' | 'group_chat' = 'common_chat'
     let recipientIds: number[] = []
 
@@ -275,7 +273,6 @@ export default function ChatTab() {
       )
     )
 
-    // Auto-alert as "Your friend Needs help" if message contains the word "help"
     if (!text.startsWith('data:') && /\bhelp\b/i.test(text)) {
       await publishArchivedAlert({
         category: 'help_needed',
@@ -930,3 +927,175 @@ function MessageBubble({
         {isMe && <span className="font-bold">{msg.sender_name}</span>}
 
         <button onClick={() => setShowMobileMenu(!showMobileMenu)} className="md:hidden ml-auto px-1 font-bold">
+          ⋮
+        </button>
+
+        <div
+          className={`flex items-center gap-1 transition ${
+            showMobileMenu ? 'opacity-100 flex-wrap' : 'opacity-0 md:group-hover:opacity-100'
+          }`}
+        >
+          <button onClick={onOpenReactionPicker} title="React" className="transition hover:text-primary">
+            <Smile className="h-3 w-3" />
+          </button>
+          <button onClick={onTranslate} title="Translate" className="transition hover:text-primary">
+            <Globe className="h-3 w-3" />
+          </button>
+          <button onClick={onCopy} title="Copy" className="transition hover:text-foreground">
+            <Copy className="h-3 w-3" />
+          </button>
+          <button onClick={onReply} title="Reply" className="transition hover:text-primary">
+            <Reply className="h-3 w-3" />
+          </button>
+          <button onClick={onForward} title="Forward" className="transition hover:text-primary">
+            <Forward className="h-3 w-3" />
+          </button>
+          {isMe && (
+            <button onClick={onEdit} title="Edit" className="transition hover:text-primary">
+              <Pencil className="h-3 w-3" />
+            </button>
+          )}
+          {isMe && (
+            <button onClick={onDelete} title="Delete" className="transition hover:text-destructive">
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div
+        className={`max-w-[85%] rounded-lg p-2.5 shadow-sm ${
+          isMe
+            ? 'rounded-tr-none bg-primary/90 text-primary-foreground'
+            : 'rounded-tl-none bg-secondary/80 text-secondary-foreground'
+        }`}
+      >
+        {renderContent()}
+      </div>
+
+      {reactionPickerOpen && (
+        <div className="mt-1 flex gap-2 rounded-xl border border-border/30 bg-popover/95 backdrop-blur-xl p-2 text-xl shadow-xl shadow-primary/5">
+          {REACTION_EMOJIS.map(e => (
+            <button key={e} onClick={() => onReact(e)} className="origin-bottom transition hover:scale-125">
+              {e}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {Object.keys(groupedReactions).length > 0 && (
+        <div className={`mt-1 flex max-w-[85%] flex-wrap gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+          {Object.entries(groupedReactions).map(([emoji, data]) => (
+            <button
+              key={emoji}
+              onClick={() => onReact(emoji)}
+              className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition hover:bg-muted ${
+                data.iReacted ? 'border-primary bg-primary/10 text-primary' : 'border-border/40 text-muted-foreground'
+              }`}
+            >
+              <span>{emoji}</span>
+              <span className="font-bold">{data.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function VideoRecordModal({ onSend, onClose }: { onSend: (data: string) => void; onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const [recording, setRecording] = useState(false)
+
+  useEffect(() => {
+    startCamera()
+    return () => stopCamera()
+  }, [])
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } },
+        audio: true,
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.muted = true
+      }
+    } catch (err: any) {
+      alert('Camera/Mic error: ' + err.message)
+      onClose()
+    }
+  }
+
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach(t => t.stop())
+  }
+
+  const startRecording = () => {
+    if (!streamRef.current) return
+    chunksRef.current = []
+    const recorder = new MediaRecorder(streamRef.current)
+    recorder.ondataavailable = e => {
+      if (e.data.size > 0) chunksRef.current.push(e.data)
+    }
+    recorder.onstop = () => {
+      if (chunksRef.current.length > 0) {
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'video/webm' })
+        const reader = new FileReader()
+        reader.onloadend = () => onSend(reader.result as string)
+        reader.readAsDataURL(blob)
+      }
+    }
+    recorder.start()
+    recorderRef.current = recorder
+    setRecording(true)
+  }
+
+  const stopRecording = () => {
+    recorderRef.current?.stop()
+    stopCamera()
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
+      <Card className="w-full max-w-sm space-y-3 border-border/40 bg-card/80 backdrop-blur-xl p-4 shadow-xl shadow-primary/5">
+        <h3 className="text-sm font-bold text-primary">Record Video Message</h3>
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="aspect-video w-full rounded border border-border/40 bg-black object-cover"
+        />
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-border/40"
+            onClick={() => {
+              stopCamera()
+              onClose()
+            }}
+          >
+            Cancel
+          </Button>
+          {!recording ? (
+            <Button size="sm" variant="destructive" onClick={startRecording}>
+              Record
+            </Button>
+          ) : (
+            <Button size="sm" className="bg-green-600 text-white hover:bg-green-700" onClick={stopRecording}>
+              Send Video
+            </Button>
+          )}
+        </div>
+      </Card>
+    </div>
+  )
+}
