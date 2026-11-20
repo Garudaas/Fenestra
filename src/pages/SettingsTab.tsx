@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { VAPID_PUBLIC_KEY } from '@/lib/constants'
-import { Settings, Bell, BellOff, Globe, Shield, Video, Mic } from 'lucide-react'
+import { Settings, Bell, BellOff, Globe, Shield, Video, Mic, UserPlus, ArrowRight } from 'lucide-react'
 
 export default function SettingsTab() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [alertState, setAlertState] = useState<'enabled' | 'disabled' | 'unsupported'>('disabled')
   const [alertLoading, setAlertLoading] = useState(false)
   const [lang, setLang] = useState('en')
@@ -85,6 +87,25 @@ export default function SettingsTab() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          {user && !user.is_placeholder && (
+            <div className="space-y-2 rounded-xl border border-primary/30 bg-primary/5 p-4">
+              <h3 className="flex items-center gap-2 font-bold text-primary">
+                <UserPlus className="h-4 w-4" />
+                Invite a New Member
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Generate a phone install shortcut link and temporary passcode for a new friend to join Fenestrians.
+              </p>
+              <Button
+                onClick={() => navigate('/invite')}
+                className="gold-gradient text-gold-foreground font-semibold gap-1.5"
+              >
+                Create Member Invite
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+
           <div className="space-y-2 rounded-xl border border-border/30 bg-muted/20 p-4">
             <h3 className="flex items-center gap-2 font-bold text-primary">
               <Bell className="h-4 w-4" />
