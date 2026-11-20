@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.02",
-  "timestamp": "20 Nov 2026, 11:43 PM IST",
-  "formatted": "V1.02, 20 Nov 2026, 11:43 PM IST",
+  "version": "V1.03",
+  "timestamp": "21 Nov 2026, 12:02 AM IST",
+  "formatted": "V1.03, 21 Nov 2026, 12:02 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement version history tracking in SettingsTab)",
+  "summary": "Minor general update (Update installation steps for Android and iPhone)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.03",
+      "timestamp": "21 Nov 2026, 12:02 AM IST",
+      "formatted": "V1.03, 21 Nov 2026, 12:02 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Update installation steps for Android and iPhone)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.02",
       "timestamp": "20 Nov 2026, 11:43 PM IST",
