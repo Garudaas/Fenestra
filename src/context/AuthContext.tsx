@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null
     }
   })
-  
+
   const [isAdmin, setIsAdmin] = useState(() => {
     try {
       const saved = localStorage.getItem('alumni_session')
@@ -132,6 +132,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) {
       return { success: false, error: error.message }
     }
+
+    try {
+      await fetch('https://dojlbfnfhkfltlxggxiy.supabase.co/functions/v1/daily-notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer sb_publishable_CmCFzsQ_L8dk7NxUmIVZ0g_pl_jq0fV',
+        },
+        body: JSON.stringify({
+          event: 'new_member',
+          fullName: name.trim(),
+        }),
+      })
+    } catch (notifyErr) {
+      console.error('Failed to send new member notification:', notifyErr)
+    }
+
     return { success: true }
   }, [])
 
