@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.35",
-  "timestamp": "21 Nov 2026, 03:01 AM IST",
-  "formatted": "V1.35, 21 Nov 2026, 03:01 AM IST",
+  "version": "V1.36",
+  "timestamp": "21 Nov 2026, 03:02 AM IST",
+  "formatted": "V1.36, 21 Nov 2026, 03:02 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance app installation detection and link copying)",
+  "summary": "Minor technical update (Refactor InvitePage layout and improve user prompts)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.36",
+      "timestamp": "21 Nov 2026, 03:02 AM IST",
+      "formatted": "V1.36, 21 Nov 2026, 03:02 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor InvitePage layout and improve user prompts)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.35",
       "timestamp": "21 Nov 2026, 03:01 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.12, 21 Nov 2026, 01:48 AM IST",
       "type": "minor",
       "summary": "Minor general update (Add constants and functions for family and blood group management)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.11",
-      "timestamp": "21 Nov 2026, 01:47 AM IST",
-      "formatted": "V1.11, 21 Nov 2026, 01:47 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Create fenestriansCore.ts)",
       "requiresReinstall": false
     }
   ]
