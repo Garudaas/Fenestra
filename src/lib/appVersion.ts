@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.30",
-  "timestamp": "21 Nov 2026, 02:19 AM IST",
-  "formatted": "V1.30, 21 Nov 2026, 02:19 AM IST",
+  "version": "V1.31",
+  "timestamp": "21 Nov 2026, 02:21 AM IST",
+  "formatted": "V1.31, 21 Nov 2026, 02:21 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Add extra line in VoiceTab component)",
+  "summary": "Minor technical update (Refactor VideoTab component for improved functionality)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.31",
+      "timestamp": "21 Nov 2026, 02:21 AM IST",
+      "formatted": "V1.31, 21 Nov 2026, 02:21 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor VideoTab component for improved functionality)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.30",
       "timestamp": "21 Nov 2026, 02:19 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.07, 21 Nov 2026, 12:43 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add NotificationQuickBar component for alerts and chats)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.06",
-      "timestamp": "21 Nov 2026, 12:42 AM IST",
-      "formatted": "V1.06, 21 Nov 2026, 12:42 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Add Notifications listing Page for user notifications)",
       "requiresReinstall": false
     }
   ]
