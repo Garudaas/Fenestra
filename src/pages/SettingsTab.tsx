@@ -2,11 +2,27 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import OneSignal from 'react-onesignal'
 import { useAuth } from '@/context/AuthContext'
-import { APP_VERSION_INFO, type AppVersionData } from '@/lib/appVersion'
+import { APP_VERSION_INFO, type AppVersionData, type VersionEntry } from '@/lib/appVersion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Settings, Bell, CheckCircle2, Globe, Shield, Video, Mic, UserPlus, ArrowRight, RefreshCw, Smartphone, AlertCircle } from 'lucide-react'
+import {
+  Settings,
+  Bell,
+  CheckCircle2,
+  Globe,
+  Shield,
+  Video,
+  Mic,
+  UserPlus,
+  ArrowRight,
+  RefreshCw,
+  Smartphone,
+  AlertCircle,
+  History,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react'
 
 type CheckResultState =
   | { status: 'idle' }
@@ -24,12 +40,33 @@ export default function SettingsTab() {
   const [lang, setLang] = useState('en')
   const [updateState, setUpdateState] = useState<CheckResultState>({ status: 'idle' })
   const [applyingUpdate, setApplyingUpdate] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [versionHistory, setVersionHistory] = useState<VersionEntry[]>(
+    APP_VERSION_INFO.history && APP_VERSION_INFO.history.length > 0
+      ? APP_VERSION_INFO.history
+      : [APP_VERSION_INFO]
+  )
 
   useEffect(() => {
     const saved = localStorage.getItem('pref_lang') || 'en'
     setLang(saved)
     checkOneSignalState()
+    loadVersionHistory()
   }, [])
+
+  const loadVersionHistory = async () => {
+    try {
+      const res = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' })
+      if (res.ok) {
+        const data: AppVersionData = await res.json()
+        if (Array.isArray(data.history) && data.history.length > 0) {
+          setVersionHistory(data.history)
+        }
+      }
+    } catch {
+      // Keep bundled APP_VERSION_INFO.history fallback
+    }
+  }
 
   const checkOneSignalState = async () => {
     try {
@@ -123,6 +160,10 @@ export default function SettingsTab() {
       }
 
       const latest: AppVersionData = await res.json()
+      if (Array.isArray(latest.history) && latest.history.length > 0) {
+        setVersionHistory(latest.history)
+      }
+
       if (latest.version !== APP_VERSION_INFO.version) {
         if (latest.requiresReinstall) {
           setUpdateState({
@@ -172,7 +213,7 @@ export default function SettingsTab() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* App Installation & Update Checker */}
+          {/* App Installation, Updates & Version History */}
           <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
             <div className="flex items-center justify-between gap-2">
               <h3 className="flex items-center gap-2 font-bold text-primary">
@@ -187,16 +228,71 @@ export default function SettingsTab() {
               Check whether the standalone Fenestrians app is installed on this device and whether it has the latest updates.
             </p>
 
-            <Button
-              type="button"
-              onClick={handleCheckAppAndUpdates}
-              disabled={updateState.status === 'checking'}
-              variant="outline"
-              className="gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${updateState.status === 'checking' ? 'animate-spin' : ''}`} />
-              {updateState.status === 'checking' ? 'Checking Device...' : 'Check App Status & Updates'}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                onClick={handleCheckAppAndUpdates}
+                disabled={updateState.status === 'checking'}
+                variant="outline"
+                className="gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${updateState.status === 'checking' ? 'animate-spin' : ''}`} />
+                {updateState.status === 'checking' ? 'Checking Device...' : 'Check App Status & Updates'}
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowHistory(prev => !prev)}
+                className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <History className="h-3.5 w-3.5 text-primary" />
+                {showHistory ? 'Hide Update History' : `View Update History (${versionHistory.length})`}
+                {showHistory ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+
+            {/* Expandable Version History Log */}
+            {showHistory && (
+              <div className="space-y-2 rounded-lg border border-border/40 bg-background/70 p-3 max-h-64 overflow-y-auto">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-primary">
+                  Recent App Updates
+                </p>
+                <div className="space-y-2.5">
+                  {versionHistory.map((item, idx) => (
+                    <div
+                      key={`${item.version}-${idx}`}
+                      className="rounded-md border border-border/30 bg-muted/20 p-2.5 space-y-1"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[11px] font-bold text-primary">
+                            {item.version}
+                          </span>
+                          <span
+                            className={
+                              item.type === 'major'
+                                ? 'rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300'
+                                : 'rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground'
+                            }
+                          >
+                            {item.type === 'major' ? 'Major Update' : 'Minor Update'}
+                          </span>
+                          {item.requiresReinstall && (
+                            <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-red-300">
+                              Reinstall Required
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-muted-foreground">{item.timestamp}</span>
+                      </div>
+                      <p className="text-xs text-foreground/90 leading-relaxed">{item.summary}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Case 1: App Not Installed */}
             {updateState.status === 'not-installed' && (
