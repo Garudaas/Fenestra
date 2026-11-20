@@ -194,7 +194,7 @@ export default function InvitePage() {
         is_placeholder: true,
         custom_username: `pending_${passcode.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
         custom_password: '',
-        gender: '',
+        gender: 'Male',
         hide_from_peers: false,
         hide_from_admin: false,
         is_admin: false,
@@ -386,4 +386,45 @@ export default function InvitePage() {
                   <Input
                     readOnly
                     value={generatedPasscode}
-                    className="bg-input/50 border-border/50 font-mono
+                    className="bg-input/50 border-border/50 font-mono font-bold tracking-wider text-primary"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyText(generatedPasscode, 'code')}
+                    className="shrink-0 gap-1"
+                  >
+                    {copiedCode ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copiedCode ? t.copiedBtn : t.copyBtn}
+                  </Button>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setInviteeName('')
+                  setGeneratedUrl('')
+                  setGeneratedPasscode('')
+                }}
+                className="w-full text-xs"
+              >
+                {t.inviteAnotherBtn}
+              </Button>
+            </div>
+          )}
+
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/dashboard')}
+            className="w-full text-xs text-muted-foreground gap-1.5"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            {t.backBtn}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
