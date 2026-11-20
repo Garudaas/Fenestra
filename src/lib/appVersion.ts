@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.42",
-  "timestamp": "21 Nov 2026, 03:22 AM IST",
-  "formatted": "V1.42, 21 Nov 2026, 03:22 AM IST",
+  "version": "V1.43",
+  "timestamp": "21 Nov 2026, 03:24 AM IST",
+  "formatted": "V1.43, 21 Nov 2026, 03:24 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Add SmartAppLauncher component for app installation)",
+  "summary": "Minor technical update (Add SmartAppLauncher route to App component)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.43",
+      "timestamp": "21 Nov 2026, 03:24 AM IST",
+      "formatted": "V1.43, 21 Nov 2026, 03:24 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Add SmartAppLauncher route to App component)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.42",
       "timestamp": "21 Nov 2026, 03:22 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.19, 21 Nov 2026, 01:58 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add MemberDashboard component with navigation and alerts)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.18",
-      "timestamp": "21 Nov 2026, 01:56 AM IST",
-      "formatted": "V1.18, 21 Nov 2026, 01:56 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add MaintenanceTab component for admin tasks)",
       "requiresReinstall": false
     }
   ]
