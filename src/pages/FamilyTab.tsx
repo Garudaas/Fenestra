@@ -24,6 +24,7 @@ export default function FamilyTab() {
   const [previousBloodGroup, setPreviousBloodGroup] = useState<string>('')
   const [bloodGroupOptions, setBloodGroupOptions] = useState<string[]>([])
   const [memberOwnGender, setMemberOwnGender] = useState<string>('')
+  const [genderAutoSet, setGenderAutoSet] = useState<boolean>(false)
 
   // Relationship, Education Level, and Blood Group remain empty until selected
   const [relationship, setRelationship] = useState('')
@@ -66,6 +67,7 @@ export default function FamilyTab() {
   const resetForm = () => {
     setEditingId(null)
     setPreviousBloodGroup('')
+    setGenderAutoSet(false)
     setRelationship('')
     setCustomRel('')
     setName('')
@@ -84,11 +86,21 @@ export default function FamilyTab() {
 
   const handleRelationshipChange = (nextRel: string) => {
     setRelationship(nextRel)
-    if (nextRel === 'Spouse' && !editingId) {
+    if (editingId) return
+
+    if (nextRel === 'Spouse') {
       const opposite = getDefaultSpouseGender(memberOwnGender)
-      if (opposite) {
-        setGender(opposite)
-      }
+      setGender(opposite)
+      setGenderAutoSet(Boolean(opposite))
+    } else if (nextRel === 'Son') {
+      setGender('Male')
+      setGenderAutoSet(true)
+    } else if (nextRel === 'Daughter') {
+      setGender('Female')
+      setGenderAutoSet(true)
+    } else if (genderAutoSet) {
+      setGender('')
+      setGenderAutoSet(false)
     }
   }
 
@@ -186,6 +198,7 @@ export default function FamilyTab() {
     const { data } = await supabase.from('family_members').select('*').eq('id', id).single()
     if (!data) return
     setEditingId(id)
+    setGenderAutoSet(false)
     setName(data.name || '')
     setRelationship(data.relationship || '')
     setGender(data.gender || '')
@@ -260,7 +273,10 @@ export default function FamilyTab() {
               <Label>Gender</Label>
               <select
                 value={gender}
-                onChange={e => setGender(e.target.value)}
+                onChange={e => {
+                  setGender(e.target.value)
+                  setGenderAutoSet(false)
+                }}
                 className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 <option value="">Select Gender...</option>
