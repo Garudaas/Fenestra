@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -149,11 +150,13 @@ export function AdminLoginPage() {
 }
 
 export function RegisterPage() {
+  const [searchParams] = useSearchParams()
   const [code, setCode] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [name, setName] = useState('')
+  const [nameManuallyEdited, setNameManuallyEdited] = useState(false)
   const [gender, setGender] = useState('')
   const [dob, setDob] = useState('')
   const [email, setEmail] = useState('')
@@ -166,95 +169,33 @@ export function RegisterPage() {
   const { register } = useAuth()
   const navigate = useNavigate()
 
-  const handleRegister = async () => {
-    if (!code || !username || !password || !confirmPassword || !name || !gender || !dob || !email || !phone) {
-      alert('Please fill all fields.')
-      return
-    }
-    if (password !== confirmPassword) {
-      alert('Passwords do not match.')
-      return
-    }
-    const fullPhone = `${cc} ${phone}`
-    setLoading(true)
-    const result = await register(code, username, password, name, gender, dob, email, fullPhone)
-    setLoading(false)
-    if (result.success) {
-      alert('Registration successful!')
-      navigate('/')
-    } else {
-      alert(result.error)
+  const lookupInviteSlot = async (passcodeToCheck: string) => {
+    const trimmed = passcodeToCheck.trim()
+    if (!trimmed) return
+    const { data } = await supabase
+      .from('alumni')
+      .select('full_name')
+      .eq('placeholder_code', trimmed)
+      .eq('is_placeholder', true)
+      .maybeSingle()
+
+    if (data?.full_name && !nameManuallyEdited) {
+      setName(data.full_name)
     }
   }
 
-  return (
-    <div className="flex min-h-svh items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute inset-0 royal-gradient" />
-      <Card className="relative w-full max-w-md border-border/50 bg-card/80 backdrop-blur-xl shadow-2xl shadow-black/40 max-h-[90vh] overflow-y-auto">
-        <CardHeader className="text-center space-y-3">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10">
-            <UserPlus className="h-5 w-5 text-emerald-400" />
-          </div>
-          <CardTitle className="text-xl text-emerald-400">First Time Registration</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="relative">
-            <Input type={showCode ? 'text' : 'password'} placeholder="Temporary Passcode *" value={code} onChange={e => setCode(e.target.value)} className="bg-input/50 border-border/50 pr-10" />
-            <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground" onClick={() => setShowCode(!showCode)}>
-              {showCode ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-            </Button>
-          </div>
-          <Input placeholder="Create Username *" value={username} onChange={e => setUsername(e.target.value)} className="bg-input/50 border-border/50" />
-          <div className="relative">
-            <Input type={showPass ? 'text' : 'password'} placeholder="Create Password *" value={password} onChange={e => setPassword(e.target.value)} className="bg-input/50 border-border/50 pr-10" />
-            <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground" onClick={() => setShowPass(!showPass)}>
-              {showPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-            </Button>
-          </div>
-          
-          {/* Updated Retype Password Field with Real-time Check */}
-          <div>
-            <div className="relative">
-              <Input 
-                type={showConfirmPass ? 'text' : 'password'} 
-                placeholder="Retype Password *" 
-                value={confirmPassword} 
-                onChange={e => setConfirmPassword(e.target.value)} 
-                className={confirmPassword && password !== confirmPassword ? "bg-input/50 border-red-500 focus-visible:ring-red-500 pr-10" : "bg-input/50 border-border/50 pr-10"} 
-              />
-              <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground" onClick={() => setShowConfirmPass(!showConfirmPass)}>
-                {showConfirmPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-              </Button>
-            </div>
-            {confirmPassword && password !== confirmPassword && (
-              <p className="mt-1 text-xs text-red-500 font-medium px-1">Passwords do not match</p>
-            )}
-          </div>
+  useEffect(() => {
+    const linkCode = searchParams.get('code')?.trim() || localStorage.getItem('pending_invite_code') || ''
+    if (linkCode) {
+      lookupInviteSlot(linkCode)
+    }
+  }, [searchParams])
 
-          <div className="border-t border-border/30 my-1" />
-          <Input placeholder="Full Name *" value={name} onChange={e => setName(e.target.value)} className="bg-input/50 border-border/50" />
-          <select value={gender} onChange={e => setGender(e.target.value)} className="w-full rounded-lg border border-border/50 bg-input/50 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50">
-            <option value="">Select Gender *</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-          </select>
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground px-1">Date of Birth *</label>
-            <Input type="date" value={dob} onChange={e => setDob(e.target.value)} className="bg-input/50 border-border/50 text-foreground" />
-          </div>
-          <Input type="email" placeholder="Email Address *" value={email} onChange={e => setEmail(e.target.value)} className="bg-input/50 border-border/50" />
-          <div className="flex gap-2">
-            <Input className="w-1/4 text-center bg-input/50 border-border/50" value={cc} onChange={e => setCc(e.target.value)} />
-            <Input className="w-3/4 bg-input/50 border-border/50" placeholder="Contact Number *" value={phone} onChange={e => setPhone(e.target.value)} />
-          </div>
-          <Button onClick={handleRegister} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-lg transition-all" disabled={loading}>
-            {loading ? 'Creating Account...' : 'Create Account'}
-          </Button>
-          <Button variant="ghost" onClick={() => navigate('/')} className="w-full text-xs text-muted-foreground">Cancel</Button>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
+  useEffect(() => {
+    if (code.trim().length >= 4) {
+      lookupInviteSlot(code)
+    }
+  }, [code])
 
-export default MemberLoginPage
+  const handleRegister = async () => {
+    if (!
