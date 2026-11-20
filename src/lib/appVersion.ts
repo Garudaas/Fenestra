@@ -12,20 +12,28 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  version: 'V1.00',
-  timestamp: '20 Nov 2026, 11:10 PM IST',
-  formatted: 'V1.00, 20 Nov 2026, 11:10 PM IST',
-  type: 'major',
-  summary: 'App update checker and automatic version tracking added.',
-  requiresReinstall: false,
-  history: [
+  "version": "V1.01",
+  "timestamp": "20 Nov 2026, 11:41 PM IST",
+  "formatted": "V1.01, 20 Nov 2026, 11:41 PM IST",
+  "type": "minor",
+  "summary": "Minor technical update (Fix formatting issues in auto-version.yml)",
+  "requiresReinstall": false,
+  "history": [
     {
-      version: 'V1.00',
-      timestamp: '20 Nov 2026, 11:10 PM IST',
-      formatted: 'V1.00, 20 Nov 2026, 11:10 PM IST',
-      type: 'major',
-      summary: 'App update checker and automatic version tracking added.',
-      requiresReinstall: false,
+      "version": "V1.01",
+      "timestamp": "20 Nov 2026, 11:41 PM IST",
+      "formatted": "V1.01, 20 Nov 2026, 11:41 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Fix formatting issues in auto-version.yml)",
+      "requiresReinstall": false
     },
-  ],
+    {
+      "version": "V1.00",
+      "timestamp": "20 Nov 2026, 11:10 PM IST",
+      "formatted": "V1.00, 20 Nov 2026, 11:10 PM IST",
+      "type": "major",
+      "summary": "App update checker and automatic version tracking added.",
+      "requiresReinstall": false
+    }
+  ]
 }
