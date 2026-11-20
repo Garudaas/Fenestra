@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
+import {
+  getDefaultSpouseGender,
+  fetchAllBloodGroups,
+  syncCustomBloodGroupOnChange,
+  saveAuditPreference,
+  EDUCATION_LEVELS,
+} from '@/lib/fenestriansCore'
+import { publishArchivedAlert } from '@/lib/notificationService'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -13,14 +21,18 @@ export default function FamilyTab() {
   const { user } = useAuth()
   const [members, setMembers] = useState<any[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [previousBloodGroup, setPreviousBloodGroup] = useState<string>('')
+  const [bloodGroupOptions, setBloodGroupOptions] = useState<string[]>([])
+  const [memberOwnGender, setMemberOwnGender] = useState<string>('')
 
-  const [relationship, setRelationship] = useState('Child')
+  // Relationship, Education Level, and Blood Group remain empty until selected
+  const [relationship, setRelationship] = useState('')
   const [customRel, setCustomRel] = useState('')
   const [name, setName] = useState('')
   const [gender, setGender] = useState('')
   const [dob, setDob] = useState('')
   const [bloodGroup, setBloodGroup] = useState('')
-  const [edu, setEdu] = useState('Toddler')
+  const [edu, setEdu] = useState('')
   const [eduSpec, setEduSpec] = useState('')
   const [gradYear, setGradYear] = useState('')
   const [career, setCareer] = useState('')
@@ -30,8 +42,20 @@ export default function FamilyTab() {
   const [isPrivate, setIsPrivate] = useState(false)
 
   useEffect(() => {
+    if (!user) return
     loadFamily()
+    loadBloodGroupsAndOwnerGender()
   }, [user])
+
+  const loadBloodGroupsAndOwnerGender = async () => {
+    if (!user) return
+    const [bgs, ownerRes] = await Promise.all([
+      fetchAllBloodGroups(),
+      supabase.from('alumni').select('gender').eq('id', user.id).maybeSingle(),
+    ])
+    setBloodGroupOptions(bgs)
+    setMemberOwnGender(ownerRes.data?.gender || user.gender || '')
+  }
 
   const loadFamily = async () => {
     if (!user) return
@@ -41,13 +65,14 @@ export default function FamilyTab() {
 
   const resetForm = () => {
     setEditingId(null)
-    setRelationship('Child')
+    setPreviousBloodGroup('')
+    setRelationship('')
     setCustomRel('')
     setName('')
     setGender('')
     setDob('')
     setBloodGroup('')
-    setEdu('Toddler')
+    setEdu('')
     setEduSpec('')
     setGradYear('')
     setCareer('')
@@ -57,17 +82,66 @@ export default function FamilyTab() {
     setIsPrivate(false)
   }
 
+  const handleRelationshipChange = (nextRel: string) => {
+    setRelationship(nextRel)
+    if (nextRel === 'Spouse' && !editingId) {
+      const opposite = getDefaultSpouseGender(memberOwnGender)
+      if (opposite) {
+        setGender(opposite)
+      }
+    }
+  }
+
   const handleSave = async () => {
-    if (!user || !name) return
+    if (!user || !name.trim() || !relationship) {
+      alert('Please select Relationship and enter Full Name.')
+      return
+    }
+
+    const finalRelationship = relationship === 'Other' ? customRel.trim() || 'Other' : relationship
+    const trimmedName = name.trim()
+
+    // Check for duplicate entries (double dips) in user's family list
+    const duplicateMatches = members.filter(m => {
+      if (editingId && String(m.id) === String(editingId)) return false
+      const sameName = (m.name || '').trim().toLowerCase() === trimmedName.toLowerCase()
+      const sameSpouse =
+        finalRelationship.toLowerCase() === 'spouse' &&
+        (m.relationship || '').trim().toLowerCase() === 'spouse'
+      return sameName || sameSpouse
+    })
+
+    if (duplicateMatches.length > 0) {
+      const existing = duplicateMatches[0]
+      const removeDuplicate = window.confirm(
+        `Duplicate Entry Detected: "${existing.name}" (${existing.relationship}) is already listed.\n\nClick OK to DELETE the earlier duplicate entry and keep this one, or click Cancel to RETAIN both entries.`
+      )
+      if (removeDuplicate) {
+        await supabase.from('family_members').delete().eq('id', existing.id)
+      } else {
+        await saveAuditPreference(
+          user.id,
+          'retain_duplicate',
+          `family_name_${trimmedName.toLowerCase()}`
+        )
+      }
+    }
+
     const payload = {
       alumni_id: user.id,
-      relationship: relationship === 'Other' ? customRel || 'Other' : relationship,
-      name,
+      relationship: finalRelationship,
+      name: trimmedName,
+      gender: gender.trim(),
       dob: dob || null,
-      blood_group: bloodGroup,
+      blood_group: bloodGroup.trim(),
+      education_level: edu,
+      education_details: eduSpec.trim(),
+      graduation_year: gradYear || null,
+      career: career.trim(),
+      bio: bio.trim(),
       is_private: isPrivate,
       needs_support: needsSupport,
-      support_details: supportDetails,
+      support_details: supportDetails.trim(),
     }
 
     if (editingId) {
@@ -77,8 +151,35 @@ export default function FamilyTab() {
     } else {
       await supabase.from('family_members').insert([payload])
     }
+
+    // Update dynamic blood group list (and remove previous custom blood group if user corrected a typo)
+    await syncCustomBloodGroupOnChange({
+      userId: user.id,
+      newBloodGroup: bloodGroup.trim(),
+      previousBloodGroup,
+    })
+
+    // Sync support request if flagged
+    if (needsSupport && supportDetails.trim()) {
+      await supabase.from('family_support_requests').insert([
+        {
+          member_id: user.id,
+          member_name: user.full_name,
+          title: `Support needed for ${trimmedName} (${finalRelationship})`,
+          description: supportDetails.trim(),
+          status: 'open',
+        },
+      ])
+      await publishArchivedAlert({
+        category: 'help_needed',
+        shortTitle: 'Your friend Needs help',
+        fullMessage: `${user.full_name}'s ${finalRelationship} (${trimmedName}) needs support: ${supportDetails.trim()}`,
+        needsHelpFlag: true,
+      })
+    }
+
     resetForm()
-    loadFamily()
+    await Promise.all([loadFamily(), loadBloodGroupsAndOwnerGender()])
   }
 
   const handleEdit = async (id: string) => {
@@ -86,9 +187,16 @@ export default function FamilyTab() {
     if (!data) return
     setEditingId(id)
     setName(data.name || '')
-    setRelationship(data.relationship || 'Child')
+    setRelationship(data.relationship || '')
+    setGender(data.gender || '')
     setDob(data.dob || '')
     setBloodGroup(data.blood_group || '')
+    setPreviousBloodGroup(data.blood_group || '')
+    setEdu(data.education_level || '')
+    setEduSpec(data.education_details || '')
+    setGradYear(data.graduation_year || '')
+    setCareer(data.career || '')
+    setBio(data.bio || '')
     setSupportDetails(data.support_details || '')
     setNeedsSupport(data.needs_support || false)
     setIsPrivate(data.is_private || false)
@@ -115,51 +223,111 @@ export default function FamilyTab() {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label>Relationship *</Label>
-              <select value={relationship} onChange={e => setRelationship(e.target.value)} className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                <option value="Child">Child</option>
+              <select
+                value={relationship}
+                onChange={e => handleRelationshipChange(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select Relationship...</option>
                 <option value="Spouse">Spouse</option>
+                <option value="Child">Child</option>
+                <option value="Son">Son</option>
+                <option value="Daughter">Daughter</option>
                 <option value="Parent">Parent</option>
                 <option value="Other">Other Relation</option>
               </select>
             </div>
-            <div><Label>Full Name *</Label><Input value={name} onChange={e => setName(e.target.value)} className="mt-1" /></div>
+            <div>
+              <Label>Full Name *</Label>
+              <Input value={name} onChange={e => setName(e.target.value)} className="mt-1" />
+            </div>
           </div>
 
           {relationship === 'Other' && (
             <div>
               <Label className="text-primary">Specify Custom Relationship *</Label>
-              <Input value={customRel} onChange={e => setCustomRel(e.target.value)} className="mt-1" placeholder="e.g., Father-in-law, Cousin" />
+              <Input
+                value={customRel}
+                onChange={e => setCustomRel(e.target.value)}
+                className="mt-1"
+                placeholder="e.g., Father-in-law, Cousin"
+              />
             </div>
           )}
 
           <div className="grid grid-cols-3 gap-2">
-            <div><Label>Gender</Label><Input value={gender} onChange={e => setGender(e.target.value)} className="mt-1" /></div>
-            <div><Label>Date of Birth</Label><Input type="date" value={dob} onChange={e => setDob(e.target.value)} className="mt-1" /></div>
-            <div><Label>Blood Group</Label><Input value={bloodGroup} onChange={e => setBloodGroup(e.target.value)} className="mt-1" /></div>
+            <div>
+              <Label>Gender</Label>
+              <select
+                value={gender}
+                onChange={e => setGender(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select Gender...</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
+            <div>
+              <Label>Date of Birth</Label>
+              <Input type="date" value={dob} onChange={e => setDob(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label>Blood Group</Label>
+              <Input
+                list="family-blood-groups"
+                value={bloodGroup}
+                onChange={e => setBloodGroup(e.target.value)}
+                placeholder="Select or type..."
+                className="mt-1"
+              />
+              <datalist id="family-blood-groups">
+                {bloodGroupOptions.map(bg => (
+                  <option key={bg} value={bg} />
+                ))}
+              </datalist>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label>Education Level</Label>
-              <select value={edu} onChange={e => setEdu(e.target.value)} className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+              <select
+                value={edu}
+                onChange={e => setEdu(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select Education Level...</option>
                 <option value="Toddler">Toddler</option>
                 <option value="At School">At School</option>
-                <option value="Graduate">Graduate</option>
-                <option value="Post Graduate">Post Graduate</option>
-                <option value="PhD">PhD</option>
-                <option value="Diploma">Diploma</option>
-                <option value="Other">Other</option>
+                {EDUCATION_LEVELS.map(level => (
+                  <option key={level} value={level}>
+                    {level}
+                  </option>
+                ))}
               </select>
             </div>
-            <div><Label>Education Details</Label><Input value={eduSpec} onChange={e => setEduSpec(e.target.value)} className="mt-1" /></div>
+            <div>
+              <Label>Education Details</Label>
+              <Input value={eduSpec} onChange={e => setEduSpec(e.target.value)} className="mt-1" />
+            </div>
           </div>
 
-          {relationship !== 'Child' && relationship !== 'Spouse' && (
-            <div><Label>Graduation Year</Label><Input type="number" value={gradYear} onChange={e => setGradYear(e.target.value)} className="mt-1" /></div>
+          {relationship && !['Child', 'Son', 'Daughter', 'Spouse'].includes(relationship) && (
+            <div>
+              <Label>Graduation Year</Label>
+              <Input type="number" value={gradYear} onChange={e => setGradYear(e.target.value)} className="mt-1" />
+            </div>
           )}
 
-          <div><Label>Career Profile</Label><Textarea value={career} onChange={e => setCareer(e.target.value)} className="mt-1 h-12" /></div>
-          <div><Label>Personal Notes</Label><Textarea value={bio} onChange={e => setBio(e.target.value)} className="mt-1 h-12" /></div>
+          <div>
+            <Label>Career Profile</Label>
+            <Textarea value={career} onChange={e => setCareer(e.target.value)} className="mt-1 h-12" />
+          </div>
+          <div>
+            <Label>Personal Notes</Label>
+            <Textarea value={bio} onChange={e => setBio(e.target.value)} className="mt-1 h-12" />
+          </div>
 
           <hr className="border-border/30" />
           <Card className="border-destructive/20 bg-destructive/5">
@@ -169,7 +337,11 @@ export default function FamilyTab() {
                 <AlertTriangle className="h-4 w-4" />
                 Highlight: This member needs assistance/support
               </label>
-              <Input value={supportDetails} onChange={e => setSupportDetails(e.target.value)} placeholder="Describe the help needed..." />
+              <Input
+                value={supportDetails}
+                onChange={e => setSupportDetails(e.target.value)}
+                placeholder="Describe the help needed..."
+              />
             </CardContent>
           </Card>
 
@@ -180,11 +352,19 @@ export default function FamilyTab() {
           </label>
 
           <div className="flex gap-2">
-            <Button onClick={handleSave} className="flex-1 gold-gradient text-gold-foreground gap-2">
+            <Button
+              onClick={handleSave}
+              title={editingId ? 'Update Family Member' : 'Save Family Member'}
+              className="flex-1 gold-gradient text-gold-foreground gap-2"
+            >
               <Plus className="h-4 w-4" />
               {editingId ? 'Update' : 'Save'} Family Member
             </Button>
-            {editingId && <Button variant="outline" onClick={resetForm}>Cancel</Button>}
+            {editingId && (
+              <Button variant="outline" title="Cancel Editing" onClick={resetForm}>
+                Cancel
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -199,13 +379,26 @@ export default function FamilyTab() {
             <Card key={f.id} className="border-border/30 bg-muted/20 hover:border-primary/20 transition-colors">
               <CardContent className="flex items-center justify-between p-3">
                 <span className="text-sm">
-                  {f.name} ({f.relationship}) {f.is_private && <Lock className="inline h-3.5 w-3.5 text-primary" />}
+                  {f.name} ({f.relationship}) {f.gender ? `• ${f.gender}` : ''}{' '}
+                  {f.is_private && <Lock className="inline h-3.5 w-3.5 text-primary" />}
                 </span>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-primary hover:bg-primary/10" onClick={() => handleEdit(f.id)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title="Edit Family Member"
+                    className="h-8 w-8 p-0 text-primary hover:bg-primary/10"
+                    onClick={() => handleEdit(f.id)}
+                  >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(f.id)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title="Delete Family Member"
+                    className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDelete(f.id)}
+                  >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
