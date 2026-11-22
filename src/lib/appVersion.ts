@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.52",
-  "timestamp": "22 Nov 2026, 11:29 PM IST",
-  "formatted": "V1.52, 22 Nov 2026, 11:29 PM IST",
+  "version": "V1.53",
+  "timestamp": "22 Nov 2026, 11:46 PM IST",
+  "formatted": "V1.53, 22 Nov 2026, 11:46 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance ProfileTab with new user fields and task features)",
+  "summary": "Minor general update (Implement sendDevicePushNotification function)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.53",
+      "timestamp": "22 Nov 2026, 11:46 PM IST",
+      "formatted": "V1.53, 22 Nov 2026, 11:46 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Implement sendDevicePushNotification function)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.52",
       "timestamp": "22 Nov 2026, 11:29 PM IST",
@@ -207,14 +215,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "version": "V1.29",
       "timestamp": "21 Nov 2026, 02:18 AM IST",
       "formatted": "V1.29, 21 Nov 2026, 02:18 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Notification alerts updated)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.28",
-      "timestamp": "21 Nov 2026, 02:17 AM IST",
-      "formatted": "V1.28, 21 Nov 2026, 02:17 AM IST",
       "type": "minor",
       "summary": "Minor general update (Notification alerts updated)",
       "requiresReinstall": false
