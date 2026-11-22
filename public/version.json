@@ -1,11 +1,19 @@
 {
-  "version": "V1.92",
-  "timestamp": "23 Nov 2026, 04:28 AM IST",
-  "formatted": "V1.92, 23 Nov 2026, 04:28 AM IST",
+  "version": "V1.93",
+  "timestamp": "23 Nov 2026, 04:30 AM IST",
+  "formatted": "V1.93, 23 Nov 2026, 04:30 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance AuthContext with executive role checks)",
+  "summary": "Minor technical update (Refactor date formatting and task handling in NotificationsPage)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.93",
+      "timestamp": "23 Nov 2026, 04:30 AM IST",
+      "formatted": "V1.93, 23 Nov 2026, 04:30 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor date formatting and task handling in NotificationsPage)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.92",
       "timestamp": "23 Nov 2026, 04:28 AM IST",
@@ -196,14 +204,6 @@
       "formatted": "V1.69, 23 Nov 2026, 01:58 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add SmartDateInput component for flexible date input)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.68",
-      "timestamp": "23 Nov 2026, 01:57 AM IST",
-      "formatted": "V1.68, 23 Nov 2026, 01:57 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Add date formatting and phone number utilities)",
       "requiresReinstall": false
     }
   ]
