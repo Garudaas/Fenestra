@@ -1,11 +1,19 @@
 {
-  "version": "V1.82",
-  "timestamp": "23 Nov 2026, 02:26 AM IST",
-  "formatted": "V1.82, 23 Nov 2026, 02:26 AM IST",
+  "version": "V1.83",
+  "timestamp": "23 Nov 2026, 02:39 AM IST",
+  "formatted": "V1.83, 23 Nov 2026, 02:39 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Remove unused import for readFileAsDataURL)",
+  "summary": "Minor technical update (Refactor Alumni Association Home component)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.83",
+      "timestamp": "23 Nov 2026, 02:39 AM IST",
+      "formatted": "V1.83, 23 Nov 2026, 02:39 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor Alumni Association Home component)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.82",
       "timestamp": "23 Nov 2026, 02:26 AM IST",
@@ -196,14 +204,6 @@
       "formatted": "V1.59, 22 Nov 2026, 11:53 PM IST",
       "type": "minor",
       "summary": "Minor general update (Enhance file sorting and admin quota features)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.58",
-      "timestamp": "22 Nov 2026, 11:52 PM IST",
-      "formatted": "V1.58, 22 Nov 2026, 11:52 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Implement search and filter features in DirectoryTab)",
       "requiresReinstall": false
     }
   ]
