@@ -50,14 +50,14 @@ export function isCallNotification(category: string): boolean {
  * into user_notifications so they appear in the user's Unread tab.
  */
 export async function syncArchivedNotificationsForUser(userId: number): Promise<void> {
-  const { data: archives } = await supabase
+  const { data: archives, error: archErr } = await supabase
     .from('notifications_archive')
     .select('id, short_title, category, full_message, target_user_id, created_at')
     .or(`target_user_id.is.null,target_user_id.eq.${userId}`)
     .order('created_at', { ascending: false })
     .limit(100)
 
-  if (!archives || archives.length === 0) return
+  if (archErr || !archives || archives.length === 0) return
 
   const { data: existing } = await supabase
     .from('user_notifications')
@@ -196,7 +196,6 @@ export async function recallNotificationHistory(userId: number): Promise<void> {
   )
   const anyExistingIds = new Set((existingRows ?? []).map(r => r.archive_id))
 
-  // Restore previously deleted rows back into Read (skipping anything currently in Unread)
   const toRestoreIds = [...deletedArchiveIds].filter(id => id && !unreadArchiveIds.has(id))
   if (toRestoreIds.length > 0) {
     await supabase
@@ -206,7 +205,6 @@ export async function recallNotificationHistory(userId: number): Promise<void> {
       .in('archive_id', toRestoreIds)
   }
 
-  // Insert any archive rows not yet in user_notifications directly as Read
   const toInsert = archives
     .filter(a => !anyExistingIds.has(a.id) && !unreadArchiveIds.has(a.id))
     .map(a => ({
@@ -305,8 +303,8 @@ export async function clearCallNotification(userId: number, notificationId?: num
 }
 
 /**
- * Archives and broadcasts alerts for member messages, help requests, tasks, instructions, or events.
- * Automatically switches short_title to "Your friend Needs help" if message contains "help" or help flag is true.
+ * Saves directly to notifications_archive and user_notifications first so alerts
+ * are guaranteed to appear in the Notifications page, then triggers device push.
  */
 export async function publishArchivedAlert(params: {
   category: NotificationCategory
@@ -358,18 +356,105 @@ export async function publishArchivedAlert(params: {
     return
   }
 
-  await fetch('https://dojlbfnfhkfltlxggxiy.supabase.co/functions/v1/daily-notifications', {
+  // 1. Insert directly into notifications_archive
+  const { data: archived } = await supabase
+    .from('notifications_archive')
+    .insert([
+      {
+        short_title: finalTitle,
+        category: finalCategory,
+        full_message: params.fullMessage,
+        target_user_id: params.targetUserId ?? null,
+      },
+    ])
+    .select('id, created_at')
+    .single()
+
+  // 2. Fan out directly into user_notifications
+  if (archived) {
+    if (params.targetUserId) {
+      await supabase.from('user_notifications').upsert(
+        [
+          {
+            user_id: params.targetUserId,
+            archive_id: archived.id,
+            short_title: finalTitle,
+            category: finalCategory,
+            full_message: params.fullMessage,
+            status: 'unread',
+            unread_count: 1,
+            created_at: archived.created_at,
+          },
+        ],
+        { onConflict: 'user_id,archive_id', ignoreDuplicates: true }
+      )
+    } else {
+      const { data: members } = await supabase
+        .from('alumni')
+        .select('id')
+        .eq('is_placeholder', false)
+
+      if (members && members.length > 0) {
+        const rows = members.map(m => ({
+          user_id: m.id,
+          archive_id: archived.id,
+          short_title: finalTitle,
+          category: finalCategory,
+          full_message: params.fullMessage,
+          status: 'unread',
+          unread_count: 1,
+          created_at: archived.created_at,
+        }))
+        await supabase
+          .from('user_notifications')
+          .upsert(rows, { onConflict: 'user_id,archive_id', ignoreDuplicates: true })
+      }
+    }
+  }
+
+  window.dispatchEvent(new Event('fenestrians-notifications-updated'))
+
+  // 3. Trigger OneSignal push notification in background
+  fetch('https://dojlbfnfhkfltlxggxiy.supabase.co/functions/v1/daily-notifications', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: 'Bearer sb_publishable_CmCFzsQ_L8dk7NxUmIVZ0g_pl_jq0fV',
+      apikey: 'sb_publishable_CmCFzsQ_L8dk7NxUmIVZ0g_pl_jq0fV',
     },
     body: JSON.stringify({
-      event: 'archive_alert',
-      category: finalCategory,
+      event: 'push_only',
       shortTitle: finalTitle,
       fullMessage: params.fullMessage,
       targetUserId: params.targetUserId ?? null,
     }),
+  }).catch(() => {})
+}
+
+/**
+ * Archives daily Birthday / Anniversary alerts once per day (deduplicated by date & message)
+ * so they appear in the Notifications page without duplicating on every refresh.
+ */
+export async function archiveDailyCelebrationAlert(params: {
+  category: 'birthday' | 'anniversary'
+  shortTitle: string
+  fullMessage: string
+  dateKey: string
+}): Promise<void> {
+  const dayStartIso = `${params.dateKey}T00:00:00.000Z`
+
+  const { data: existing } = await supabase
+    .from('notifications_archive')
+    .select('id')
+    .eq('category', params.category)
+    .eq('full_message', params.fullMessage)
+    .gte('created_at', dayStartIso)
+    .limit(1)
+
+  if (existing && existing.length > 0) return
+
+  await publishArchivedAlert({
+    category: params.category,
+    shortTitle: params.shortTitle,
+    fullMessage: params.fullMessage,
   })
 }
