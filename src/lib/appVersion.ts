@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.99",
-  "timestamp": "23 Nov 2026, 04:41 AM IST",
-  "formatted": "V1.99, 23 Nov 2026, 04:41 AM IST",
+  "version": "V2.00",
+  "timestamp": "23 Nov 2026, 04:42 AM IST",
+  "formatted": "V2.00, 23 Nov 2026, 04:42 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor taskAuditService for clarity and type safety)",
+  "summary": "Minor technical update (Add newline at end of taskAuditService.ts)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.00",
+      "timestamp": "23 Nov 2026, 04:42 AM IST",
+      "formatted": "V2.00, 23 Nov 2026, 04:42 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Add newline at end of taskAuditService.ts)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.99",
       "timestamp": "23 Nov 2026, 04:41 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.76, 23 Nov 2026, 02:09 AM IST",
       "type": "minor",
       "summary": "Minor general update (Remove unnecessary closing braces and empty lines)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.75",
-      "timestamp": "23 Nov 2026, 02:06 AM IST",
-      "formatted": "V1.75, 23 Nov 2026, 02:06 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
       "requiresReinstall": false
     }
   ]
