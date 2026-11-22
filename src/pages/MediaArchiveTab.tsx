@@ -757,5 +757,3 @@ export default function MediaArchiveTab() {
     </div>
   )
 }
-
-
