@@ -9,16 +9,13 @@ import {
   isChatNotification,
   archiveDailyCelebrationAlert,
 } from '@/lib/notificationService'
+import { formatFullDate } from '@/lib/formatters'
 import {
   Users,
-  Heart,
   Image,
-  Folder,
-  HandHeart,
   CalendarDays,
   MessageCircle,
   Phone,
-  Video,
   User,
   Settings,
   Wrench,
@@ -29,29 +26,23 @@ import {
 } from 'lucide-react'
 import DirectoryTab from '@/pages/DirectoryTab'
 import ProfileTab from '@/pages/ProfileTab'
-import FamilyTab from '@/pages/FamilyTab'
-import GalleryTab from '@/pages/GalleryTab'
-import FolderTab from '@/pages/FolderTab'
+import MediaArchiveTab from '@/pages/MediaArchiveTab'
 import SupportTab from '@/pages/SupportTab'
 import CalendarTab from '@/pages/CalendarTab'
 import ChatTab from '@/pages/ChatTab'
-import VoiceTab from '@/pages/VoiceTab'
-import VideoTab from '@/pages/VideoTab'
+import CallsTab from '@/pages/CallsTab'
 import SettingsTab from '@/pages/SettingsTab'
 import MaintenanceTab from '@/pages/MaintenanceTab'
 
 type TabName =
   | 'directory'
-  | 'profile'
-  | 'family'
-  | 'gallery'
-  | 'folder'
-  | 'support'
   | 'calendar'
   | 'chat'
-  | 'voice'
-  | 'video'
+  | 'calls'
+  | 'media'
+  | 'profile'
   | 'settings'
+  | 'support'
   | 'maintenance'
 
 export default function MemberDashboard() {
@@ -59,8 +50,7 @@ export default function MemberDashboard() {
   const [activeTab, setActiveTab] = useState<TabName>('directory')
   const [alerts, setAlerts] = useState<string[]>([])
   const [chatBadge, setChatBadge] = useState(0)
-  const [voiceBadge, setVoiceBadge] = useState(0)
-  const [videoBadge, setVideoBadge] = useState(0)
+  const [callsBadge, setCallsBadge] = useState(0)
   const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
 
@@ -70,40 +60,48 @@ export default function MemberDashboard() {
     const unread = list.filter(i => i.status === 'unread')
 
     let chats = 0
-    let voiceCalls = 0
-    let videoCalls = 0
+    let calls = 0
 
     for (const item of unread) {
       if (isChatNotification(item.category)) {
         chats += item.unread_count || 1
-      } else if (item.category === 'group_call') {
-        voiceCalls += item.unread_count || 1
-      } else if (item.category === 'video_call') {
-        videoCalls += item.unread_count || 1
+      } else if (item.category === 'group_call' || item.category === 'video_call') {
+        calls += item.unread_count || 1
       }
     }
 
     setChatBadge(chats)
-    setVoiceBadge(voiceCalls)
-    setVideoBadge(videoCalls)
+    setCallsBadge(calls)
   }, [user])
 
   useEffect(() => {
-    const requestedTab = searchParams.get('tab') as TabName | null
-    if (requestedTab) {
-      setActiveTab(requestedTab)
+    const rawTab = searchParams.get('tab')
+    if (rawTab === 'voice' || rawTab === 'video' || rawTab === 'calls') {
+      setActiveTab('calls')
+    } else if (rawTab === 'gallery' || rawTab === 'folder' || rawTab === 'media') {
+      setActiveTab('media')
+    } else if (
+      rawTab === 'directory' ||
+      rawTab === 'calendar' ||
+      rawTab === 'chat' ||
+      rawTab === 'profile' ||
+      rawTab === 'settings' ||
+      rawTab === 'support' ||
+      rawTab === 'maintenance'
+    ) {
+      setActiveTab(rawTab)
     }
 
     const dmId = searchParams.get('dmId')
     const dmName = searchParams.get('dmName')
-    if (requestedTab === 'chat' && dmId && dmName) {
+    if (rawTab === 'chat' && dmId && dmName) {
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('open-dm', { detail: { id: Number(dmId), name: dmName } }))
       }, 150)
     }
 
     const roomName = searchParams.get('roomName')
-    if (requestedTab === 'video' && roomName) {
+    if ((rawTab === 'video' || rawTab === 'calls') && roomName) {
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('join-video', { detail: { roomName } }))
       }, 150)
@@ -158,6 +156,7 @@ export default function MemberDashboard() {
     const currentDay = today.getDate()
     const currentMonth = today.getMonth()
     const datestampTodayStr = `${today.getFullYear()}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`
+    const fullTodayDisplay = formatFullDate(datestampTodayStr)
 
     const celebrations: Array<{
       text: string
@@ -168,7 +167,7 @@ export default function MemberDashboard() {
     users.forEach(u => {
       if (u.dob && new Date(u.dob).getDate() === currentDay && new Date(u.dob).getMonth() === currentMonth) {
         celebrations.push({
-          text: `Today is ${u.full_name}'s Birthday!`,
+          text: `Today (${fullTodayDisplay}) is ${u.full_name}'s Birthday!`,
           category: 'birthday',
           shortTitle: 'Birthday alert',
         })
@@ -181,7 +180,7 @@ export default function MemberDashboard() {
         new Date(u.wedding_date).getMonth() === currentMonth
       ) {
         celebrations.push({
-          text: `Happy Anniversary to ${u.full_name}!`,
+          text: `Happy Anniversary to ${u.full_name}! (${fullTodayDisplay})`,
           category: 'anniversary',
           shortTitle: 'Anniversary alert',
         })
@@ -227,13 +226,13 @@ export default function MemberDashboard() {
       await clearChatNotifications(user.id)
       setChatBadge(0)
       window.dispatchEvent(new Event('fenestrians-notifications-updated'))
-    } else if (tabId === 'voice') {
-      await supabase.from('user_notifications').delete().eq('user_id', user.id).eq('category', 'group_call')
-      setVoiceBadge(0)
-      window.dispatchEvent(new Event('fenestrians-notifications-updated'))
-    } else if (tabId === 'video') {
-      await supabase.from('user_notifications').delete().eq('user_id', user.id).eq('category', 'video_call')
-      setVideoBadge(0)
+    } else if (tabId === 'calls') {
+      await supabase
+        .from('user_notifications')
+        .delete()
+        .eq('user_id', user.id)
+        .in('category', ['group_call', 'video_call'])
+      setCallsBadge(0)
       window.dispatchEvent(new Event('fenestrians-notifications-updated'))
     }
   }
@@ -247,26 +246,23 @@ export default function MemberDashboard() {
 
   const userIsAdmin = Boolean(isAdmin || user.is_admin)
 
-  const navItems: { id: string; label: string; tooltip: string; icon: any; group: string; badge?: number }[] = [
-    { id: 'alumni', label: 'Alumni', tooltip: 'Alumni Association Home', icon: Building2, group: 'Network' },
-    { id: 'directory', label: 'Directory', tooltip: 'Member Directory', icon: Users, group: 'Network' },
-    { id: 'family', label: 'Family', tooltip: 'Family Members', icon: Heart, group: 'Network' },
-    { id: 'support', label: 'Support', tooltip: 'Family Support Requests', icon: HandHeart, group: 'Network' },
-    { id: 'gallery', label: 'Gallery', tooltip: 'Photo Gallery', icon: Image, group: 'Network' },
-    { id: 'folder', label: 'Folder', tooltip: 'Member Folders & Shared Files', icon: Folder, group: 'Network' },
-    { id: 'calendar', label: 'Calendar', tooltip: 'Class Calendar', icon: CalendarDays, group: 'Network' },
-    { id: 'chat', label: 'Chat', tooltip: 'Group & Private Chat', icon: MessageCircle, group: 'Comms', badge: chatBadge },
-    { id: 'voice', label: 'Voice', tooltip: 'Voice Calls', icon: Phone, group: 'Comms', badge: voiceBadge },
-    { id: 'video', label: 'Video', tooltip: 'Video Calls', icon: Video, group: 'Comms', badge: videoBadge },
-    { id: 'profile', label: 'Profile', tooltip: 'My Profile', icon: User, group: 'Account' },
-    { id: 'settings', label: 'Settings', tooltip: 'User Settings & Privacy', icon: Settings, group: 'Account' },
+  // Rearranged icon order: Directory -> Calendar -> Chat -> Calls -> Gallery & Files -> Profile -> Settings -> Alumni -> Maintenance
+  const navItems: { id: string; label: string; tooltip: string; icon: any; badge?: number }[] = [
+    { id: 'directory', label: 'Directory', tooltip: 'Member Directory', icon: Users },
+    { id: 'calendar', label: 'Calendar', tooltip: 'Class Calendar', icon: CalendarDays },
+    { id: 'chat', label: 'Chat', tooltip: 'Group & Private Chat', icon: MessageCircle, badge: chatBadge },
+    { id: 'calls', label: 'Calls', tooltip: 'Voice & Video Calls', icon: Phone, badge: callsBadge },
+    { id: 'media', label: 'Gallery & Files', tooltip: 'Photo Gallery & Member Folders', icon: Image },
+    { id: 'profile', label: 'Profile', tooltip: 'My Profile & Family', icon: User },
+    { id: 'settings', label: 'Settings', tooltip: 'User Settings & Privacy', icon: Settings },
+    { id: 'alumni', label: 'Alumni', tooltip: 'Alumni Association Home', icon: Building2 },
     ...(userIsAdmin
-      ? [{ id: 'maintenance', label: 'Maintenance', tooltip: 'Admin Maintenance & Audits', icon: Wrench, group: 'Admin' }]
+      ? [{ id: 'maintenance', label: 'Maintenance', tooltip: 'Admin Maintenance & Audits', icon: Wrench }]
       : []),
   ]
 
   return (
-    <div className="flex min-h-svh flex-col bg-background pt-14 overflow-x-hidden">
+    <div className="flex min-h-svh flex-col bg-background pt-14 pb-28 overflow-x-hidden">
       <header className="fixed top-0 left-0 right-0 z-40 border-b border-border/50 bg-card/80 backdrop-blur-xl shadow-lg shadow-black/10">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-2.5">
           <div className="flex shrink-0 items-center gap-3" title="Fenestrians Exclusive Network">
@@ -353,28 +349,41 @@ export default function MemberDashboard() {
               setTimeout(() => window.dispatchEvent(new CustomEvent('open-dm', { detail: { id, name } })), 100)
             }}
             onStartVideoCall={roomName => {
-              handleTabSelect('video')
+              handleTabSelect('calls')
               setTimeout(() => window.dispatchEvent(new CustomEvent('join-video', { detail: { roomName } })), 100)
             }}
+            onOpenSupportRequests={() => setActiveTab('support')}
           />
         )}
-        {activeTab === 'profile' && <ProfileTab />}
-        {activeTab === 'family' && <FamilyTab />}
-        {activeTab === 'support' && <SupportTab />}
-        {activeTab === 'gallery' && <GalleryTab />}
-        {activeTab === 'folder' && <FolderTab />}
         {activeTab === 'calendar' && (
           <CalendarTab
             onJoinCall={roomName => {
-              handleTabSelect('video')
+              handleTabSelect('calls')
               setTimeout(() => window.dispatchEvent(new CustomEvent('join-video', { detail: { roomName } })), 100)
             }}
           />
         )}
         {activeTab === 'chat' && <ChatTab />}
-        {activeTab === 'voice' && <VoiceTab />}
-        {activeTab === 'video' && <VideoTab />}
+        {activeTab === 'calls' && <CallsTab />}
+        {activeTab === 'media' && <MediaArchiveTab />}
+        {activeTab === 'profile' && <ProfileTab />}
         {activeTab === 'settings' && <SettingsTab />}
+        {activeTab === 'support' && (
+          <div className="space-y-3">
+            <div className="mx-auto max-w-4xl">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveTab('directory')}
+                className="text-xs"
+              >
+                ← Back to Member Directory
+              </Button>
+            </div>
+            <SupportTab />
+          </div>
+        )}
         {activeTab === 'maintenance' && userIsAdmin && <MaintenanceTab />}
       </main>
     </div>
