@@ -23,6 +23,7 @@ import {
   X,
   Crown,
   Building2,
+  ListTodo,
 } from 'lucide-react'
 import DirectoryTab from '@/pages/DirectoryTab'
 import ProfileTab from '@/pages/ProfileTab'
@@ -31,6 +32,7 @@ import SupportTab from '@/pages/SupportTab'
 import CalendarTab from '@/pages/CalendarTab'
 import ChatTab from '@/pages/ChatTab'
 import CallsTab from '@/pages/CallsTab'
+import TasksTab from '@/pages/TasksTab'
 import SettingsTab from '@/pages/SettingsTab'
 import MaintenanceTab from '@/pages/MaintenanceTab'
 
@@ -39,6 +41,7 @@ type TabName =
   | 'calendar'
   | 'chat'
   | 'calls'
+  | 'tasks'
   | 'media'
   | 'profile'
   | 'settings'
@@ -51,12 +54,20 @@ export default function MemberDashboard() {
   const [alerts, setAlerts] = useState<string[]>([])
   const [chatBadge, setChatBadge] = useState(0)
   const [callsBadge, setCallsBadge] = useState(0)
+  const [tasksBadge, setTasksBadge] = useState(0)
   const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
 
   const syncHeaderBadges = useCallback(async () => {
     if (!user || user.is_placeholder) return
-    const list = await fetchUserNotifications(user.id)
+    const [list, pendingTasksRes] = await Promise.all([
+      fetchUserNotifications(user.id),
+      supabase
+        .from('member_tasks')
+        .select('id', { count: 'exact', head: true })
+        .eq('assigned_to_user_id', user.id)
+        .eq('status', 'pending'),
+    ])
     const unread = list.filter(i => i.status === 'unread')
 
     let chats = 0
@@ -72,6 +83,7 @@ export default function MemberDashboard() {
 
     setChatBadge(chats)
     setCallsBadge(calls)
+    setTasksBadge(pendingTasksRes.count || 0)
   }, [user])
 
   useEffect(() => {
@@ -84,6 +96,7 @@ export default function MemberDashboard() {
       rawTab === 'directory' ||
       rawTab === 'calendar' ||
       rawTab === 'chat' ||
+      rawTab === 'tasks' ||
       rawTab === 'profile' ||
       rawTab === 'settings' ||
       rawTab === 'support' ||
@@ -136,6 +149,18 @@ export default function MemberDashboard() {
               )
             }
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'member_tasks',
+          filter: `assigned_to_user_id=eq.${user.id}`,
+        },
+        () => {
+          syncHeaderBadges()
         }
       )
       .subscribe()
@@ -246,12 +271,12 @@ export default function MemberDashboard() {
 
   const userIsAdmin = Boolean(isAdmin || user.is_admin)
 
-  // Rearranged icon order: Directory -> Calendar -> Chat -> Calls -> Gallery & Files -> Profile -> Settings -> Alumni -> Maintenance
   const navItems: { id: string; label: string; tooltip: string; icon: any; badge?: number }[] = [
     { id: 'directory', label: 'Directory', tooltip: 'Member Directory', icon: Users },
     { id: 'calendar', label: 'Calendar', tooltip: 'Class Calendar', icon: CalendarDays },
     { id: 'chat', label: 'Chat', tooltip: 'Group & Private Chat', icon: MessageCircle, badge: chatBadge },
     { id: 'calls', label: 'Calls', tooltip: 'Voice & Video Calls', icon: Phone, badge: callsBadge },
+    { id: 'tasks', label: 'Tasks', tooltip: 'Assigned & Public Tasks', icon: ListTodo, badge: tasksBadge },
     { id: 'media', label: 'Gallery & Files', tooltip: 'Photo Gallery & Member Folders', icon: Image },
     { id: 'profile', label: 'Profile', tooltip: 'My Profile & Family', icon: User },
     { id: 'settings', label: 'Settings', tooltip: 'User Settings & Privacy', icon: Settings },
@@ -365,6 +390,7 @@ export default function MemberDashboard() {
         )}
         {activeTab === 'chat' && <ChatTab />}
         {activeTab === 'calls' && <CallsTab />}
+        {activeTab === 'tasks' && <TasksTab />}
         {activeTab === 'media' && <MediaArchiveTab />}
         {activeTab === 'profile' && <ProfileTab />}
         {activeTab === 'settings' && <SettingsTab />}
