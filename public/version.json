@@ -1,11 +1,19 @@
 {
-  "version": "V1.74",
-  "timestamp": "23 Nov 2026, 02:04 AM IST",
-  "formatted": "V1.74, 23 Nov 2026, 02:04 AM IST",
+  "version": "V1.75",
+  "timestamp": "23 Nov 2026, 02:06 AM IST",
+  "formatted": "V1.75, 23 Nov 2026, 02:06 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Add new line at the end of MediaArchiveTab.tsx)",
+  "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.75",
+      "timestamp": "23 Nov 2026, 02:06 AM IST",
+      "formatted": "V1.75, 23 Nov 2026, 02:06 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.74",
       "timestamp": "23 Nov 2026, 02:04 AM IST",
@@ -196,14 +204,6 @@
       "formatted": "V1.51, 22 Nov 2026, 11:28 PM IST",
       "type": "minor",
       "summary": "Minor general update (Screen appearance and layout improved)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.50",
-      "timestamp": "22 Nov 2026, 11:26 PM IST",
-      "formatted": "V1.50, 22 Nov 2026, 11:26 PM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor task creation and add audit items)",
       "requiresReinstall": false
     }
   ]
