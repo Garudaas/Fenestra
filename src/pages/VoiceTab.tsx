@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { sendDevicePushNotification } from '@/lib/notificationService'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,7 +24,6 @@ export default function VoiceTab() {
   const joinVoiceCall = async () => {
     if (!user) return
 
-    // Clear caller's own group_call badge immediately
     await supabase
       .from('user_notifications')
       .delete()
@@ -31,7 +31,6 @@ export default function VoiceTab() {
       .eq('category', 'group_call')
     window.dispatchEvent(new Event('fenestrians-notifications-updated'))
 
-    // Notify other members of the live voice room
     const { data: members } = await supabase
       .from('alumni')
       .select('id')
@@ -40,17 +39,24 @@ export default function VoiceTab() {
       .neq('full_name', 'System Administrator')
 
     if (members && members.length > 0) {
+      const msg = `${user.full_name} started a group voice call in ${roomName}.`
       await supabase.from('user_notifications').insert(
         members.map(m => ({
           user_id: m.id,
           archive_id: null,
           short_title: 'Group call',
           category: 'group_call',
-          full_message: `${user.full_name} started a group voice call in ${roomName}.`,
+          full_message: msg,
           status: 'unread',
           unread_count: 1,
         }))
       )
+      sendDevicePushNotification({
+        shortTitle: 'Group call',
+        fullMessage: msg,
+        targetUserIds: members.map(m => m.id),
+        launchUrl: 'https://fenestrians.salmaali.in/dashboard?tab=voice',
+      })
     }
 
     const roomUrl = `https://meet.jit.si/${roomName}-${user.id}#config.startAudioOnly=true&config.startWithVideoMuted=true`
@@ -89,7 +95,5 @@ export default function VoiceTab() {
         </CardContent>
       </Card>
     </div>
-
-    
   )
 }
