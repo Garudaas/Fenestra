@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { sendDevicePushNotification } from '@/lib/notificationService'
 import { getUserStorageUsage, formatBytes } from '@/lib/fenestriansCore'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -34,7 +35,6 @@ export default function VideoTab() {
   const joinVideoCall = async () => {
     if (!user) return
 
-    // Clear caller's own video_call badge immediately
     await supabase
       .from('user_notifications')
       .delete()
@@ -42,24 +42,30 @@ export default function VideoTab() {
       .eq('category', 'video_call')
     window.dispatchEvent(new Event('fenestrians-notifications-updated'))
 
-    // Notify DM peer or all active members
     const dmMatch = /^DM-(\d+)-(\d+)$/.exec(roomName.trim())
     if (dmMatch) {
       const idA = Number(dmMatch[1])
       const idB = Number(dmMatch[2])
       const targetId = idA === user.id ? idB : idA
       if (targetId && targetId !== user.id) {
+        const msg = `${user.full_name} is calling you on video (${roomName}).`
         await supabase.from('user_notifications').insert([
           {
             user_id: targetId,
             archive_id: null,
             short_title: 'Video call',
             category: 'video_call',
-            full_message: `${user.full_name} is calling you on video (${roomName}).`,
+            full_message: msg,
             status: 'unread',
             unread_count: 1,
           },
         ])
+        sendDevicePushNotification({
+          shortTitle: 'Incoming Video Call',
+          fullMessage: msg,
+          targetUserIds: [targetId],
+          launchUrl: 'https://fenestrians.salmaali.in/dashboard?tab=video',
+        })
       }
     } else {
       const { data: members } = await supabase
@@ -70,17 +76,24 @@ export default function VideoTab() {
         .neq('full_name', 'System Administrator')
 
       if (members && members.length > 0) {
+        const msg = `${user.full_name} started a video call in ${roomName}.`
         await supabase.from('user_notifications').insert(
           members.map(m => ({
             user_id: m.id,
             archive_id: null,
             short_title: 'Video call',
             category: 'video_call',
-            full_message: `${user.full_name} started a video call in ${roomName}.`,
+            full_message: msg,
             status: 'unread',
             unread_count: 1,
           }))
         )
+        sendDevicePushNotification({
+          shortTitle: 'Video call',
+          fullMessage: msg,
+          targetUserIds: members.map(m => m.id),
+          launchUrl: 'https://fenestrians.salmaali.in/dashboard?tab=video',
+        })
       }
     }
 
