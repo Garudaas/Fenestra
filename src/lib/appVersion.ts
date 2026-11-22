@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.86",
-  "timestamp": "23 Nov 2026, 03:05 AM IST",
-  "formatted": "V1.86, 23 Nov 2026, 03:05 AM IST",
+  "version": "V1.87",
+  "timestamp": "23 Nov 2026, 03:52 AM IST",
+  "formatted": "V1.87, 23 Nov 2026, 03:52 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
+  "summary": "Minor technical update (Refactor MaintenanceTab for audit task management)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.87",
+      "timestamp": "23 Nov 2026, 03:52 AM IST",
+      "formatted": "V1.87, 23 Nov 2026, 03:52 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor MaintenanceTab for audit task management)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.86",
       "timestamp": "23 Nov 2026, 03:05 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.63, 23 Nov 2026, 12:07 AM IST",
       "type": "minor",
       "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.62",
-      "timestamp": "22 Nov 2026, 11:59 PM IST",
-      "formatted": "V1.62, 22 Nov 2026, 11:59 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Implement PersistentSessionRedirect for user navigation)",
       "requiresReinstall": false
     }
   ]
