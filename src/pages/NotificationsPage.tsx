@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabase'
+import { saveAuditPreference } from '@/lib/fenestriansCore'
 import {
   fetchUserNotifications,
+  fetchNotificationArchiveMetadata,
   markNotificationRead,
   markAllStandardNotificationsRead,
   snoozeNotification,
@@ -13,6 +16,8 @@ import {
   isChatNotification,
   isCallNotification,
   type UserNotificationItem,
+  type AuditActionItem,
+  type NotificationArchiveMetadata,
 } from '@/lib/notificationService'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -37,6 +42,8 @@ import {
   HelpCircle,
   CheckCircle2,
   ArrowLeft,
+  ShieldCheck,
+  UserCog,
 } from 'lucide-react'
 
 function getCategoryIcon(category: string) {
@@ -82,6 +89,9 @@ export default function NotificationsPage() {
 
   // Modal state for viewing an Unread notification
   const [selectedItem, setSelectedItem] = useState<UserNotificationItem | null>(null)
+  const [selectedMeta, setSelectedMeta] = useState<NotificationArchiveMetadata>({})
+  const [linkedTask, setLinkedTask] = useState<{ id: number; status: string; is_micromanaged: boolean } | null>(null)
+  const [savedPrefKeys, setSavedPrefKeys] = useState<Record<string, boolean>>({})
   const [snoozeValue, setSnoozeValue] = useState<number>(10)
   const [snoozeUnit, setSnoozeUnit] = useState<'minutes' | 'hours'>('minutes')
 
@@ -102,19 +112,64 @@ export default function NotificationsPage() {
     loadAll()
   }, [user, navigate, loadAll])
 
+  const openNotificationDetail = useCallback(
+    async (item: UserNotificationItem) => {
+      setSelectedItem(item)
+      setSelectedMeta({})
+      setLinkedTask(null)
+      setSavedPrefKeys({})
+
+      const defaultMins = item.snooze_minutes || 10
+      if (defaultMins >= 60 && defaultMins % 60 === 0) {
+        setSnoozeValue(defaultMins / 60)
+        setSnoozeUnit('hours')
+      } else {
+        setSnoozeValue(defaultMins)
+        setSnoozeUnit('minutes')
+      }
+
+      if (item.category === 'personal_task' && user) {
+        const meta = await fetchNotificationArchiveMetadata(item.archive_id)
+        setSelectedMeta(meta)
+
+        if (meta.task_id) {
+          const { data: taskRow } = await supabase
+            .from('member_tasks')
+            .select('id, status, is_micromanaged')
+            .eq('id', meta.task_id)
+            .maybeSingle()
+          if (taskRow) {
+            setLinkedTask(taskRow)
+          }
+        } else {
+          const { data: fallbackTask } = await supabase
+            .from('member_tasks')
+            .select('id, status, is_micromanaged')
+            .eq('assigned_to_user_id', user.id)
+            .eq('description', item.full_message)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (fallbackTask) {
+            setLinkedTask(fallbackTask)
+          }
+        }
+      }
+    },
+    [user]
+  )
+
   // Listen for due snooze popups triggered automatically
   useEffect(() => {
     const handleSnoozeTrigger = (e: Event) => {
       const detail = (e as CustomEvent<UserNotificationItem>).detail
       if (detail) {
-        setSelectedItem(detail)
-        setSnoozeValue(detail.snooze_minutes || 10)
-        setSnoozeUnit('minutes')
+        openNotificationDetail(detail)
       }
     }
     window.addEventListener('fenestrians-open-snoozed', handleSnoozeTrigger)
     return () => window.removeEventListener('fenestrians-open-snoozed', handleSnoozeTrigger)
-  }, [])
+  }, [openNotificationDetail])
 
   const unreadList = items.filter(i => i.status === 'unread')
   const readList = items.filter(i => i.status === 'read')
@@ -127,7 +182,6 @@ export default function NotificationsPage() {
   const handleUnreadItemClick = async (item: UserNotificationItem) => {
     if (!user) return
 
-    // Chat alert -> do NOT open popup; open chat tab and delete from user's database
     if (isChatNotification(item.category)) {
       await clearChatNotifications(user.id)
       window.dispatchEvent(new Event('fenestrians-notifications-updated'))
@@ -135,7 +189,6 @@ export default function NotificationsPage() {
       return
     }
 
-    // Call alert -> do NOT open popup; open call tab and delete from user's database
     if (isCallNotification(item.category)) {
       await clearCallNotification(user.id, item.id)
       window.dispatchEvent(new Event('fenestrians-notifications-updated'))
@@ -143,16 +196,37 @@ export default function NotificationsPage() {
       return
     }
 
-    // Standard unread alert -> open popup with Close, Unread, and Snooze buttons
-    setSelectedItem(item)
-    const defaultMins = item.snooze_minutes || 10
-    if (defaultMins >= 60 && defaultMins % 60 === 0) {
-      setSnoozeValue(defaultMins / 60)
-      setSnoozeUnit('hours')
-    } else {
-      setSnoozeValue(defaultMins)
-      setSnoozeUnit('minutes')
+    await openNotificationDetail(item)
+  }
+
+  // Mark assigned task Completed + move notification to Read
+  const handleCompleteLinkedTask = async () => {
+    if (!selectedItem) return
+    setActionBusy(true)
+
+    if (linkedTask) {
+      await supabase
+        .from('member_tasks')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', linkedTask.id)
     }
+
+    await markNotificationRead(selectedItem.id)
+    setSelectedItem(null)
+    await loadAll()
+    setActionBusy(false)
+  }
+
+  // Save user preference to skip missing field or retain duplicate in future general audits
+  const handleSaveAuditChoice = async (auditItem: AuditActionItem) => {
+    if (!user) return
+    setActionBusy(true)
+    await saveAuditPreference(user.id, auditItem.preferenceType, auditItem.targetKey)
+    setSavedPrefKeys(prev => ({ ...prev, [auditItem.targetKey]: true }))
+    setActionBusy(false)
   }
 
   // Button 1: Close -> moves notification to Read category
@@ -216,6 +290,9 @@ export default function NotificationsPage() {
     setActionBusy(false)
   }
 
+  const auditItems = selectedMeta.audit_items ?? []
+  const isMicromanagedTask = Boolean(selectedMeta.is_micromanaged || linkedTask?.is_micromanaged)
+
   return (
     <div className="min-h-svh p-4 sm:p-6 relative">
       <div className="mx-auto max-w-3xl space-y-4">
@@ -239,7 +316,6 @@ export default function NotificationsPage() {
                 Notifications Center
               </CardTitle>
 
-              {/* Read / Unread Tabs */}
               <div className="flex rounded-lg border border-border/50 bg-background/60 p-1">
                 <button
                   type="button"
@@ -273,7 +349,6 @@ export default function NotificationsPage() {
           </CardHeader>
 
           <CardContent className="space-y-4">
-            {/* UNREAD TAB */}
             {activeTab === 'unread' && (
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/30 pb-3">
@@ -359,7 +434,6 @@ export default function NotificationsPage() {
               </>
             )}
 
-            {/* READ TAB */}
             {activeTab === 'read' && (
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/30 pb-3">
@@ -433,7 +507,7 @@ export default function NotificationsPage() {
                             })}
                           </span>
                         </div>
-                        <p className="text-xs text-foreground/90 leading-relaxed pl-6">
+                        <p className="text-xs text-foreground/90 leading-relaxed pl-6 whitespace-pre-line">
                           {item.full_message}
                         </p>
                       </div>
@@ -446,10 +520,10 @@ export default function NotificationsPage() {
         </Card>
       </div>
 
-      {/* UNREAD NOTIFICATION DETAIL BOX (Close, Unread, Snooze) */}
+      {/* UNREAD NOTIFICATION DETAIL BOX (Interactive Task Controls + Close, Unread, Snooze) */}
       {selectedItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <Card className="w-full max-w-md border-primary/40 bg-card shadow-2xl">
+          <Card className="w-full max-w-md border-primary/40 bg-card shadow-2xl max-h-[90vh] overflow-y-auto">
             <CardHeader className="pb-2">
               <div className="flex items-center gap-2">
                 {getCategoryIcon(selectedItem.category)}
@@ -464,9 +538,87 @@ export default function NotificationsPage() {
             </CardHeader>
 
             <CardContent className="space-y-4">
-              <div className="rounded-xl border border-border/40 bg-muted/20 p-3.5 text-sm text-foreground leading-relaxed">
+              <div className="rounded-xl border border-border/40 bg-muted/20 p-3.5 text-sm text-foreground leading-relaxed whitespace-pre-line">
                 {selectedItem.full_message}
               </div>
+
+              {/* Interactive Audit Preference Controls (General Profile Audits) */}
+              {selectedItem.category === 'personal_task' && !isMicromanagedTask && auditItems.length > 0 && (
+                <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-3 space-y-2.5">
+                  <p className="flex items-center gap-1.5 text-xs font-bold text-indigo-300">
+                    <ShieldCheck className="h-4 w-4 shrink-0" />
+                    Audit Preferences (Skip in Future Audits)
+                  </p>
+                  <div className="space-y-2">
+                    {auditItems.map(ai => {
+                      const isSaved = Boolean(savedPrefKeys[ai.targetKey])
+                      return (
+                        <div
+                          key={ai.targetKey}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/40 bg-background/60 px-2.5 py-2 text-xs"
+                        >
+                          <span className="text-foreground/90 flex-1 min-w-[140px]">{ai.label}</span>
+                          {isSaved ? (
+                            <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
+                              Preference Saved
+                            </span>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={actionBusy}
+                              onClick={() => handleSaveAuditChoice(ai)}
+                              className="h-7 text-[11px] border-indigo-400/40 text-indigo-200 hover:bg-indigo-500/20"
+                            >
+                              {ai.preferenceType === 'retain_duplicate' ? 'Retain Duplicate' : 'Keep Blank'}
+                            </Button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Task Completion & Profile Shortcut Controls */}
+              {selectedItem.category === 'personal_task' && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
+                  {isMicromanagedTask && (
+                    <p className="text-[11px] text-amber-300">
+                      Requested directly by Admin. Please update the requested profile/family details and mark completed below.
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedItem(null)
+                        navigate('/dashboard?tab=profile')
+                      }}
+                      className="flex-1 gap-1.5 text-xs"
+                    >
+                      <UserCog className="h-3.5 w-3.5" />
+                      Open My Profile
+                    </Button>
+
+                    {(!linkedTask || linkedTask.status !== 'completed') && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={actionBusy}
+                        onClick={handleCompleteLinkedTask}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold gap-1.5 text-xs"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Mark Task Completed
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Editable Snooze Duration (Default 10 mins, Maximum 8 hours) */}
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
