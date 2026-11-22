@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.84",
-  "timestamp": "23 Nov 2026, 02:58 AM IST",
-  "formatted": "V1.84, 23 Nov 2026, 02:58 AM IST",
+  "version": "V1.85",
+  "timestamp": "23 Nov 2026, 02:59 AM IST",
+  "formatted": "V1.85, 23 Nov 2026, 02:59 AM IST",
   "type": "minor",
   "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.85",
+      "timestamp": "23 Nov 2026, 02:59 AM IST",
+      "formatted": "V1.85, 23 Nov 2026, 02:59 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.84",
       "timestamp": "23 Nov 2026, 02:58 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.61, 22 Nov 2026, 11:58 PM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor AuthContext to improve session handling)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.60",
-      "timestamp": "22 Nov 2026, 11:54 PM IST",
-      "formatted": "V1.60, 22 Nov 2026, 11:54 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Photo gallery updated)",
       "requiresReinstall": false
     }
   ]
