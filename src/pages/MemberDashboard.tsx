@@ -103,10 +103,34 @@ export default function MemberDashboard() {
     triggerAlerts()
     syncHeaderBadges()
 
-    const interval = setInterval(syncHeaderBadges, 20000)
+    // Instant Realtime listener for header Chat, Voice, and Video red circle badges
+    const channel = supabase
+      .channel(`live-header-badges-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        payload => {
+          syncHeaderBadges()
+          if (payload.eventType === 'INSERT') {
+            const row = payload.new as any
+            if (row?.category === 'group_call' || row?.category === 'video_call') {
+              setAlerts(prev =>
+                prev.includes(row.full_message) ? prev : [row.full_message, ...prev]
+              )
+            }
+          }
+        }
+      )
+      .subscribe()
+
     window.addEventListener('fenestrians-notifications-updated', syncHeaderBadges)
     return () => {
-      clearInterval(interval)
+      supabase.removeChannel(channel)
       window.removeEventListener('fenestrians-notifications-updated', syncHeaderBadges)
     }
   }, [user, navigate, syncHeaderBadges])
