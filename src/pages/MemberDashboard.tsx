@@ -93,6 +93,21 @@ export default function MemberDashboard() {
     if (requestedTab) {
       setActiveTab(requestedTab)
     }
+
+    const dmId = searchParams.get('dmId')
+    const dmName = searchParams.get('dmName')
+    if (requestedTab === 'chat' && dmId && dmName) {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('open-dm', { detail: { id: Number(dmId), name: dmName } }))
+      }, 150)
+    }
+
+    const roomName = searchParams.get('roomName')
+    if (requestedTab === 'video' && roomName) {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('join-video', { detail: { roomName } }))
+      }, 150)
+    }
   }, [searchParams])
 
   useEffect(() => {
@@ -103,7 +118,6 @@ export default function MemberDashboard() {
     triggerAlerts()
     syncHeaderBadges()
 
-    // Instant Realtime listener for header Chat, Voice, and Video red circle badges
     const channel = supabase
       .channel(`live-header-badges-${user.id}`)
       .on(
