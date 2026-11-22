@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.67",
-  "timestamp": "23 Nov 2026, 12:25 AM IST",
-  "formatted": "V1.67, 23 Nov 2026, 12:25 AM IST",
+  "version": "V1.68",
+  "timestamp": "23 Nov 2026, 01:57 AM IST",
+  "formatted": "V1.68, 23 Nov 2026, 01:57 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Add MemberProfilePage route to App component)",
+  "summary": "Minor general update (Add date formatting and phone number utilities)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.68",
+      "timestamp": "23 Nov 2026, 01:57 AM IST",
+      "formatted": "V1.68, 23 Nov 2026, 01:57 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Add date formatting and phone number utilities)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.67",
       "timestamp": "23 Nov 2026, 12:25 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.44, 21 Nov 2026, 03:33 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor one-tap install logic and UI updates)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.43",
-      "timestamp": "21 Nov 2026, 03:24 AM IST",
-      "formatted": "V1.43, 21 Nov 2026, 03:24 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add SmartAppLauncher route to App component)",
       "requiresReinstall": false
     }
   ]
