@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.59",
-  "timestamp": "22 Nov 2026, 11:53 PM IST",
-  "formatted": "V1.59, 22 Nov 2026, 11:53 PM IST",
+  "version": "V1.60",
+  "timestamp": "22 Nov 2026, 11:54 PM IST",
+  "formatted": "V1.60, 22 Nov 2026, 11:54 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance file sorting and admin quota features)",
+  "summary": "Minor general update (Photo gallery updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.60",
+      "timestamp": "22 Nov 2026, 11:54 PM IST",
+      "formatted": "V1.60, 22 Nov 2026, 11:54 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Photo gallery updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.59",
       "timestamp": "22 Nov 2026, 11:53 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.36, 21 Nov 2026, 03:02 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor InvitePage layout and improve user prompts)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.35",
-      "timestamp": "21 Nov 2026, 03:01 AM IST",
-      "formatted": "V1.35, 21 Nov 2026, 03:01 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Enhance app installation detection and link copying)",
       "requiresReinstall": false
     }
   ]
