@@ -58,8 +58,31 @@ export function isCallNotification(category: string): boolean {
 }
 
 /**
- * Fetches structured metadata (such as task_id and audit_items) for an archived notification.
+ * Fires an immediate OneSignal push notification so users receive alerts, chats,
+ * and incoming call rings even when the Fenestrians app is closed.
  */
+export function sendDevicePushNotification(params: {
+  shortTitle: string
+  fullMessage: string
+  targetUserIds?: number[]
+  launchUrl?: string
+}): void {
+  fetch('https://dojlbfnfhkfltlxggxiy.supabase.co/functions/v1/daily-notifications', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: 'sb_publishable_CmCFzsQ_L8dk7NxUmIVZ0g_pl_jq0fV',
+    },
+    body: JSON.stringify({
+      event: 'push_only',
+      shortTitle: params.shortTitle,
+      fullMessage: params.fullMessage,
+      targetUserIds: params.targetUserIds ?? [],
+      launchUrl: params.launchUrl ?? 'https://fenestrians.salmaali.in/notifications',
+    }),
+  }).catch(() => {})
+}
+
 export async function fetchNotificationArchiveMetadata(
   archiveId: number | null
 ): Promise<NotificationArchiveMetadata> {
@@ -74,10 +97,6 @@ export async function fetchNotificationArchiveMetadata(
   return data.metadata as NotificationArchiveMetadata
 }
 
-/**
- * Syncs any new broadcast or user-targeted records from notifications_archive
- * into user_notifications so they appear in the user's Unread tab.
- */
 export async function syncArchivedNotificationsForUser(userId: number): Promise<void> {
   const { data: archives, error: archErr } = await supabase
     .from('notifications_archive')
@@ -129,9 +148,6 @@ export async function fetchUserNotifications(userId: number): Promise<UserNotifi
   return data as UserNotificationItem[]
 }
 
-/**
- * Moves a notification to Read when user clicks "Close" inside the notification box.
- */
 export async function markNotificationRead(notificationId: number): Promise<void> {
   await supabase
     .from('user_notifications')
@@ -143,9 +159,6 @@ export async function markNotificationRead(notificationId: number): Promise<void
     .eq('id', notificationId)
 }
 
-/**
- * Marks all standard unread notifications as Read (leaves chat/call alerts untouched until opened).
- */
 export async function markAllStandardNotificationsRead(userId: number): Promise<void> {
   await supabase
     .from('user_notifications')
@@ -159,10 +172,6 @@ export async function markAllStandardNotificationsRead(userId: number): Promise<
     .not('category', 'in', '("common_chat","private_chat","group_chat","group_call","video_call")')
 }
 
-/**
- * Snoozes a notification for `minutes` (default 10, max 480 = 8 hours).
- * Keeps status as 'unread' so unread list & count remain unchanged.
- */
 export async function snoozeNotification(
   notificationId: number,
   minutes: number
@@ -184,9 +193,6 @@ export async function snoozeNotification(
   return snoozedUntil
 }
 
-/**
- * Deletes all Read notifications from the user's personal view (archive remains intact).
- */
 export async function deleteAllReadNotifications(userId: number): Promise<void> {
   await supabase
     .from('user_notifications')
@@ -198,10 +204,6 @@ export async function deleteAllReadNotifications(userId: number): Promise<void> 
     .eq('status', 'read')
 }
 
-/**
- * Pulls all archived notifications from notifications_archive into the user's Read tab,
- * EXCEPT notifications that are currently in the user's Unread tab.
- */
 export async function recallNotificationHistory(userId: number): Promise<void> {
   const { data: archives } = await supabase
     .from('notifications_archive')
@@ -254,9 +256,6 @@ export async function recallNotificationHistory(userId: number): Promise<void> {
   }
 }
 
-/**
- * Maintains a single aggregated unread chat notification per user showing total unread chats.
- */
 export async function recordIncomingChatNotification(params: {
   recipientUserId: number
   chatType: 'common_chat' | 'private_chat' | 'group_chat'
@@ -303,11 +302,16 @@ export async function recordIncomingChatNotification(params: {
       },
     ])
   }
+
+  // Send device push notification so recipient gets alerted even if app is closed
+  sendDevicePushNotification({
+    shortTitle: baseLabel,
+    fullMessage: `${params.senderName}: ${params.previewText}`,
+    targetUserIds: [params.recipientUserId],
+    launchUrl: 'https://fenestrians.salmaali.in/dashboard?tab=chat',
+  })
 }
 
-/**
- * Deletes chat notifications immediately from user_notifications once the user opens the chat window.
- */
 export async function clearChatNotifications(userId: number): Promise<void> {
   await supabase
     .from('user_notifications')
@@ -316,9 +320,6 @@ export async function clearChatNotifications(userId: number): Promise<void> {
     .in('category', ['common_chat', 'private_chat', 'group_chat'])
 }
 
-/**
- * Deletes a call notification immediately once opened or answered.
- */
 export async function clearCallNotification(userId: number, notificationId?: number): Promise<void> {
   if (notificationId) {
     await supabase.from('user_notifications').delete().eq('id', notificationId)
@@ -331,10 +332,6 @@ export async function clearCallNotification(userId: number, notificationId?: num
   }
 }
 
-/**
- * Saves directly to notifications_archive and user_notifications first so alerts
- * are guaranteed to appear in the Notifications page, then triggers device push.
- */
 export async function publishArchivedAlert(params: {
   category: NotificationCategory
   shortTitle?: string
@@ -382,11 +379,19 @@ export async function publishArchivedAlert(params: {
           unread_count: 1,
         },
       ])
+      sendDevicePushNotification({
+        shortTitle: finalTitle,
+        fullMessage: params.fullMessage,
+        targetUserIds: [params.targetUserId],
+        launchUrl:
+          finalCategory === 'video_call'
+            ? 'https://fenestrians.salmaali.in/dashboard?tab=video'
+            : 'https://fenestrians.salmaali.in/dashboard?tab=voice',
+      })
     }
     return
   }
 
-  // 1. Insert directly into notifications_archive with optional task/audit metadata
   const { data: archived } = await supabase
     .from('notifications_archive')
     .insert([
@@ -401,7 +406,6 @@ export async function publishArchivedAlert(params: {
     .select('id, created_at')
     .single()
 
-  // 2. Fan out directly into user_notifications
   if (archived) {
     if (params.targetUserId) {
       await supabase.from('user_notifications').upsert(
@@ -445,26 +449,14 @@ export async function publishArchivedAlert(params: {
 
   window.dispatchEvent(new Event('fenestrians-notifications-updated'))
 
-  // 3. Trigger OneSignal push notification in background
-  fetch('https://dojlbfnfhkfltlxggxiy.supabase.co/functions/v1/daily-notifications', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: 'sb_publishable_CmCFzsQ_L8dk7NxUmIVZ0g_pl_jq0fV',
-    },
-    body: JSON.stringify({
-      event: 'push_only',
-      shortTitle: finalTitle,
-      fullMessage: params.fullMessage,
-      targetUserId: params.targetUserId ?? null,
-    }),
-  }).catch(() => {})
+  sendDevicePushNotification({
+    shortTitle: finalTitle,
+    fullMessage: params.fullMessage,
+    targetUserIds: params.targetUserId ? [params.targetUserId] : undefined,
+    launchUrl: 'https://fenestrians.salmaali.in/notifications',
+  })
 }
 
-/**
- * Archives daily Birthday / Anniversary alerts once per day (deduplicated by date & message)
- * so they appear in the Notifications page without duplicating on every refresh.
- */
 export async function archiveDailyCelebrationAlert(params: {
   category: 'birthday' | 'anniversary'
   shortTitle: string
