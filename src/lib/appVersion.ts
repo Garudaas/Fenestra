@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.47",
-  "timestamp": "22 Nov 2026, 09:49 PM IST",
-  "formatted": "V1.47, 22 Nov 2026, 09:49 PM IST",
+  "version": "V1.48",
+  "timestamp": "22 Nov 2026, 09:50 PM IST",
+  "formatted": "V1.48, 22 Nov 2026, 09:50 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Notification alerts updated)",
+  "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.48",
+      "timestamp": "22 Nov 2026, 09:50 PM IST",
+      "formatted": "V1.48, 22 Nov 2026, 09:50 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.47",
       "timestamp": "22 Nov 2026, 09:49 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.24, 21 Nov 2026, 02:08 AM IST",
       "type": "minor",
       "summary": "Minor general update (Member profile details updated)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.23",
-      "timestamp": "21 Nov 2026, 02:07 AM IST",
-      "formatted": "V1.23, 21 Nov 2026, 02:07 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor CalendarTab component for readability)",
       "requiresReinstall": false
     }
   ]
