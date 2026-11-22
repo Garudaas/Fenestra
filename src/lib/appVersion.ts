@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.90",
-  "timestamp": "23 Nov 2026, 04:24 AM IST",
-  "formatted": "V1.90, 23 Nov 2026, 04:24 AM IST",
+  "version": "V1.91",
+  "timestamp": "23 Nov 2026, 04:27 AM IST",
+  "formatted": "V1.91, 23 Nov 2026, 04:27 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Add taskAuditService with auditing functions)",
+  "summary": "Minor technical update (Refactor notification service and clean up comments)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.91",
+      "timestamp": "23 Nov 2026, 04:27 AM IST",
+      "formatted": "V1.91, 23 Nov 2026, 04:27 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor notification service and clean up comments)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.90",
       "timestamp": "23 Nov 2026, 04:24 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.67, 23 Nov 2026, 12:25 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add MemberProfilePage route to App component)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.66",
-      "timestamp": "23 Nov 2026, 12:24 AM IST",
-      "formatted": "V1.66, 23 Nov 2026, 12:24 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Chat and calling screen updated)",
       "requiresReinstall": false
     }
   ]
