@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.58",
-  "timestamp": "22 Nov 2026, 11:52 PM IST",
-  "formatted": "V1.58, 22 Nov 2026, 11:52 PM IST",
+  "version": "V1.59",
+  "timestamp": "22 Nov 2026, 11:53 PM IST",
+  "formatted": "V1.59, 22 Nov 2026, 11:53 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement search and filter features in DirectoryTab)",
+  "summary": "Minor general update (Enhance file sorting and admin quota features)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.59",
+      "timestamp": "22 Nov 2026, 11:53 PM IST",
+      "formatted": "V1.59, 22 Nov 2026, 11:53 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Enhance file sorting and admin quota features)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.58",
       "timestamp": "22 Nov 2026, 11:52 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.35, 21 Nov 2026, 03:01 AM IST",
       "type": "minor",
       "summary": "Minor general update (Enhance app installation detection and link copying)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.34",
-      "timestamp": "21 Nov 2026, 02:40 AM IST",
-      "formatted": "V1.34, 21 Nov 2026, 02:40 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Member profile details updated)",
       "requiresReinstall": false
     }
   ]
