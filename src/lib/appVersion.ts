@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.94",
-  "timestamp": "23 Nov 2026, 04:32 AM IST",
-  "formatted": "V1.94, 23 Nov 2026, 04:32 AM IST",
+  "version": "V1.95",
+  "timestamp": "23 Nov 2026, 04:34 AM IST",
+  "formatted": "V1.95, 23 Nov 2026, 04:34 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Add TasksTab component for task management)",
+  "summary": "Minor general update (Add Tasks tab and update badge synchronization)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.95",
+      "timestamp": "23 Nov 2026, 04:34 AM IST",
+      "formatted": "V1.95, 23 Nov 2026, 04:34 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Add Tasks tab and update badge synchronization)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.94",
       "timestamp": "23 Nov 2026, 04:32 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.71, 23 Nov 2026, 02:00 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add CallsTab component for voice and video calls)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.70",
-      "timestamp": "23 Nov 2026, 01:59 AM IST",
-      "formatted": "V1.70, 23 Nov 2026, 01:59 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add SmartPhoneInput component for phone number input)",
       "requiresReinstall": false
     }
   ]
