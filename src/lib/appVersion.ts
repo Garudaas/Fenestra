@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.89",
-  "timestamp": "23 Nov 2026, 04:23 AM IST",
-  "formatted": "V1.89, 23 Nov 2026, 04:23 AM IST",
+  "version": "V1.90",
+  "timestamp": "23 Nov 2026, 04:24 AM IST",
+  "formatted": "V1.90, 23 Nov 2026, 04:24 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance date formatting with IST support)",
+  "summary": "Minor general update (Add taskAuditService with auditing functions)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.90",
+      "timestamp": "23 Nov 2026, 04:24 AM IST",
+      "formatted": "V1.90, 23 Nov 2026, 04:24 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Add taskAuditService with auditing functions)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.89",
       "timestamp": "23 Nov 2026, 04:23 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.66, 23 Nov 2026, 12:24 AM IST",
       "type": "minor",
       "summary": "Minor general update (Chat and calling screen updated)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.65",
-      "timestamp": "23 Nov 2026, 12:23 AM IST",
-      "formatted": "V1.65, 23 Nov 2026, 12:23 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor DirectoryTab by removing family data logic)",
       "requiresReinstall": false
     }
   ]
