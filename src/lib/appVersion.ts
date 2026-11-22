@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.50",
-  "timestamp": "22 Nov 2026, 11:26 PM IST",
-  "formatted": "V1.50, 22 Nov 2026, 11:26 PM IST",
+  "version": "V1.51",
+  "timestamp": "22 Nov 2026, 11:28 PM IST",
+  "formatted": "V1.51, 22 Nov 2026, 11:28 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor task creation and add audit items)",
+  "summary": "Minor general update (Screen appearance and layout improved)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.51",
+      "timestamp": "22 Nov 2026, 11:28 PM IST",
+      "formatted": "V1.51, 22 Nov 2026, 11:28 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Screen appearance and layout improved)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.50",
       "timestamp": "22 Nov 2026, 11:26 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.27, 21 Nov 2026, 02:15 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor ChatTab component for clarity and maintainability)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.26",
-      "timestamp": "21 Nov 2026, 02:10 AM IST",
-      "formatted": "V1.26, 21 Nov 2026, 02:10 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Update family member checks to use alumni_id)",
       "requiresReinstall": false
     }
   ]
