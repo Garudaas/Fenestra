@@ -9,6 +9,7 @@ import {
 } from '@/lib/fenestriansCore'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Folder,
   FolderOpen,
@@ -21,6 +22,7 @@ import {
   HardDrive,
   ShieldAlert,
   ArrowLeft,
+  ArrowUpDown,
 } from 'lucide-react'
 
 interface ArchiveFileRecord {
@@ -54,11 +56,15 @@ export default function FolderTab() {
   const [files, setFiles] = useState<ArchiveFileRecord[]>([])
   const [ownerPermissions, setOwnerPermissions] = useState<Record<number, boolean>>({})
   const [selectedFolderOwnerId, setSelectedFolderOwnerId] = useState<number | null>(null)
+  const [sortBy, setSortBy] = useState<'newest' | 'largest'>('newest')
+  const [showLargestCleanup, setShowLargestCleanup] = useState(false)
   const [isPrivateUpload, setIsPrivateUpload] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [myUsage, setMyUsage] = useState({ usedBytes: 0, quotaMb: 100 })
   const [adminSummaries, setAdminSummaries] = useState<AdminStorageSummary[]>([])
+  const [quotaInputs, setQuotaInputs] = useState<Record<number, number>>({})
+  const [savingQuotaId, setSavingQuotaId] = useState<number | null>(null)
 
   const userIsAdmin = Boolean(isAdmin || user?.is_admin)
 
@@ -93,7 +99,6 @@ export default function FolderTab() {
     setOwnerPermissions(permMap)
     setMyUsage({ usedBytes: usage.usedBytes, quotaMb: usage.quotaMb })
 
-    // Filter out other users' private files (even admins cannot view/open/download private files)
     const visibleFiles = ((fileRows ?? []) as ArchiveFileRecord[]).filter(
       f => f.owner_id === user.id || !f.is_private
     )
@@ -104,10 +109,44 @@ export default function FolderTab() {
         .from('admin_user_storage_summary')
         .select('*')
         .order('total_used_bytes', { ascending: false })
-      if (summaryRows) setAdminSummaries(summaryRows as AdminStorageSummary[])
+      if (summaryRows) {
+        const typed = summaryRows as AdminStorageSummary[]
+        setAdminSummaries(typed)
+        const initialQuotas: Record<number, number> = {}
+        for (const s of typed) {
+          initialQuotas[s.user_id] = s.storage_quota_mb
+        }
+        setQuotaInputs(initialQuotas)
+      }
     }
 
     setLoading(false)
+  }
+
+  const handleUpdateMemberQuota = async (targetUserId: number) => {
+    if (!user || !userIsAdmin) return
+    const nextQuota = Number(quotaInputs[targetUserId])
+    if (!nextQuota || nextQuota < 10 || nextQuota > 102400) {
+      alert('Please enter a valid storage limit between 10 MB and 102400 MB (100 GB).')
+      return
+    }
+
+    setSavingQuotaId(targetUserId)
+    const { error } = await supabase.rpc('admin_update_member_quota', {
+      p_admin_id: user.id,
+      p_target_user_id: targetUserId,
+      p_new_quota_mb: nextQuota,
+    })
+
+    if (error) {
+      await supabase
+        .from('alumni')
+        .update({ storage_quota_mb: nextQuota })
+        .eq('id', targetUserId)
+    }
+
+    setSavingQuotaId(null)
+    await loadAllData()
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,7 +190,16 @@ export default function FolderTab() {
 
   if (!user) return null
 
-  // Group visible files into folders named after each member (ensuring current user's folder always exists)
+  const sortFilesList = (list: ArchiveFileRecord[]) => {
+    const copy = [...list]
+    if (sortBy === 'largest') {
+      copy.sort((a, b) => Number(b.file_size_bytes || 0) - Number(a.file_size_bytes || 0))
+    } else {
+      copy.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    }
+    return copy
+  }
+
   const folderMap = new Map<number, { ownerId: number; ownerName: string; items: ArchiveFileRecord[] }>()
   folderMap.set(user.id, { ownerId: user.id, ownerName: user.full_name, items: [] })
 
@@ -169,9 +217,12 @@ export default function FolderTab() {
   const folderList = Array.from(folderMap.values())
   const activeFolder = selectedFolderOwnerId ? folderMap.get(selectedFolderOwnerId) ?? null : null
 
+  const myLargestFiles = [...files]
+    .filter(f => f.owner_id === user.id && !f.is_profile_picture)
+    .sort((a, b) => Number(b.file_size_bytes || 0) - Number(a.file_size_bytes || 0))
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      {/* Upload & Personal Storage Quota Header */}
       <Card className="border-border/40 bg-card/70 backdrop-blur-sm">
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -179,10 +230,27 @@ export default function FolderTab() {
               <Folder className="h-5 w-5" />
               Member Folders &amp; Shared Files
             </CardTitle>
-            <span className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-              <HardDrive className="h-3.5 w-3.5" />
-              Your Storage: {formatBytes(myUsage.usedBytes)} / {myUsage.quotaMb} MB
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={showLargestCleanup ? 'default' : 'outline'}
+                title="View Your Largest Files to Free Up Space"
+                onClick={() => setShowLargestCleanup(prev => !prev)}
+                className={
+                  showLargestCleanup
+                    ? 'gold-gradient text-gold-foreground text-xs gap-1.5'
+                    : 'text-xs gap-1.5 border-primary/40 text-primary'
+                }
+              >
+                <ArrowUpDown className="h-3.5 w-3.5" />
+                {showLargestCleanup ? 'Hide Largest Files Cleanup' : 'Largest Files Cleanup'}
+              </Button>
+              <span className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                <HardDrive className="h-3.5 w-3.5" />
+                Your Storage: {formatBytes(myUsage.usedBytes)} / {myUsage.quotaMb} MB
+              </span>
+            </div>
           </div>
         </CardHeader>
 
@@ -192,12 +260,7 @@ export default function FolderTab() {
           </p>
 
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/40 bg-muted/20 p-3.5">
-            <input
-              ref={fileInputRef}
-              type="file"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
+            <input ref={fileInputRef} type="file" onChange={handleFileUpload} className="hidden" />
             <Button
               type="button"
               title="Upload File to Your Folder"
@@ -222,40 +285,111 @@ export default function FolderTab() {
         </CardContent>
       </Card>
 
-      {/* Admin Storage Usage Overview (counts private files without revealing private file links) */}
+      {/* Personal Largest Files Cleanup Drawer */}
+      {showLargestCleanup && (
+        <Card className="border-primary/40 bg-card/80">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-primary">
+              Your Largest Files ({myLargestFiles.length} deletable item{myLargestFiles.length === 1 ? '' : 's'})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 max-h-72 overflow-y-auto">
+            {myLargestFiles.length === 0 ? (
+              <p className="text-xs text-muted-foreground">You have no deletable files in your archive.</p>
+            ) : (
+              myLargestFiles.map(item => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border/30 bg-muted/20 px-3 py-2 text-xs"
+                >
+                  <div className="min-w-0">
+                    <p className="font-bold text-foreground truncate">{item.file_name}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Size: <span className="font-bold text-primary">{formatBytes(item.file_size_bytes)}</span> •{' '}
+                      {item.folder_category === 'gallery' ? 'Gallery' : 'Folder'}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    title="Delete to Free Space"
+                    onClick={() => handleDeleteFile(item)}
+                    className="h-7 gap-1 text-xs shrink-0"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Delete
+                  </Button>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Admin Storage Usage & Adjustable Quotas */}
       {userIsAdmin && adminSummaries.length > 0 && (
         <Card className="border-amber-500/30 bg-amber-500/5">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm text-amber-300">
               <ShieldAlert className="h-4 w-4" />
-              Admin Storage Accounting (Includes Private Files)
+              Admin Storage Accounting &amp; Adjustable Member Quotas
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
               {adminSummaries.map(s => {
                 const quotaBytes = s.storage_quota_mb * 1024 * 1024
                 const overQuota = s.total_used_bytes > quotaBytes
                 return (
                   <div
                     key={s.user_id}
-                    className={`rounded-lg border p-2.5 text-xs ${
+                    className={`rounded-lg border p-3 text-xs space-y-2 ${
                       overQuota
                         ? 'border-red-500/50 bg-red-500/10'
                         : 'border-border/40 bg-background/60'
                     }`}
                   >
-                    <p className="font-bold text-foreground truncate">{s.full_name}</p>
-                    <p className="text-muted-foreground mt-0.5">
-                      Total Used:{' '}
-                      <span className={overQuota ? 'font-bold text-red-400' : 'font-semibold text-primary'}>
-                        {formatBytes(Number(s.total_used_bytes))}
-                      </span>{' '}
-                      / {s.storage_quota_mb} MB
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Hidden/Private Files: {formatBytes(Number(s.private_used_bytes))} ({s.total_files_count} total files)
-                    </p>
+                    <div>
+                      <p className="font-bold text-foreground truncate">{s.full_name}</p>
+                      <p className="text-muted-foreground mt-0.5">
+                        Used:{' '}
+                        <span className={overQuota ? 'font-bold text-red-400' : 'font-semibold text-primary'}>
+                          {formatBytes(Number(s.total_used_bytes))}
+                        </span>{' '}
+                        / {s.storage_quota_mb} MB
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Hidden/Private: {formatBytes(Number(s.private_used_bytes))} ({s.total_files_count} files)
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 pt-1 border-t border-border/30">
+                      <Input
+                        type="number"
+                        min={10}
+                        max={102400}
+                        value={quotaInputs[s.user_id] ?? s.storage_quota_mb}
+                        onChange={e =>
+                          setQuotaInputs(prev => ({
+                            ...prev,
+                            [s.user_id]: Number(e.target.value),
+                          }))
+                        }
+                        className="h-7 w-20 text-xs bg-input/50"
+                      />
+                      <span className="text-[11px] text-muted-foreground">MB</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={savingQuotaId === s.user_id}
+                        onClick={() => handleUpdateMemberQuota(s.user_id)}
+                        className="ml-auto h-7 px-2 text-[11px] border-primary/40 text-primary hover:bg-primary/10"
+                      >
+                        {savingQuotaId === s.user_id ? 'Saving...' : 'Set Limit'}
+                      </Button>
+                    </div>
                   </div>
                 )
               })}
@@ -292,22 +426,33 @@ export default function FolderTab() {
       ) : (
         <Card className="border-border/40 bg-card/70">
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <CardTitle className="flex items-center gap-2 text-base text-primary">
                 <FolderOpen className="h-5 w-5" />
                 {activeFolder.ownerName}’s Folder
               </CardTitle>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                title="Back to All Folders"
-                onClick={() => setSelectedFolderOwnerId(null)}
-                className="gap-1.5 text-xs"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                All Folders
-              </Button>
+              <div className="flex items-center gap-2">
+                <select
+                  value={sortBy}
+                  onChange={e => setSortBy(e.target.value as 'newest' | 'largest')}
+                  title="Sort Files"
+                  className="h-8 rounded-md border border-border/50 bg-background px-2.5 text-xs font-semibold"
+                >
+                  <option value="newest">Sort: Newest First</option>
+                  <option value="largest">Sort: Largest Files First</option>
+                </select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  title="Back to All Folders"
+                  onClick={() => setSelectedFolderOwnerId(null)}
+                  className="gap-1.5 text-xs"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  All Folders
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-2.5">
@@ -316,7 +461,7 @@ export default function FolderTab() {
                 No shared files in this folder yet.
               </p>
             ) : (
-              activeFolder.items.map(item => {
+              sortFilesList(activeFolder.items).map(item => {
                 const canDelete =
                   !item.is_profile_picture && (item.owner_id === user.id || userIsAdmin)
                 const ownerAllowsDownload =
@@ -350,7 +495,7 @@ export default function FolderTab() {
                           )}
                         </div>
                         <p className="text-[11px] text-muted-foreground">
-                          {formatBytes(item.file_size_bytes)} •{' '}
+                          <span className="font-semibold text-primary/90">{formatBytes(item.file_size_bytes)}</span> •{' '}
                           {new Date(item.created_at).toLocaleDateString('en-IN')}
                         </p>
                       </div>
