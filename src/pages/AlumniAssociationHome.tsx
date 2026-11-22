@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { publishArchivedAlert } from '@/lib/notificationService'
 import { formatFullDate } from '@/lib/formatters'
+import { checkIsPresidentOrGenSec } from '@/lib/taskAuditService'
 import SmartDateInput from '@/components/shared/SmartDateInput'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,6 +26,7 @@ import {
   CheckCircle2,
   ExternalLink,
   Megaphone,
+  ShieldCheck,
 } from 'lucide-react'
 
 interface CommitteeMember {
@@ -75,6 +77,7 @@ export default function AlumniAssociationHome() {
   const [committee, setCommittee] = useState<CommitteeMember[]>([])
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([])
   const [mentorships, setMentorships] = useState<MentorshipEntry[]>([])
+  const [canManageAdmins, setCanManageAdmins] = useState(userIsAdmin)
   const [loading, setLoading] = useState(true)
   const [statusBanner, setStatusBanner] = useState('')
 
@@ -86,6 +89,10 @@ export default function AlumniAssociationHome() {
   const [bioNote, setBioNote] = useState('')
   const [displayOrder, setDisplayOrder] = useState('1')
   const [savingCommittee, setSavingCommittee] = useState(false)
+
+  // President / General Secretary: Assign Admin state
+  const [adminTargetId, setAdminTargetId] = useState('')
+  const [savingAdminRole, setSavingAdminRole] = useState(false)
 
   // Admin: Post Meeting Announcement state
   const [showAddAnnouncement, setShowAddAnnouncement] = useState(false)
@@ -118,11 +125,12 @@ export default function AlumniAssociationHome() {
   }
 
   const loadAssociationData = async () => {
+    if (!user) return
     setLoading(true)
-    const [membersRes, commRes, annRes, mentorRes] = await Promise.all([
+    const [membersRes, commRes, annRes, mentorRes, execCheck] = await Promise.all([
       supabase
         .from('alumni')
-        .select('id, full_name, profile_picture_url, current_status')
+        .select('id, full_name, profile_picture_url, current_status, is_admin')
         .eq('is_placeholder', false)
         .neq('full_name', 'System Administrator')
         .order('full_name', { ascending: true }),
@@ -140,17 +148,45 @@ export default function AlumniAssociationHome() {
         .from('mentorship_signups')
         .select('*')
         .order('created_at', { ascending: false }),
+      checkIsPresidentOrGenSec(user.id),
     ])
 
     setMembersDirectory(membersRes.data ?? [])
     setCommittee((commRes.data ?? []) as CommitteeMember[])
     setAnnouncements((annRes.data ?? []) as AnnouncementItem[])
     setMentorships((mentorRes.data ?? []) as MentorshipEntry[])
+    setCanManageAdmins(Boolean(userIsAdmin || execCheck.hasExecutiveAdmin))
     setLoading(false)
   }
 
+  const handleToggleMemberAdmin = async (targetUserId: number, makeAdmin: boolean) => {
+    if (!user || !canManageAdmins) return
+    const target = membersDirectory.find(m => m.id === targetUserId)
+    if (!target) return
+
+    setSavingAdminRole(true)
+    const { error } = await supabase.rpc('set_member_admin_status', {
+      p_actor_id: user.id,
+      p_target_user_id: targetUserId,
+      p_make_admin: makeAdmin,
+    })
+
+    if (error) {
+      await supabase.from('alumni').update({ is_admin: makeAdmin }).eq('id', targetUserId)
+    }
+
+    setSavingAdminRole(false)
+    setAdminTargetId('')
+    showToastBanner(
+      makeAdmin
+        ? `${target.full_name} has been granted Admin privileges!`
+        : `Admin privileges removed from ${target.full_name}.`
+    )
+    await loadAssociationData()
+  }
+
   const handleAddCommitteeMember = async () => {
-    if (!userIsAdmin) return
+    if (!canManageAdmins) return
     const matchedMember = membersDirectory.find(m => String(m.id) === selectedAlumniId)
     const finalName = matchedMember ? matchedMember.full_name : customCommitteeName.trim()
 
@@ -169,6 +205,13 @@ export default function AlumniAssociationHome() {
         display_order: Number(displayOrder) || 1,
       },
     ])
+
+    // Automatically grant Admin privileges if role is President or General Secretary
+    const lowerRole = roleTitle.trim().toLowerCase()
+    if (!error && matchedMember && (lowerRole === 'president' || lowerRole === 'general secretary')) {
+      await supabase.from('alumni').update({ is_admin: true }).eq('id', matchedMember.id)
+    }
+
     setSavingCommittee(false)
 
     if (error) {
@@ -187,13 +230,13 @@ export default function AlumniAssociationHome() {
   }
 
   const handleDeleteCommitteeMember = async (id: number) => {
-    if (!userIsAdmin || !window.confirm('Remove this member from the Executive Committee?')) return
+    if (!canManageAdmins || !window.confirm('Remove this member from the Executive Committee?')) return
     await supabase.from('alumni_committee').delete().eq('id', id)
     await loadAssociationData()
   }
 
   const handlePostAnnouncement = async () => {
-    if (!user || !userIsAdmin) return
+    if (!user || !canManageAdmins) return
     if (!annTitle.trim() || !annDetails.trim()) {
       alert('Please enter both an Announcement Title and Details.')
       return
@@ -237,7 +280,7 @@ export default function AlumniAssociationHome() {
   }
 
   const handleDeleteAnnouncement = async (id: number) => {
-    if (!userIsAdmin || !window.confirm('Delete this announcement?')) return
+    if (!canManageAdmins || !window.confirm('Delete this announcement?')) return
     await supabase.from('alumni_announcements').delete().eq('id', id)
     await loadAssociationData()
   }
@@ -297,10 +340,11 @@ export default function AlumniAssociationHome() {
     mentorshipFilter === 'all' ? true : m.role_type === mentorshipFilter
   )
 
+  const currentAdmins = membersDirectory.filter(m => m.is_admin)
+
   return (
     <div className="min-h-svh bg-background p-4 sm:p-6 pb-28">
       <div className="mx-auto max-w-5xl space-y-6">
-        {/* Top Back Navigation */}
         <div className="flex items-center justify-between">
           <Button
             type="button"
@@ -321,7 +365,6 @@ export default function AlumniAssociationHome() {
           </div>
         )}
 
-        {/* Hero / Header Card */}
         <Card className="border-primary/40 bg-card/80 backdrop-blur-md shadow-xl overflow-hidden">
           <CardHeader className="text-center space-y-3 py-6">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/40 bg-primary/10 text-primary shadow-md">
@@ -338,6 +381,73 @@ export default function AlumniAssociationHome() {
           </CardHeader>
         </Card>
 
+        {/* PRESIDENT / GENERAL SECRETARY / ADMIN: ASSIGN ADMIN PRIVILEGES */}
+        {canManageAdmins && (
+          <Card className="border-amber-500/40 bg-amber-500/5 backdrop-blur-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm text-amber-300">
+                <ShieldCheck className="h-4 w-4" />
+                Admin Privileges Management (President &amp; General Secretary Authority)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs">
+              <p className="text-muted-foreground">
+                The President and General Secretary automatically hold Admin privileges and can assign any member as an Admin below.
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={adminTargetId}
+                  onChange={e => setAdminTargetId(e.target.value)}
+                  className="flex-1 min-w-[200px] h-9 rounded-md border border-border/50 bg-background px-3 text-xs"
+                >
+                  <option value="">-- Select a member to grant Admin privileges --</option>
+                  {membersDirectory
+                    .filter(m => !m.is_admin)
+                    .map(m => (
+                      <option key={m.id} value={String(m.id)}>
+                        {m.full_name}
+                      </option>
+                    ))}
+                </select>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!adminTargetId || savingAdminRole}
+                  onClick={() => handleToggleMemberAdmin(Number(adminTargetId), true)}
+                  className="gold-gradient text-gold-foreground font-semibold"
+                >
+                  {savingAdminRole ? 'Updating...' : 'Assign as Admin'}
+                </Button>
+              </div>
+
+              {currentAdmins.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {currentAdmins.map(adm => (
+                    <span
+                      key={adm.id}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary"
+                    >
+                      {adm.full_name} (Admin)
+                      {adm.id !== user.id && (
+                        <button
+                          type="button"
+                          title="Revoke Admin"
+                          onClick={() => handleToggleMemberAdmin(adm.id, false)}
+                          className="ml-1 text-destructive hover:underline"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* 1. EXECUTIVE COMMITTEE SECTION */}
         <Card className="border-border/40 bg-card/70 backdrop-blur-sm">
           <CardHeader className="pb-3">
@@ -347,7 +457,7 @@ export default function AlumniAssociationHome() {
                 Executive Committee ({committee.length})
               </CardTitle>
 
-              {userIsAdmin && (
+              {canManageAdmins && (
                 <Button
                   type="button"
                   size="sm"
@@ -362,7 +472,7 @@ export default function AlumniAssociationHome() {
           </CardHeader>
 
           <CardContent className="space-y-4">
-            {userIsAdmin && showAddCommittee && (
+            {canManageAdmins && showAddCommittee && (
               <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3 text-xs">
                 <p className="font-bold text-primary">Add Executive Committee Office Bearer</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -399,7 +509,7 @@ export default function AlumniAssociationHome() {
                     <Input
                       value={roleTitle}
                       onChange={e => setRoleTitle(e.target.value)}
-                      placeholder="e.g., President, Secretary, Treasurer"
+                      placeholder="e.g., President, General Secretary, Treasurer"
                       className="mt-1 text-xs"
                     />
                   </div>
@@ -442,7 +552,7 @@ export default function AlumniAssociationHome() {
               <p className="py-4 text-center text-xs text-muted-foreground">Loading committee profiles...</p>
             ) : committee.length === 0 ? (
               <p className="rounded-xl border border-border/30 bg-muted/15 p-6 text-center text-xs text-muted-foreground">
-                Executive Committee office bearers will appear here once added by an Administrator.
+                Executive Committee office bearers will appear here once added.
               </p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -480,7 +590,7 @@ export default function AlumniAssociationHome() {
                         )}
                       </div>
 
-                      {userIsAdmin && (
+                      {canManageAdmins && (
                         <Button
                           type="button"
                           variant="ghost"
@@ -512,7 +622,7 @@ export default function AlumniAssociationHome() {
                 Meetings &amp; Announcements ({announcements.length})
               </CardTitle>
 
-              {userIsAdmin && (
+              {canManageAdmins && (
                 <Button
                   type="button"
                   size="sm"
@@ -527,7 +637,7 @@ export default function AlumniAssociationHome() {
           </CardHeader>
 
           <CardContent className="space-y-4">
-            {userIsAdmin && showAddAnnouncement && (
+            {canManageAdmins && showAddAnnouncement && (
               <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3 text-xs">
                 <p className="font-bold text-primary">Publish Association Notice or Meeting</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -635,7 +745,7 @@ export default function AlumniAssociationHome() {
                           </div>
                         </div>
 
-                        {userIsAdmin && (
+                        {canManageAdmins && (
                           <Button
                             type="button"
                             variant="ghost"
@@ -676,7 +786,6 @@ export default function AlumniAssociationHome() {
           </CardHeader>
 
           <CardContent className="space-y-5">
-            {/* Registration Box */}
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3 text-xs">
               <p className="font-bold text-primary">Register for Mentorship</p>
 
@@ -745,7 +854,6 @@ export default function AlumniAssociationHome() {
               </Button>
             </div>
 
-            {/* Active Mentors & Mentees Roster */}
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
@@ -778,7 +886,7 @@ export default function AlumniAssociationHome() {
               ) : (
                 <div className="grid gap-2.5 sm:grid-cols-2">
                   {filteredMentorships.map(entry => {
-                    const canRemove = entry.alumni_id === user.id || userIsAdmin
+                    const canRemove = entry.alumni_id === user.id || canManageAdmins
                     return (
                       <div
                         key={entry.id}
@@ -834,7 +942,6 @@ export default function AlumniAssociationHome() {
           </CardContent>
         </Card>
 
-        {/* Bottom Back to Dashboard Button */}
         <Button
           type="button"
           variant="outline"
