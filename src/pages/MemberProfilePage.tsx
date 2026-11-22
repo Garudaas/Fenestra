@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { publishArchivedAlert, type AuditActionItem } from '@/lib/notificationService'
+import { formatFullDate, cleanPhoneNumber } from '@/lib/formatters'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -39,7 +40,6 @@ export default function MemberProfilePage() {
   const [loading, setLoading] = useState(true)
   const [showPhotoModal, setShowPhotoModal] = useState(false)
 
-  // Reminder request states
   const [sendingRequest, setSendingRequest] = useState(false)
   const [requestSent, setRequestSent] = useState(false)
   const [lastRequestMessage, setLastRequestMessage] = useState('')
@@ -95,7 +95,6 @@ export default function MemberProfilePage() {
     setLoading(false)
   }
 
-  // Compute incomplete fields that the member has NOT chosen to skip
   const incompleteItems = useMemo<AuditActionItem[]>(() => {
     if (!member) return []
     const items: AuditActionItem[] = []
@@ -114,8 +113,8 @@ export default function MemberProfilePage() {
     addIfMissing(!member.dob, 'dob', 'Date of Birth')
     addIfMissing(!member.blood_group || !String(member.blood_group).trim(), 'blood_group', 'Blood Group')
     addIfMissing(!member.education_level || !String(member.education_level).trim(), 'education_level', 'Education Level')
-    addIfMissing(!member.contact_number || !String(member.contact_number).trim(), 'contact_number', 'Contact Number')
-    addIfMissing(!member.whatsapp_number || !String(member.whatsapp_number).trim(), 'whatsapp_number', 'WhatsApp Number')
+    addIfMissing(!cleanPhoneNumber(member.contact_number), 'contact_number', 'Contact Number')
+    addIfMissing(!cleanPhoneNumber(member.whatsapp_number), 'whatsapp_number', 'WhatsApp Number')
     addIfMissing(!member.current_status || !String(member.current_status).trim(), 'current_status', 'Current Career Status / Profession')
     addIfMissing(!member.permanent_address || !String(member.permanent_address).trim(), 'permanent_address', 'Permanent Address')
     addIfMissing(!member.current_address || !String(member.current_address).trim(), 'current_address', 'Current Address')
@@ -164,8 +163,8 @@ export default function MemberProfilePage() {
     }
   }
 
-  const buildWhatsAppUrl = (waNumber: string, text: string) => {
-    const digits = waNumber.replace(/[^0-9]/g, '')
+  const buildWhatsAppUrl = (cleanWaE164: string, text: string) => {
+    const digits = cleanWaE164.replace(/[^0-9]/g, '')
     return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
   }
 
@@ -182,7 +181,6 @@ export default function MemberProfilePage() {
 
     setSendingRequest(true)
     try {
-      // 1. Create an interactive personal task for the member
       const { data: createdTask } = await supabase
         .from('member_tasks')
         .insert([
@@ -200,7 +198,6 @@ export default function MemberProfilePage() {
         .select('id')
         .single()
 
-      // 2. Send in-app notification + device push alert
       await publishArchivedAlert({
         category: 'personal_task',
         shortTitle: 'Personal task alert',
@@ -216,12 +213,11 @@ export default function MemberProfilePage() {
       setLastRequestMessage(formattedMessage)
       setRequestSent(true)
 
-      // 3. Also trigger external WhatsApp / Email if provided by the member
-      const hasWhatsApp = Boolean(member.whatsapp_number && member.whatsapp_number.replace(/[^0-9]/g, ''))
+      const cleanWa = cleanPhoneNumber(member.whatsapp_number)
       const hasEmail = Boolean(member.email && member.email.trim())
 
-      if (hasWhatsApp) {
-        window.open(buildWhatsAppUrl(member.whatsapp_number, formattedMessage), '_blank', 'noopener,noreferrer')
+      if (cleanWa) {
+        window.open(buildWhatsAppUrl(cleanWa, formattedMessage), '_blank', 'noopener,noreferrer')
       } else if (hasEmail) {
         window.location.href = buildMailtoUrl(member.email.trim(), formattedMessage)
       }
@@ -261,18 +257,18 @@ export default function MemberProfilePage() {
   }
 
   const isOwnProfile = member.id === user.id
-  const waClean = member.whatsapp_number ? member.whatsapp_number.replace(/[^0-9]/g, '') : ''
-  const phoneClean = member.contact_number ? member.contact_number.replace(/\s+/g, '') : ''
+  const cleanContact = cleanPhoneNumber(member.contact_number)
+  const cleanWa = cleanPhoneNumber(member.whatsapp_number)
+  const waDigits = cleanWa.replace(/[^0-9]/g, '')
   const permMapUrl = getMapLink(member.permanent_geo_location || member.permanent_address)
   const currMapUrl = getMapLink(member.current_geo_location || member.current_address)
   const canDownloadPhoto = isOwnProfile || member.allow_profile_pic_download !== false
   const dmRoomName = `DM-${Math.min(user.id, member.id)}-${Math.max(user.id, member.id)}`
 
   return (
-    <div className="min-h-svh bg-background p-4 sm:p-6 pb-24">
+    <div className="min-h-svh bg-background p-4 sm:p-6 pb-28">
       <div className="mx-auto max-w-3xl space-y-4">
         <Card className="relative border-primary/30 bg-card/80 backdrop-blur-md shadow-2xl overflow-hidden">
-          {/* Top-Right Close ("X") Button */}
           <Button
             type="button"
             variant="ghost"
@@ -338,7 +334,6 @@ export default function MemberProfilePage() {
               </div>
             </div>
 
-            {/* Active Communication, Call & Social Links Bar */}
             {!isOwnProfile && (
               <div className="mt-5 flex flex-wrap items-center justify-center sm:justify-start gap-2 border-t border-border/30 pt-4">
                 <Button
@@ -360,7 +355,7 @@ export default function MemberProfilePage() {
                   size="sm"
                   variant="outline"
                   onClick={() =>
-                    navigate(`/dashboard?tab=video&roomName=${encodeURIComponent(dmRoomName)}`)
+                    navigate(`/dashboard?tab=calls&roomName=${encodeURIComponent(dmRoomName)}`)
                   }
                   className="border-primary/40 text-primary hover:bg-primary/10 gap-1.5 text-xs"
                 >
@@ -368,9 +363,9 @@ export default function MemberProfilePage() {
                   Video Call
                 </Button>
 
-                {phoneClean && (
+                {cleanContact && (
                   <a
-                    href={`tel:${phoneClean}`}
+                    href={`tel:${cleanContact}`}
                     className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/50 bg-background/70 px-3 text-xs font-semibold text-foreground hover:border-primary/40 hover:text-primary transition-colors"
                   >
                     <Phone className="h-3.5 w-3.5 text-primary" />
@@ -378,9 +373,9 @@ export default function MemberProfilePage() {
                   </a>
                 )}
 
-                {waClean && (
+                {waDigits && (
                   <a
-                    href={`https://wa.me/${waClean}`}
+                    href={`https://wa.me/${waDigits}`}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex h-8 items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors"
@@ -404,14 +399,15 @@ export default function MemberProfilePage() {
           </CardHeader>
 
           <CardContent className="space-y-4 text-xs">
-            {/* Core Information Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="rounded-xl border border-border/30 bg-muted/15 p-3 space-y-1">
                 <p className="flex items-center gap-1.5 text-muted-foreground">
                   <CalendarDays className="h-3.5 w-3.5 text-primary" />
                   Date of Birth
                 </p>
-                <p className="text-sm font-semibold text-foreground">{member.dob || 'Not provided'}</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {formatFullDate(member.dob, 'Not provided')}
+                </p>
               </div>
 
               <div className="rounded-xl border border-border/30 bg-muted/15 p-3 space-y-1">
@@ -429,12 +425,12 @@ export default function MemberProfilePage() {
                   <Phone className="h-3.5 w-3.5 text-primary" />
                   Contact Number
                 </p>
-                {phoneClean ? (
+                {cleanContact ? (
                   <a
-                    href={`tel:${phoneClean}`}
+                    href={`tel:${cleanContact}`}
                     className="block text-sm font-semibold text-primary hover:underline"
                   >
-                    {member.contact_number}
+                    {cleanContact}
                   </a>
                 ) : (
                   <p className="text-sm font-semibold text-muted-foreground">Not provided</p>
@@ -446,14 +442,14 @@ export default function MemberProfilePage() {
                   <Phone className="h-3.5 w-3.5 text-emerald-400" />
                   WhatsApp Number
                 </p>
-                {waClean ? (
+                {waDigits ? (
                   <a
-                    href={`https://wa.me/${waClean}`}
+                    href={`https://wa.me/${waDigits}`}
                     target="_blank"
                     rel="noreferrer"
                     className="block text-sm font-semibold text-emerald-400 hover:underline"
                   >
-                    {member.whatsapp_number}
+                    {cleanWa}
                   </a>
                 ) : (
                   <p className="text-sm font-semibold text-muted-foreground">Not provided</p>
@@ -478,7 +474,6 @@ export default function MemberProfilePage() {
               </div>
             </div>
 
-            {/* Active Location Links (Permanent & Current Address) */}
             <div className="space-y-3 rounded-xl border border-border/30 bg-muted/15 p-3.5">
               <div className="space-y-1">
                 <div className="flex items-center justify-between gap-2">
@@ -529,7 +524,6 @@ export default function MemberProfilePage() {
               </div>
             </div>
 
-            {/* Marital & Spouse Details */}
             {member.marital_status && (
               <div className="rounded-xl border border-border/30 bg-muted/15 p-3.5 space-y-1.5">
                 <p className="flex items-center gap-1.5 font-semibold text-primary">
@@ -538,24 +532,25 @@ export default function MemberProfilePage() {
                 </p>
                 {member.wedding_date && (
                   <p className="text-muted-foreground">
-                    Wedding Date: <span className="font-medium text-foreground">{member.wedding_date}</span>
+                    Wedding Date:{' '}
+                    <span className="font-medium text-foreground">{formatFullDate(member.wedding_date)}</span>
                   </p>
                 )}
                 {member.marital_status === 'Divorced' && member.divorce_date && (
                   <p className="text-muted-foreground">
-                    Divorced Date: <span className="font-medium text-foreground">{member.divorce_date}</span>
+                    Divorced Date:{' '}
+                    <span className="font-medium text-foreground">{formatFullDate(member.divorce_date)}</span>
                   </p>
                 )}
                 {member.marital_status === 'Married' && member.spouse_name && (
                   <p className="text-muted-foreground">
                     Spouse: <span className="font-medium text-foreground">{member.spouse_name}</span>
-                    {member.spouse_dob ? ` (DOB: ${member.spouse_dob})` : ''}
+                    {member.spouse_dob ? ` (${formatFullDate(member.spouse_dob)})` : ''}
                   </p>
                 )}
               </div>
             )}
 
-            {/* Family Members Section */}
             <div className="rounded-xl border border-border/30 bg-muted/15 p-3.5 space-y-2">
               <h3 className="text-[11px] font-bold uppercase tracking-wider text-primary">
                 Family Details
@@ -598,7 +593,7 @@ export default function MemberProfilePage() {
                         {(f.dob || f.education_level || f.career) && (
                           <p className="text-[11px] text-muted-foreground">
                             {[
-                              f.dob ? `DOB: ${f.dob}` : '',
+                              f.dob ? `DOB: ${formatFullDate(f.dob)}` : '',
                               f.education_level ? `Education: ${f.education_level}` : '',
                               f.career ? `Career: ${f.career}` : '',
                             ]
@@ -619,7 +614,6 @@ export default function MemberProfilePage() {
               )}
             </div>
 
-            {/* Incomplete Profile Reminder Box (Only shown if incomplete items exist and member has not skipped them) */}
             {!isOwnProfile && incompleteItems.length > 0 && (
               <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-3">
                 <div className="flex items-start gap-2.5">
@@ -659,11 +653,11 @@ export default function MemberProfilePage() {
                       In-app task &amp; alert sent to {member.full_name}!
                     </p>
 
-                    {(waClean || member.email) && (
+                    {(waDigits || member.email) && (
                       <div className="flex flex-wrap gap-2 pt-1">
-                        {waClean && (
+                        {waDigits && (
                           <a
-                            href={buildWhatsAppUrl(member.whatsapp_number, lastRequestMessage)}
+                            href={buildWhatsAppUrl(cleanWa, lastRequestMessage)}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 px-3 text-xs font-semibold text-white"
@@ -690,7 +684,6 @@ export default function MemberProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Bottom Back to Dashboard Button */}
         <Button
           type="button"
           variant="outline"
@@ -702,7 +695,6 @@ export default function MemberProfilePage() {
         </Button>
       </div>
 
-      {/* Full-Screen Profile Picture Lightbox */}
       {showPhotoModal && member.profile_picture_url && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
@@ -718,7 +710,6 @@ export default function MemberProfilePage() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                title="Close Photo"
                 onClick={() => setShowPhotoModal(false)}
                 className="h-7 w-7"
               >
