@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.95",
-  "timestamp": "23 Nov 2026, 04:34 AM IST",
-  "formatted": "V1.95, 23 Nov 2026, 04:34 AM IST",
+  "version": "V1.96",
+  "timestamp": "23 Nov 2026, 04:35 AM IST",
+  "formatted": "V1.96, 23 Nov 2026, 04:35 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Add Tasks tab and update badge synchronization)",
+  "summary": "Minor general update (Implement admin role management for President and GenSec)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.96",
+      "timestamp": "23 Nov 2026, 04:35 AM IST",
+      "formatted": "V1.96, 23 Nov 2026, 04:35 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Implement admin role management for President and GenSec)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.95",
       "timestamp": "23 Nov 2026, 04:34 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.72, 23 Nov 2026, 02:02 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add Media Archive Tab component for file management)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.71",
-      "timestamp": "23 Nov 2026, 02:00 AM IST",
-      "formatted": "V1.71, 23 Nov 2026, 02:00 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add CallsTab component for voice and video calls)",
       "requiresReinstall": false
     }
   ]
