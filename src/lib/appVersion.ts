@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.97",
-  "timestamp": "23 Nov 2026, 04:37 AM IST",
-  "formatted": "V1.97, 23 Nov 2026, 04:37 AM IST",
+  "version": "V1.98",
+  "timestamp": "23 Nov 2026, 04:39 AM IST",
+  "formatted": "V1.98, 23 Nov 2026, 04:39 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor MaintenanceTab by removing comments and updating imports)",
+  "summary": "Minor general update (Member profile details updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.98",
+      "timestamp": "23 Nov 2026, 04:39 AM IST",
+      "formatted": "V1.98, 23 Nov 2026, 04:39 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Member profile details updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.97",
       "timestamp": "23 Nov 2026, 04:37 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.74, 23 Nov 2026, 02:04 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add new line at the end of MediaArchiveTab.tsx)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.73",
-      "timestamp": "23 Nov 2026, 02:03 AM IST",
-      "formatted": "V1.73, 23 Nov 2026, 02:03 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add Media Archive Tab component for file management)",
       "requiresReinstall": false
     }
   ]
