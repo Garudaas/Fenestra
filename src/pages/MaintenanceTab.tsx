@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { hasAuditPreference, formatBytes } from '@/lib/fenestriansCore'
-import { publishArchivedAlert } from '@/lib/notificationService'
+import { publishArchivedAlert, type AuditActionItem } from '@/lib/notificationService'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -159,11 +159,17 @@ export default function MaintenanceTab() {
 
     for (const m of members ?? []) {
       const issues: string[] = []
+      const auditItems: AuditActionItem[] = []
 
       if (!m.profile_picture_url) {
         const skipped = await hasAuditPreference(m.id, 'skip_missing_field', 'profile_picture_url')
         if (!skipped) {
           issues.push('• Missing Profile Picture')
+          auditItems.push({
+            label: 'Missing Profile Picture',
+            preferenceType: 'skip_missing_field',
+            targetKey: 'profile_picture_url',
+          })
         }
       }
 
@@ -178,6 +184,11 @@ export default function MaintenanceTab() {
           const skipped = await hasAuditPreference(m.id, 'skip_missing_field', f.col)
           if (!skipped) {
             issues.push(`• Missing ${f.name}`)
+            auditItems.push({
+              label: `Missing ${f.name}`,
+              preferenceType: 'skip_missing_field',
+              targetKey: f.col,
+            })
           }
         }
       }
@@ -190,6 +201,11 @@ export default function MaintenanceTab() {
         const retained = await hasAuditPreference(m.id, 'retain_duplicate', 'duplicate_phone_numbers')
         if (!retained) {
           issues.push('• Duplicate entry: Contact Number and WhatsApp Number are identical')
+          auditItems.push({
+            label: 'Duplicate entry: Contact Number and WhatsApp Number are identical',
+            preferenceType: 'retain_duplicate',
+            targetKey: 'duplicate_phone_numbers',
+          })
         }
       }
 
@@ -201,6 +217,11 @@ export default function MaintenanceTab() {
           const retained = await hasAuditPreference(m.id, 'retain_duplicate', `family_name_${lowerName}`)
           if (!retained) {
             issues.push(`• Duplicate family member entry: "${fm.name}" appears twice`)
+            auditItems.push({
+              label: `Duplicate family member entry: "${fm.name}" appears twice`,
+              preferenceType: 'retain_duplicate',
+              targetKey: `family_name_${lowerName}`,
+            })
           }
         }
         if (lowerName) seenNames.add(lowerName)
@@ -215,23 +236,32 @@ export default function MaintenanceTab() {
 
       if (issues.length > 0) {
         const summaryText = `Profile Audit found ${issues.length} item(s):\n${issues.join('\n')}`
-        await supabase.from('member_tasks').insert([
-          {
-            assigned_to_user_id: m.id,
-            assigned_by_user_id: user.id,
-            task_type: 'profile_audit',
-            title: 'Personal task alert: Profile Audit',
-            description: summaryText,
-            is_micromanaged: false,
-            status: 'pending',
-          },
-        ])
+        const { data: createdTask } = await supabase
+          .from('member_tasks')
+          .insert([
+            {
+              assigned_to_user_id: m.id,
+              assigned_by_user_id: user.id,
+              task_type: 'profile_audit',
+              title: 'Personal task alert: Profile Audit',
+              description: summaryText,
+              is_micromanaged: false,
+              status: 'pending',
+            },
+          ])
+          .select('id')
+          .single()
 
         await publishArchivedAlert({
           category: 'personal_task',
           shortTitle: 'Personal task alert',
           fullMessage: summaryText,
           targetUserId: m.id,
+          metadata: {
+            task_id: createdTask?.id,
+            is_micromanaged: false,
+            audit_items: auditItems,
+          },
         })
         tasksCreated += 1
       }
@@ -398,24 +428,33 @@ export default function MaintenanceTab() {
       const bulletList = group.items.map(i => `• ${i.label}`).join('\n')
       const message = `Admin Request: Please update the following missing detail(s) in your profile:\n${bulletList}`
 
-      await supabase.from('member_tasks').insert([
-        {
-          assigned_to_user_id: targetUserId,
-          assigned_by_user_id: user.id,
-          task_type: 'admin_micromanaged',
-          field_key: group.items.map(i => i.fieldKey).join(','),
-          title: 'Personal task alert: Missing Profile Details',
-          description: message,
-          is_micromanaged: true,
-          status: 'pending',
-        },
-      ])
+      const { data: createdTask } = await supabase
+        .from('member_tasks')
+        .insert([
+          {
+            assigned_to_user_id: targetUserId,
+            assigned_by_user_id: user.id,
+            task_type: 'admin_micromanaged',
+            field_key: group.items.map(i => i.fieldKey).join(','),
+            title: 'Personal task alert: Missing Profile Details',
+            description: message,
+            is_micromanaged: true,
+            status: 'pending',
+          },
+        ])
+        .select('id')
+        .single()
 
       await publishArchivedAlert({
         category: 'personal_task',
         shortTitle: 'Personal task alert',
         fullMessage: message,
         targetUserId,
+        metadata: {
+          task_id: createdTask?.id,
+          is_micromanaged: true,
+          audit_items: [],
+        },
       })
     }
 
