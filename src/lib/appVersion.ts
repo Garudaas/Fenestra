@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.96",
-  "timestamp": "23 Nov 2026, 04:35 AM IST",
-  "formatted": "V1.96, 23 Nov 2026, 04:35 AM IST",
+  "version": "V1.97",
+  "timestamp": "23 Nov 2026, 04:37 AM IST",
+  "formatted": "V1.97, 23 Nov 2026, 04:37 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement admin role management for President and GenSec)",
+  "summary": "Minor technical update (Refactor MaintenanceTab by removing comments and updating imports)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.97",
+      "timestamp": "23 Nov 2026, 04:37 AM IST",
+      "formatted": "V1.97, 23 Nov 2026, 04:37 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor MaintenanceTab by removing comments and updating imports)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.96",
       "timestamp": "23 Nov 2026, 04:35 AM IST",
@@ -207,14 +215,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "version": "V1.73",
       "timestamp": "23 Nov 2026, 02:03 AM IST",
       "formatted": "V1.73, 23 Nov 2026, 02:03 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add Media Archive Tab component for file management)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.72",
-      "timestamp": "23 Nov 2026, 02:02 AM IST",
-      "formatted": "V1.72, 23 Nov 2026, 02:02 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add Media Archive Tab component for file management)",
       "requiresReinstall": false
