@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.76",
-  "timestamp": "23 Nov 2026, 02:09 AM IST",
-  "formatted": "V1.76, 23 Nov 2026, 02:09 AM IST",
+  "version": "V1.77",
+  "timestamp": "23 Nov 2026, 02:11 AM IST",
+  "formatted": "V1.77, 23 Nov 2026, 02:11 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Remove unnecessary closing braces and empty lines)",
+  "summary": "Minor general update (Enhance DirectoryTab with support requests and phone formatting)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.77",
+      "timestamp": "23 Nov 2026, 02:11 AM IST",
+      "formatted": "V1.77, 23 Nov 2026, 02:11 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Enhance DirectoryTab with support requests and phone formatting)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.76",
       "timestamp": "23 Nov 2026, 02:09 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.53, 22 Nov 2026, 11:46 PM IST",
       "type": "minor",
       "summary": "Minor general update (Implement sendDevicePushNotification function)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.52",
-      "timestamp": "22 Nov 2026, 11:29 PM IST",
-      "formatted": "V1.52, 22 Nov 2026, 11:29 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Enhance ProfileTab with new user fields and task features)",
       "requiresReinstall": false
     }
   ]
