@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.77",
-  "timestamp": "23 Nov 2026, 02:11 AM IST",
-  "formatted": "V1.77, 23 Nov 2026, 02:11 AM IST",
+  "version": "V1.78",
+  "timestamp": "23 Nov 2026, 02:13 AM IST",
+  "formatted": "V1.78, 23 Nov 2026, 02:13 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance DirectoryTab with support requests and phone formatting)",
+  "summary": "Minor technical update (Refactor phone number handling and date formatting)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.78",
+      "timestamp": "23 Nov 2026, 02:13 AM IST",
+      "formatted": "V1.78, 23 Nov 2026, 02:13 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor phone number handling and date formatting)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.77",
       "timestamp": "23 Nov 2026, 02:11 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.54, 22 Nov 2026, 11:47 PM IST",
       "type": "minor",
       "summary": "Minor technical update (Implement Supabase Realtime for notifications)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.53",
-      "timestamp": "22 Nov 2026, 11:46 PM IST",
-      "formatted": "V1.53, 22 Nov 2026, 11:46 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Implement sendDevicePushNotification function)",
       "requiresReinstall": false
     }
   ]
