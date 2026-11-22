@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.62",
-  "timestamp": "22 Nov 2026, 11:59 PM IST",
-  "formatted": "V1.62, 22 Nov 2026, 11:59 PM IST",
+  "version": "V1.63",
+  "timestamp": "23 Nov 2026, 12:07 AM IST",
+  "formatted": "V1.63, 23 Nov 2026, 12:07 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement PersistentSessionRedirect for user navigation)",
+  "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.63",
+      "timestamp": "23 Nov 2026, 12:07 AM IST",
+      "formatted": "V1.63, 23 Nov 2026, 12:07 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.62",
       "timestamp": "22 Nov 2026, 11:59 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.39, 21 Nov 2026, 03:19 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add SmartAppLauncher component for app installation)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.38",
-      "timestamp": "21 Nov 2026, 03:18 AM IST",
-      "formatted": "V1.38, 21 Nov 2026, 03:18 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add SmartAppLauncher route to App component)",
       "requiresReinstall": false
     }
   ]
