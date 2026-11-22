@@ -7,6 +7,7 @@ import {
   fetchUserNotifications,
   clearChatNotifications,
   isChatNotification,
+  archiveDailyCelebrationAlert,
 } from '@/lib/notificationService'
 import {
   Users,
@@ -120,10 +121,19 @@ export default function MemberDashboard() {
     const currentMonth = today.getMonth()
     const datestampTodayStr = `${today.getFullYear()}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`
 
-    const celebrations: string[] = []
+    const celebrations: Array<{
+      text: string
+      category: 'birthday' | 'anniversary'
+      shortTitle: string
+    }> = []
+
     users.forEach(u => {
       if (u.dob && new Date(u.dob).getDate() === currentDay && new Date(u.dob).getMonth() === currentMonth) {
-        celebrations.push(`Today is ${u.full_name}'s Birthday!`)
+        celebrations.push({
+          text: `Today is ${u.full_name}'s Birthday!`,
+          category: 'birthday',
+          shortTitle: 'Birthday alert',
+        })
       }
       const isDivorced = u.marital_status?.toLowerCase() === 'divorced' || Boolean(u.divorce_date)
       if (
@@ -132,13 +142,18 @@ export default function MemberDashboard() {
         new Date(u.wedding_date).getDate() === currentDay &&
         new Date(u.wedding_date).getMonth() === currentMonth
       ) {
-        celebrations.push(`Happy Anniversary to ${u.full_name}!`)
+        celebrations.push({
+          text: `Happy Anniversary to ${u.full_name}!`,
+          category: 'anniversary',
+          shortTitle: 'Anniversary alert',
+        })
       }
     })
-    setAlerts(celebrations)
+
+    setAlerts(celebrations.map(c => c.text))
 
     for (const celeb of celebrations) {
-      const uniqueTrace = `[AUTO-ALERT:${datestampTodayStr}]: ${celeb}`
+      const uniqueTrace = `[AUTO-ALERT:${datestampTodayStr}]: ${celeb.text}`
       const { data: m } = await supabase
         .from('chat_messages')
         .select('id')
@@ -150,7 +165,16 @@ export default function MemberDashboard() {
           .from('chat_messages')
           .insert([{ room_id: 'global', sender_id: 0, sender_name: '🛡️ System Bot', message_text: uniqueTrace }])
       }
+
+      await archiveDailyCelebrationAlert({
+        category: celeb.category,
+        shortTitle: celeb.shortTitle,
+        fullMessage: celeb.text,
+        dateKey: datestampTodayStr,
+      })
     }
+
+    syncHeaderBadges()
   }
 
   const handleTabSelect = async (tabId: string) => {
