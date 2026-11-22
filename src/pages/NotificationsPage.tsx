@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { saveAuditPreference } from '@/lib/fenestriansCore'
+import { formatFullDateTime } from '@/lib/formatters'
 import {
   fetchUserNotifications,
   fetchNotificationArchiveMetadata,
@@ -87,7 +88,6 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true)
   const [actionBusy, setActionBusy] = useState(false)
 
-  // Modal state for viewing an Unread notification
   const [selectedItem, setSelectedItem] = useState<UserNotificationItem | null>(null)
   const [selectedMeta, setSelectedMeta] = useState<NotificationArchiveMetadata>({})
   const [linkedTask, setLinkedTask] = useState<{ id: number; status: string; is_micromanaged: boolean } | null>(null)
@@ -159,7 +159,6 @@ export default function NotificationsPage() {
     [user]
   )
 
-  // Listen for due snooze popups triggered automatically
   useEffect(() => {
     const handleSnoozeTrigger = (e: Event) => {
       const detail = (e as CustomEvent<UserNotificationItem>).detail
@@ -192,14 +191,13 @@ export default function NotificationsPage() {
     if (isCallNotification(item.category)) {
       await clearCallNotification(user.id, item.id)
       window.dispatchEvent(new Event('fenestrians-notifications-updated'))
-      navigate(item.category === 'video_call' ? '/dashboard?tab=video' : '/dashboard?tab=voice')
+      navigate('/dashboard?tab=calls')
       return
     }
 
     await openNotificationDetail(item)
   }
 
-  // Mark assigned task Completed + move notification to Read
   const handleCompleteLinkedTask = async () => {
     if (!selectedItem) return
     setActionBusy(true)
@@ -220,16 +218,22 @@ export default function NotificationsPage() {
     setActionBusy(false)
   }
 
-  // Save user preference to skip missing field or retain duplicate in future general audits
+  // Saves preference and permanently deletes any old unsent audit point on this detail
   const handleSaveAuditChoice = async (auditItem: AuditActionItem) => {
     if (!user) return
     setActionBusy(true)
     await saveAuditPreference(user.id, auditItem.preferenceType, auditItem.targetKey)
+    await supabase
+      .from('member_tasks')
+      .delete()
+      .eq('assigned_to_user_id', user.id)
+      .eq('task_type', 'audit_staging')
+      .eq('field_key', auditItem.targetKey)
+
     setSavedPrefKeys(prev => ({ ...prev, [auditItem.targetKey]: true }))
     setActionBusy(false)
   }
 
-  // Button 1: Close -> moves notification to Read category
   const handlePopupCloseToRead = async () => {
     if (!selectedItem) return
     setActionBusy(true)
@@ -239,12 +243,10 @@ export default function NotificationsPage() {
     setActionBusy(false)
   }
 
-  // Button 2: Unread -> keeps unread count & list unchanged
   const handlePopupKeepUnread = () => {
     setSelectedItem(null)
   }
 
-  // Button 3: Snooze -> keeps unread count & list unchanged, alerts device after chosen duration (max 8 hrs)
   const handlePopupSnooze = async () => {
     if (!selectedItem) return
     const rawMinutes = snoozeUnit === 'hours' ? snoozeValue * 60 : snoozeValue
@@ -294,7 +296,7 @@ export default function NotificationsPage() {
   const isMicromanagedTask = Boolean(selectedMeta.is_micromanaged || linkedTask?.is_micromanaged)
 
   return (
-    <div className="min-h-svh p-4 sm:p-6 relative">
+    <div className="min-h-svh p-4 sm:p-6 pb-28 relative">
       <div className="mx-auto max-w-3xl space-y-4">
         <div className="flex items-center justify-between">
           <Button
@@ -413,10 +415,7 @@ export default function NotificationsPage() {
                               )}
                             </div>
                             <p className="text-[11px] text-muted-foreground mt-0.5">
-                              {new Date(item.created_at).toLocaleString('en-IN', {
-                                dateStyle: 'medium',
-                                timeStyle: 'short',
-                              })}
+                              {formatFullDateTime(item.created_at)}
                             </p>
                           </div>
                         </div>
@@ -501,10 +500,7 @@ export default function NotificationsPage() {
                             <span className="text-xs font-bold text-primary">{item.short_title}</span>
                           </div>
                           <span className="text-[10px] text-muted-foreground">
-                            {new Date(item.created_at).toLocaleString('en-IN', {
-                              dateStyle: 'medium',
-                              timeStyle: 'short',
-                            })}
+                            {formatFullDateTime(item.created_at)}
                           </span>
                         </div>
                         <p className="text-xs text-foreground/90 leading-relaxed pl-6 whitespace-pre-line">
@@ -520,7 +516,6 @@ export default function NotificationsPage() {
         </Card>
       </div>
 
-      {/* UNREAD NOTIFICATION DETAIL BOX (Interactive Task Controls + Close, Unread, Snooze) */}
       {selectedItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <Card className="w-full max-w-md border-primary/40 bg-card shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -530,10 +525,7 @@ export default function NotificationsPage() {
                 <CardTitle className="text-base text-primary">{selectedItem.short_title}</CardTitle>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                {new Date(selectedItem.created_at).toLocaleString('en-IN', {
-                  dateStyle: 'medium',
-                  timeStyle: 'short',
-                })}
+                {formatFullDateTime(selectedItem.created_at)}
               </p>
             </CardHeader>
 
@@ -542,7 +534,6 @@ export default function NotificationsPage() {
                 {selectedItem.full_message}
               </div>
 
-              {/* Interactive Audit Preference Controls (General Profile Audits) */}
               {selectedItem.category === 'personal_task' && !isMicromanagedTask && auditItems.length > 0 && (
                 <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-3 space-y-2.5">
                   <p className="flex items-center gap-1.5 text-xs font-bold text-indigo-300">
@@ -581,14 +572,8 @@ export default function NotificationsPage() {
                 </div>
               )}
 
-              {/* Task Completion & Profile Shortcut Controls */}
               {selectedItem.category === 'personal_task' && (
                 <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
-                  {isMicromanagedTask && (
-                    <p className="text-[11px] text-amber-300">
-                      Requested directly by Admin. Please update the requested profile/family details and mark completed below.
-                    </p>
-                  )}
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
@@ -620,7 +605,6 @@ export default function NotificationsPage() {
                 </div>
               )}
 
-              {/* Editable Snooze Duration (Default 10 mins, Maximum 8 hours) */}
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
                 <label className="flex items-center gap-1.5 text-xs font-semibold text-amber-300">
                   <Clock className="h-3.5 w-3.5" />
@@ -656,7 +640,6 @@ export default function NotificationsPage() {
                 </div>
               </div>
 
-              {/* Three Action Buttons: Close, Unread, Snooze */}
               <div className="grid grid-cols-3 gap-2 pt-1">
                 <Button
                   type="button"
