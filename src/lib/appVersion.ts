@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.93",
-  "timestamp": "23 Nov 2026, 04:30 AM IST",
-  "formatted": "V1.93, 23 Nov 2026, 04:30 AM IST",
+  "version": "V1.94",
+  "timestamp": "23 Nov 2026, 04:32 AM IST",
+  "formatted": "V1.94, 23 Nov 2026, 04:32 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor date formatting and task handling in NotificationsPage)",
+  "summary": "Minor technical update (Add TasksTab component for task management)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.94",
+      "timestamp": "23 Nov 2026, 04:32 AM IST",
+      "formatted": "V1.94, 23 Nov 2026, 04:32 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Add TasksTab component for task management)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.93",
       "timestamp": "23 Nov 2026, 04:30 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.70, 23 Nov 2026, 01:59 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add SmartPhoneInput component for phone number input)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.69",
-      "timestamp": "23 Nov 2026, 01:58 AM IST",
-      "formatted": "V1.69, 23 Nov 2026, 01:58 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add SmartDateInput component for flexible date input)",
       "requiresReinstall": false
     }
   ]
