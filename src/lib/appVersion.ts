@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.69",
-  "timestamp": "23 Nov 2026, 01:58 AM IST",
-  "formatted": "V1.69, 23 Nov 2026, 01:58 AM IST",
+  "version": "V1.70",
+  "timestamp": "23 Nov 2026, 01:59 AM IST",
+  "formatted": "V1.70, 23 Nov 2026, 01:59 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Add SmartDateInput component for flexible date input)",
+  "summary": "Minor technical update (Add SmartPhoneInput component for phone number input)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.70",
+      "timestamp": "23 Nov 2026, 01:59 AM IST",
+      "formatted": "V1.70, 23 Nov 2026, 01:59 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Add SmartPhoneInput component for phone number input)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.69",
       "timestamp": "23 Nov 2026, 01:58 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.46, 22 Nov 2026, 09:47 PM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor celebrations to use structured objects)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.45",
-      "timestamp": "22 Nov 2026, 09:46 PM IST",
-      "formatted": "V1.45, 22 Nov 2026, 09:46 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Handle errors in syncArchivedNotificationsForUser)",
       "requiresReinstall": false
     }
   ]
