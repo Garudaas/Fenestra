@@ -1,11 +1,19 @@
 {
-  "version": "V1.81",
-  "timestamp": "23 Nov 2026, 02:22 AM IST",
-  "formatted": "V1.81, 23 Nov 2026, 02:22 AM IST",
+  "version": "V1.82",
+  "timestamp": "23 Nov 2026, 02:26 AM IST",
+  "formatted": "V1.82, 23 Nov 2026, 02:26 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor MemberDashboard and update tab logic)",
+  "summary": "Minor technical update (Remove unused import for readFileAsDataURL)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.82",
+      "timestamp": "23 Nov 2026, 02:26 AM IST",
+      "formatted": "V1.82, 23 Nov 2026, 02:26 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Remove unused import for readFileAsDataURL)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.81",
       "timestamp": "23 Nov 2026, 02:22 AM IST",
@@ -196,14 +204,6 @@
       "formatted": "V1.58, 22 Nov 2026, 11:52 PM IST",
       "type": "minor",
       "summary": "Minor general update (Implement search and filter features in DirectoryTab)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.57",
-      "timestamp": "22 Nov 2026, 11:51 PM IST",
-      "formatted": "V1.57, 22 Nov 2026, 11:51 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Implement real-time listener for header badges)",
       "requiresReinstall": false
     }
   ]
