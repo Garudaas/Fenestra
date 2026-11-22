@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { formatBytes } from '@/lib/fenestriansCore'
 import { cleanPhoneNumber, formatFullDate } from '@/lib/formatters'
+import { resolveOfficerDisplayName, type TaskSubItem } from '@/lib/taskAuditService'
 import { publishArchivedAlert, type AuditActionItem } from '@/lib/notificationService'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -70,10 +71,6 @@ export default function MaintenanceTab() {
     )
   }
 
-  /**
-   * Loads all staged unsent audit tasks, automatically purging any item where
-   * the member has saved a preference to leave that detail unfilled or retain a duplicate.
-   */
   const loadUnsentAuditTasks = async () => {
     const [{ data: stagedRows }, { data: members }, { data: prefs }] = await Promise.all([
       supabase
@@ -109,7 +106,6 @@ export default function MaintenanceTab() {
       const prefType = inferPreferenceType(fKey)
       const memberName = memberNameMap.get(uid)
 
-      // Remove if member no longer exists, is System Admin, or opted to leave this field unfilled
       if (!memberName || ignoredSet.has(`${uid}::${prefType}::${fKey}`)) {
         idsToDelete.push(row.id)
         continue
@@ -133,10 +129,6 @@ export default function MaintenanceTab() {
     setUnsentTasks(validItems)
   }
 
-  /**
-   * Runs Profile Audits across all members, respects saved member preferences,
-   * replaces existing unsent audit points for the same detail, and groups results by member.
-   */
   const runProfileAudits = async () => {
     setBusyAction('audit')
     setStatusMessage('')
@@ -169,7 +161,6 @@ export default function MaintenanceTab() {
       ignoredSet.add(`${p.user_id}::${p.preference_type}::${p.target_key}`)
     }
 
-    // Map existing unsent staging items by "userId::fieldKey" so similar tasks are replaced cleanly
     const existingStagedMap = new Map<string, number[]>()
     for (const row of existingUnsent ?? []) {
       const key = `${row.assigned_to_user_id}::${row.field_key}`
@@ -193,7 +184,6 @@ export default function MaintenanceTab() {
         const isIgnoredByMember = ignoredSet.has(`${m.id}::${preferenceType}::${fieldKey}`)
 
         if (!isIssue || isIgnoredByMember) {
-          // Permanently remove any old unsent audit point if now resolved or member prefers it unfilled
           const staleIds = existingStagedMap.get(composite)
           if (staleIds && staleIds.length > 0) {
             idsToReplaceOrPurge.push(...staleIds)
@@ -203,7 +193,6 @@ export default function MaintenanceTab() {
 
         activeFindingKeys.add(composite)
 
-        // Replace any existing unsent task for this exact detail with the fresh audit point
         const oldIds = existingStagedMap.get(composite)
         if (oldIds && oldIds.length > 0) {
           idsToReplaceOrPurge.push(...oldIds)
@@ -221,7 +210,6 @@ export default function MaintenanceTab() {
         })
       }
 
-      // 1. Own Profile Fields
       addAuditPoint(!m.profile_picture_url, 'profile_picture_url', 'Profile Picture')
       addAuditPoint(!m.dob, 'dob', 'Date of Birth')
       addAuditPoint(!m.blood_group || !String(m.blood_group).trim(), 'blood_group', 'Blood Group')
@@ -248,7 +236,6 @@ export default function MaintenanceTab() {
         'Current Address'
       )
 
-      // 2. Marital & Spouse Details
       const maritalLower = (m.marital_status || '').trim().toLowerCase()
       if (maritalLower === 'married') {
         addAuditPoint(!m.wedding_date, 'wedding_date', 'Wedding Date')
@@ -258,7 +245,6 @@ export default function MaintenanceTab() {
         addAuditPoint(!m.divorce_date, 'divorce_date', 'Divorce Date')
       }
 
-      // 3. Duplicate Phone Numbers Check
       const cleanC = cleanPhoneNumber(m.contact_number)
       const cleanW = cleanPhoneNumber(m.whatsapp_number)
       addAuditPoint(
@@ -268,7 +254,6 @@ export default function MaintenanceTab() {
         'retain_duplicate'
       )
 
-      // 4. Family Details & Duplicate Family Members
       const myFamily = (familyRows ?? []).filter(fm => fm.alumni_id === m.id)
       addAuditPoint(myFamily.length === 0, 'family_details', 'Family Details')
 
@@ -302,7 +287,6 @@ export default function MaintenanceTab() {
         )
       }
 
-      // 5. Storage Quota Check
       const st = (storageRows ?? []).find(s => s.user_id === m.id)
       const isOverQuota = Boolean(
         st && Number(st.total_used_bytes) > Number(st.storage_quota_mb) * 1024 * 1024
@@ -316,7 +300,6 @@ export default function MaintenanceTab() {
       )
     }
 
-    // Purge any leftover obsolete unsent rows not matched in this audit pass
     for (const [composite, ids] of existingStagedMap.entries()) {
       if (!activeFindingKeys.has(composite)) {
         idsToReplaceOrPurge.push(...ids)
@@ -340,7 +323,6 @@ export default function MaintenanceTab() {
     )
   }
 
-  // Group unsent audit items under individual member names
   const groupedByMember = useMemo<MemberAuditGroup[]>(() => {
     const map = new Map<number, MemberAuditGroup>()
     for (const item of unsentTasks) {
@@ -366,10 +348,6 @@ export default function MaintenanceTab() {
     })
   }
 
-  /**
-   * Sends selected audit tasks for one member (or all selected members) using the exact
-   * same friendly reminder format as when an individual member requests profile completion.
-   */
   const sendTasksForItems = async (chosenItems: StagedAuditTask[]) => {
     if (chosenItems.length === 0) {
       alert('Please select at least one audit point to send.')
@@ -377,6 +355,7 @@ export default function MaintenanceTab() {
     }
 
     setBusyAction('send_tasks')
+    const senderTitledName = await resolveOfficerDisplayName(user.id, user.full_name)
 
     const byMember = new Map<number, { memberName: string; items: StagedAuditTask[] }>()
     for (const item of chosenItems) {
@@ -388,7 +367,7 @@ export default function MaintenanceTab() {
 
     for (const [targetUserId, group] of byMember.entries()) {
       const bulletList = group.items.map(i => `• ${i.label}`).join('\n')
-      const formattedMessage = `${user.full_name} has requested you to complete the below details in your profile in the Fenestrians App:\n\n${bulletList}`
+      const formattedMessage = `${senderTitledName} has requested you to complete the below details in your profile in the Fenestrians App:\n\n${bulletList}`
 
       const auditActionItems: AuditActionItem[] = group.items.map(i => ({
         label: i.label,
@@ -396,7 +375,15 @@ export default function MaintenanceTab() {
         targetKey: i.fieldKey,
       }))
 
-      // 1. Create active pending task for the member
+      const subItems: TaskSubItem[] = group.items.map((i, idx) => ({
+        id: `audit_${idx}_${i.fieldKey}`,
+        label: i.label,
+        fieldKey: i.fieldKey,
+        preferenceType: i.preferenceType,
+        completed: false,
+        optedOut: false,
+      }))
+
       const { data: createdTask } = await supabase
         .from('member_tasks')
         .insert([
@@ -405,16 +392,18 @@ export default function MaintenanceTab() {
             assigned_by_user_id: user.id,
             task_type: 'admin_profile_audit',
             field_key: group.items.map(i => i.fieldKey).join(','),
-            title: `Personal task alert: Profile Request from ${user.full_name}`,
+            title: `Profile Completion Request from ${senderTitledName}`,
             description: formattedMessage,
             is_micromanaged: false,
             status: 'pending',
+            is_private: true,
+            sender_display_name: senderTitledName,
+            task_items_json: subItems,
           },
         ])
         .select('id')
         .single()
 
-      // 2. Send in-app notification + device push alert
       await publishArchivedAlert({
         category: 'personal_task',
         shortTitle: 'Personal task alert',
@@ -428,7 +417,6 @@ export default function MaintenanceTab() {
       })
     }
 
-    // Remove the sent staging rows from the unsent list
     const sentStagingIds = chosenItems.map(i => i.id)
     await supabase.from('member_tasks').delete().in('id', sentStagingIds)
 
@@ -445,9 +433,6 @@ export default function MaintenanceTab() {
     )
   }
 
-  /**
-   * Deletes one or more unsent audit points when Admin decides they need not be sent.
-   */
   const deleteStagedItems = async (itemsToDelete: StagedAuditTask[]) => {
     if (itemsToDelete.length === 0) return
     if (
@@ -669,7 +654,6 @@ export default function MaintenanceTab() {
         </CardContent>
       </Card>
 
-      {/* GROUPED UNSENT AUDIT TASKS BY MEMBER */}
       <Card className="border-primary/30 bg-card/75">
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -723,7 +707,6 @@ export default function MaintenanceTab() {
                   key={group.userId}
                   className="rounded-xl border border-border/40 bg-muted/15 p-3.5 space-y-2.5"
                 >
-                  {/* Member Group Header */}
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/30 pb-2">
                     <label className="flex items-center gap-2.5 cursor-pointer">
                       <input
@@ -766,7 +749,6 @@ export default function MaintenanceTab() {
                     </div>
                   </div>
 
-                  {/* Individual Audit Points Under This Member */}
                   <div className="space-y-1.5 pl-1">
                     {group.items.map(item => (
                       <div
@@ -809,12 +791,10 @@ export default function MaintenanceTab() {
         </CardContent>
       </Card>
 
-      {/* SYSTEM CLEANUP TOOLS */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Button
           type="button"
           variant="outline"
-          title="Archive all chats and clear from all devices"
           disabled={busyAction !== null}
           onClick={handleArchiveAndClearChats}
           className="h-auto justify-start gap-2.5 p-3.5 text-left text-xs font-semibold"
@@ -826,7 +806,6 @@ export default function MaintenanceTab() {
         <Button
           type="button"
           variant="outline"
-          title="Remove auto alerts from general chat window"
           disabled={busyAction !== null}
           onClick={handleRemoveGeneralAutoAlerts}
           className="h-auto justify-start gap-2.5 p-3.5 text-left text-xs font-semibold"
@@ -838,7 +817,6 @@ export default function MaintenanceTab() {
         <Button
           type="button"
           variant="outline"
-          title="Clear unused or closed audio/video rooms"
           disabled={busyAction !== null}
           onClick={handleClearUnusedAVRooms}
           className="h-auto justify-start gap-2.5 p-3.5 text-left text-xs font-semibold"
@@ -850,7 +828,6 @@ export default function MaintenanceTab() {
         <Button
           type="button"
           variant="outline"
-          title="Clear recorded meeting videos"
           disabled={busyAction !== null}
           onClick={handleClearMeetingVideos}
           className="h-auto justify-start gap-2.5 p-3.5 text-left text-xs font-semibold"
@@ -862,7 +839,6 @@ export default function MaintenanceTab() {
         <Button
           type="button"
           variant="outline"
-          title="Clear accessible folders and alert users with large files"
           disabled={busyAction !== null}
           onClick={handleClearPrivateFolders}
           className="h-auto justify-start gap-2.5 p-3.5 text-left text-xs font-semibold"
@@ -874,7 +850,6 @@ export default function MaintenanceTab() {
         <Button
           type="button"
           variant="outline"
-          title="Clear support requirements marked achieved"
           disabled={busyAction !== null}
           onClick={handleClearAchievedSupport}
           className="h-auto justify-start gap-2.5 p-3.5 text-left text-xs font-semibold"
@@ -886,7 +861,6 @@ export default function MaintenanceTab() {
         <Button
           type="button"
           variant="outline"
-          title="Clear completed tasks"
           disabled={busyAction !== null}
           onClick={handleClearCompletedTasks}
           className="h-auto justify-start gap-2.5 p-3.5 text-left text-xs font-semibold"
@@ -922,7 +896,6 @@ export default function MaintenanceTab() {
                   type="button"
                   size="sm"
                   variant="destructive"
-                  title="Delete Inactive Private Group"
                   onClick={() => handleDeleteStaleGroup(g.room_id)}
                   className="h-7 gap-1 text-xs"
                 >
