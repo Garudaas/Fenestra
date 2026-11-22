@@ -43,6 +43,7 @@ export default function GalleryTab() {
   const [items, setItems] = useState<GalleryItem[]>([])
   const [ownerPermissions, setOwnerPermissions] = useState<Record<number, boolean>>({})
   const [selectedFolderOwnerId, setSelectedFolderOwnerId] = useState<number | null>(null)
+  const [sortBy, setSortBy] = useState<'newest' | 'largest'>('newest')
   const [url, setUrl] = useState('')
   const [desc, setDesc] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -165,7 +166,6 @@ export default function GalleryTab() {
           return
         }
       } else {
-        // External URL entry
         const { usedBytes, quotaBytes, quotaMb } = await getUserStorageUsage(user.id)
         if (usedBytes >= quotaBytes) {
           alert(
@@ -230,7 +230,16 @@ export default function GalleryTab() {
 
   if (!user) return null
 
-  // Group gallery items into individual member-named folders
+  const sortPhotosList = (list: GalleryItem[]) => {
+    const copy = [...list]
+    if (sortBy === 'largest') {
+      copy.sort((a, b) => Number(b.fileSizeBytes || 0) - Number(a.fileSizeBytes || 0))
+    } else {
+      copy.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    }
+    return copy
+  }
+
   const folderMap = new Map<number, { ownerId: number; ownerName: string; photos: GalleryItem[] }>()
   folderMap.set(user.id, { ownerId: user.id, ownerName: user.full_name, photos: [] })
 
@@ -318,7 +327,6 @@ export default function GalleryTab() {
         </CardContent>
       </Card>
 
-      {/* Folder Grid or Inside Member's Gallery Folder */}
       {!activeFolder ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {folders.map(folder => (
@@ -344,22 +352,33 @@ export default function GalleryTab() {
       ) : (
         <Card className="border-border/40 bg-card/70">
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <CardTitle className="flex items-center gap-2 text-base text-primary">
                 <FolderOpen className="h-5 w-5" />
                 {activeFolder.ownerName}’s Gallery Folder
               </CardTitle>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                title="Back to All Member Folders"
-                onClick={() => setSelectedFolderOwnerId(null)}
-                className="gap-1.5 text-xs"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                All Folders
-              </Button>
+              <div className="flex items-center gap-2">
+                <select
+                  value={sortBy}
+                  onChange={e => setSortBy(e.target.value as 'newest' | 'largest')}
+                  title="Sort Gallery Media"
+                  className="h-8 rounded-md border border-border/50 bg-background px-2.5 text-xs font-semibold"
+                >
+                  <option value="newest">Sort: Newest First</option>
+                  <option value="largest">Sort: Largest Files First</option>
+                </select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  title="Back to All Member Folders"
+                  onClick={() => setSelectedFolderOwnerId(null)}
+                  className="gap-1.5 text-xs"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  All Folders
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -367,7 +386,7 @@ export default function GalleryTab() {
               <p className="py-6 text-center text-xs text-muted-foreground">No media in this folder yet.</p>
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-                {activeFolder.photos.map(img => {
+                {sortPhotosList(activeFolder.photos).map(img => {
                   const canDownload =
                     img.ownerId === user.id || (ownerPermissions[img.ownerId] ?? true)
                   const canDelete =
@@ -404,7 +423,14 @@ export default function GalleryTab() {
                       </div>
 
                       <div className="p-2.5 space-y-2">
-                        <p className="text-xs font-medium text-foreground truncate">{img.description}</p>
+                        <div className="flex items-center justify-between gap-1">
+                          <p className="text-xs font-medium text-foreground truncate">{img.description}</p>
+                          {img.fileSizeBytes > 0 && (
+                            <span className="shrink-0 text-[10px] font-semibold text-primary">
+                              {formatBytes(img.fileSizeBytes)}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center justify-between gap-2">
                           {canDownload ? (
                             <a
