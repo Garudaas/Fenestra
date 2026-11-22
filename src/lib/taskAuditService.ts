@@ -17,10 +17,8 @@ export interface InstantAuditOutcome {
   reason?: string
 }
 
-/**
- * Checks if a user holds an ExCom office title (e.g., President, General Secretary, Treasurer)
- * and prepends their office position before their name.
- */
+export type OfficerPrefixMap = Map<number, string>
+
 export async function resolveOfficerDisplayName(
   userId: number,
   fallbackName: string
@@ -45,28 +43,25 @@ export async function resolveOfficerDisplayName(
   return fallbackName.trim()
 }
 
-/**
- * Returns a map of alumni_id -> "OfficerTitle FullName" for all ExCom committee members.
- */
-export async function fetchOfficerNamePrefixMap(): Promise> {
+export async function fetchOfficerNamePrefixMap(): Promise<OfficerPrefixMap> {
   const { data } = await supabase
     .from('alumni_committee')
     .select('alumni_id, role_title, member_name')
     .not('alumni_id', 'is', null)
     .order('display_order', { ascending: true })
 
-  const map = new Map<number, string>()
+  const prefixMap: OfficerPrefixMap = new Map()
   for (const row of data ?? []) {
-    if (row.alumni_id && row.role_title && !map.has(Number(row.alumni_id))) {
-      map.set(Number(row.alumni_id), `${String(row.role_title).trim()} ${String(row.member_name).trim()}`)
+    if (row.alumni_id && row.role_title && !prefixMap.has(Number(row.alumni_id))) {
+      prefixMap.set(
+        Number(row.alumni_id),
+        `${String(row.role_title).trim()} ${String(row.member_name).trim()}`
+      )
     }
   }
-  return map
+  return prefixMap
 }
 
-/**
- * Checks if a member holds the office of President or General Secretary in the Executive Committee.
- */
 export async function checkIsPresidentOrGenSec(userId: number): Promise<{
   hasExecutiveAdmin: boolean
   officeTitle: string | null
@@ -86,11 +81,6 @@ export async function checkIsPresidentOrGenSec(userId: number): Promise<{
   return { hasExecutiveAdmin: false, officeTitle: null }
 }
 
-/**
- * Immediately audits whether a detail-filling or profile-cleanup task has actually been completed
- * in Supabase. If the task cannot be verified automatically by the app, returns auditable: false
- * so the app trusts the member.
- */
 export async function auditSingleTaskField(
   userId: number,
   fieldKey: string
@@ -117,7 +107,8 @@ export async function auditSingleTaskField(
         : {
             auditable: true,
             passed: false,
-            reason: 'Your Profile Picture has not been uploaded yet. Go to Profile → Edit Profile → Profile Picture.',
+            reason:
+              'Your Profile Picture has not been uploaded yet. Go to Profile → Edit Profile → Profile Picture.',
           }
 
     case 'dob':
@@ -144,7 +135,8 @@ export async function auditSingleTaskField(
         : {
             auditable: true,
             passed: false,
-            reason: 'Your Education Level is still empty in Profile → Edit Profile → Education & Career Status.',
+            reason:
+              'Your Education Level is still empty in Profile → Edit Profile → Education & Career Status.',
           }
 
     case 'contact_number':
@@ -171,7 +163,8 @@ export async function auditSingleTaskField(
         : {
             auditable: true,
             passed: false,
-            reason: 'Your Current Career Status is not filled in Profile → Edit Profile → Education & Career Status.',
+            reason:
+              'Your Current Career Status is not filled in Profile → Edit Profile → Education & Career Status.',
           }
 
     case 'permanent_address':
@@ -284,7 +277,6 @@ export async function auditSingleTaskField(
     }
   }
 
-  // Family member field audit: family_<id>_<col>
   const famFieldMatch = /^family_(\d+)_(dob|blood_group|education_level)$/.exec(key)
   if (famFieldMatch) {
     const famId = Number(famFieldMatch[1])
@@ -295,7 +287,6 @@ export async function auditSingleTaskField(
       .eq('id', famId)
       .maybeSingle()
 
-    // If family record was deleted, consider resolved
     if (!fm) return { auditable: true, passed: true }
     const val = fm[col]
     return val && String(val).trim()
@@ -307,7 +298,6 @@ export async function auditSingleTaskField(
         }
   }
 
-  // Duplicate family name check: family_name_<lowerName>
   if (key.startsWith('family_name_')) {
     const targetLower = key.replace('family_name_', '').trim().toLowerCase()
     const { data: famRows } = await supabase
@@ -326,13 +316,9 @@ export async function auditSingleTaskField(
         }
   }
 
-  // Any other custom/general task cannot be auto-audited -> trust the user
   return { auditable: false, passed: true }
 }
 
-/**
- * Ensures any task record or notification archive metadata produces a clean checklist of TaskSubItems.
- */
 export function buildSubItemsForTask(
   taskRow: any | null,
   metaAuditItems: AuditActionItem[] = [],
