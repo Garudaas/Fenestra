@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.54",
-  "timestamp": "22 Nov 2026, 11:47 PM IST",
-  "formatted": "V1.54, 22 Nov 2026, 11:47 PM IST",
+  "version": "V1.55",
+  "timestamp": "22 Nov 2026, 11:48 PM IST",
+  "formatted": "V1.55, 22 Nov 2026, 11:48 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Implement Supabase Realtime for notifications)",
+  "summary": "Minor general update (Notification alerts updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.55",
+      "timestamp": "22 Nov 2026, 11:48 PM IST",
+      "formatted": "V1.55, 22 Nov 2026, 11:48 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Notification alerts updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.54",
       "timestamp": "22 Nov 2026, 11:47 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.31, 21 Nov 2026, 02:21 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor VideoTab component for improved functionality)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.30",
-      "timestamp": "21 Nov 2026, 02:19 AM IST",
-      "formatted": "V1.30, 21 Nov 2026, 02:19 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add extra line in VoiceTab component)",
       "requiresReinstall": false
     }
   ]
