@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.56",
-  "timestamp": "22 Nov 2026, 11:50 PM IST",
-  "formatted": "V1.56, 22 Nov 2026, 11:50 PM IST",
+  "version": "V1.57",
+  "timestamp": "22 Nov 2026, 11:51 PM IST",
+  "formatted": "V1.57, 22 Nov 2026, 11:51 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor video call notifications and messages)",
+  "summary": "Minor general update (Implement real-time listener for header badges)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.57",
+      "timestamp": "22 Nov 2026, 11:51 PM IST",
+      "formatted": "V1.57, 22 Nov 2026, 11:51 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Implement real-time listener for header badges)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.56",
       "timestamp": "22 Nov 2026, 11:50 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.33, 21 Nov 2026, 02:31 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Remove unnecessary comments in ChatTab component)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.32",
-      "timestamp": "21 Nov 2026, 02:22 AM IST",
-      "formatted": "V1.32, 21 Nov 2026, 02:22 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add notification badges and refactor tab handling)",
       "requiresReinstall": false
     }
   ]
