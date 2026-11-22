@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.80",
-  "timestamp": "23 Nov 2026, 02:15 AM IST",
-  "formatted": "V1.80, 23 Nov 2026, 02:15 AM IST",
+  "version": "V1.81",
+  "timestamp": "23 Nov 2026, 02:22 AM IST",
+  "formatted": "V1.81, 23 Nov 2026, 02:22 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement draggable position for NotificationQuickBar)",
+  "summary": "Minor technical update (Refactor MemberDashboard and update tab logic)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.81",
+      "timestamp": "23 Nov 2026, 02:22 AM IST",
+      "formatted": "V1.81, 23 Nov 2026, 02:22 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor MemberDashboard and update tab logic)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.80",
       "timestamp": "23 Nov 2026, 02:15 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.57, 22 Nov 2026, 11:51 PM IST",
       "type": "minor",
       "summary": "Minor general update (Implement real-time listener for header badges)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.56",
-      "timestamp": "22 Nov 2026, 11:50 PM IST",
-      "formatted": "V1.56, 22 Nov 2026, 11:50 PM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor video call notifications and messages)",
       "requiresReinstall": false
     }
   ]
