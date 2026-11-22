@@ -43,7 +43,6 @@ export default function NotificationQuickBar() {
     setUnreadCallCount(callTotal)
     setUnreadAlertsCount(otherTotal + chatTotal + callTotal)
 
-    // Check if any snoozed notification is due now
     const now = Date.now()
     for (const item of unread) {
       if (
@@ -76,15 +75,43 @@ export default function NotificationQuickBar() {
     if (!user || user.is_placeholder) return
     refreshCounts()
 
-    const interval = setInterval(refreshCounts, 20000)
+    // Instant Supabase Realtime subscription for user_notifications & notifications_archive
+    const channel = supabase
+      .channel(`live-quickbar-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          refreshCounts()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications_archive',
+        },
+        () => {
+          refreshCounts()
+        }
+      )
+      .subscribe()
+
+    const snoozeTimer = setInterval(refreshCounts, 30000)
     window.addEventListener('fenestrians-notifications-updated', refreshCounts)
     return () => {
-      clearInterval(interval)
+      supabase.removeChannel(channel)
+      clearInterval(snoozeTimer)
       window.removeEventListener('fenestrians-notifications-updated', refreshCounts)
     }
   }, [user, refreshCounts])
 
-  // Reset unread chat count immediately when user opens the chat window
   useEffect(() => {
     if (!user) return
     if (location.search.includes('tab=chat')) {
@@ -96,7 +123,6 @@ export default function NotificationQuickBar() {
 
   return (
     <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-primary/40 bg-card/90 px-3 py-2 shadow-2xl backdrop-blur-md">
-      {/* Unread Notifications Button */}
       <button
         type="button"
         onClick={() => navigate('/notifications')}
@@ -112,7 +138,6 @@ export default function NotificationQuickBar() {
         )}
       </button>
 
-      {/* Unread Chats Red Circle Counter */}
       <button
         type="button"
         onClick={async () => {
@@ -131,7 +156,6 @@ export default function NotificationQuickBar() {
         )}
       </button>
 
-      {/* Unread Calls Red Circle Counter */}
       <button
         type="button"
         onClick={() => navigate('/dashboard?tab=voice')}
