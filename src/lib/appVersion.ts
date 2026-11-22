@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.64",
-  "timestamp": "23 Nov 2026, 12:22 AM IST",
-  "formatted": "V1.64, 23 Nov 2026, 12:22 AM IST",
+  "version": "V1.65",
+  "timestamp": "23 Nov 2026, 12:23 AM IST",
+  "formatted": "V1.65, 23 Nov 2026, 12:23 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Add MemberProfilePage component)",
+  "summary": "Minor technical update (Refactor DirectoryTab by removing family data logic)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.65",
+      "timestamp": "23 Nov 2026, 12:23 AM IST",
+      "formatted": "V1.65, 23 Nov 2026, 12:23 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor DirectoryTab by removing family data logic)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.64",
       "timestamp": "23 Nov 2026, 12:22 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.41, 21 Nov 2026, 03:22 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Delete src/SmartAppLauncher.tsx)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.40",
-      "timestamp": "21 Nov 2026, 03:20 AM IST",
-      "formatted": "V1.40, 21 Nov 2026, 03:20 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add SmartAppLauncher route to App component)",
       "requiresReinstall": false
     }
   ]
