@@ -18,6 +18,18 @@ export type NotificationCategory =
   | 'group_call'
   | 'video_call'
 
+export interface AuditActionItem {
+  label: string
+  preferenceType: 'skip_missing_field' | 'retain_duplicate'
+  targetKey: string
+}
+
+export interface NotificationArchiveMetadata {
+  task_id?: number
+  is_micromanaged?: boolean
+  audit_items?: AuditActionItem[]
+}
+
 export interface UserNotificationItem {
   id: number
   user_id: number
@@ -43,6 +55,23 @@ export function isChatNotification(category: string): boolean {
 
 export function isCallNotification(category: string): boolean {
   return CALL_CATEGORIES.has(category)
+}
+
+/**
+ * Fetches structured metadata (such as task_id and audit_items) for an archived notification.
+ */
+export async function fetchNotificationArchiveMetadata(
+  archiveId: number | null
+): Promise<NotificationArchiveMetadata> {
+  if (!archiveId) return {}
+  const { data } = await supabase
+    .from('notifications_archive')
+    .select('metadata')
+    .eq('id', archiveId)
+    .maybeSingle()
+
+  if (!data || !data.metadata || typeof data.metadata !== 'object') return {}
+  return data.metadata as NotificationArchiveMetadata
 }
 
 /**
@@ -312,6 +341,7 @@ export async function publishArchivedAlert(params: {
   fullMessage: string
   targetUserId?: number | null
   needsHelpFlag?: boolean
+  metadata?: NotificationArchiveMetadata
 }): Promise<void> {
   const hasHelpTag =
     params.needsHelpFlag === true ||
@@ -356,7 +386,7 @@ export async function publishArchivedAlert(params: {
     return
   }
 
-  // 1. Insert directly into notifications_archive
+  // 1. Insert directly into notifications_archive with optional task/audit metadata
   const { data: archived } = await supabase
     .from('notifications_archive')
     .insert([
@@ -365,6 +395,7 @@ export async function publishArchivedAlert(params: {
         category: finalCategory,
         full_message: params.fullMessage,
         target_user_id: params.targetUserId ?? null,
+        metadata: params.metadata ?? {},
       },
     ])
     .select('id, created_at')
