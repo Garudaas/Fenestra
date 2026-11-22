@@ -57,10 +57,6 @@ export function isCallNotification(category: string): boolean {
   return CALL_CATEGORIES.has(category)
 }
 
-/**
- * Fires an immediate OneSignal push notification so users receive alerts, chats,
- * and incoming call rings even when the Fenestrians app is closed.
- */
 export function sendDevicePushNotification(params: {
   shortTitle: string
   fullMessage: string
@@ -159,6 +155,10 @@ export async function markNotificationRead(notificationId: number): Promise<void
     .eq('id', notificationId)
 }
 
+/**
+ * Marks all standard unread notifications as Read, leaving chat/call alerts
+ * AND personal_task alerts untouched until their tasks are completed.
+ */
 export async function markAllStandardNotificationsRead(userId: number): Promise<void> {
   await supabase
     .from('user_notifications')
@@ -169,7 +169,11 @@ export async function markAllStandardNotificationsRead(userId: number): Promise<
     })
     .eq('user_id', userId)
     .eq('status', 'unread')
-    .not('category', 'in', '("common_chat","private_chat","group_chat","group_call","video_call")')
+    .not(
+      'category',
+      'in',
+      '("common_chat","private_chat","group_chat","group_call","video_call","personal_task")'
+    )
 }
 
 export async function snoozeNotification(
@@ -303,7 +307,6 @@ export async function recordIncomingChatNotification(params: {
     ])
   }
 
-  // Send device push notification so recipient gets alerted even if app is closed
   sendDevicePushNotification({
     shortTitle: baseLabel,
     fullMessage: `${params.senderName}: ${params.previewText}`,
@@ -385,8 +388,8 @@ export async function publishArchivedAlert(params: {
         targetUserIds: [params.targetUserId],
         launchUrl:
           finalCategory === 'video_call'
-            ? 'https://fenestrians.salmaali.in/dashboard?tab=video'
-            : 'https://fenestrians.salmaali.in/dashboard?tab=voice',
+            ? 'https://fenestrians.salmaali.in/dashboard?tab=calls'
+            : 'https://fenestrians.salmaali.in/dashboard?tab=calls',
       })
     }
     return
