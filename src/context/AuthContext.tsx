@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
+import { checkIsPresidentOrGenSec } from '@/lib/taskAuditService'
 
 export interface AlumniUser {
   id: number
@@ -34,6 +35,7 @@ export interface AlumniUser {
   storage_quota_mb?: number
   is_placeholder: boolean
   is_admin: boolean
+  officer_title?: string | null
   placeholder_code: string | null
   class_nickname: string | null
 }
@@ -64,7 +66,7 @@ function setPersistentCookie(userId: number) {
     const oneYearSeconds = 60 * 60 * 24 * 365
     document.cookie = `${SESSION_COOKIE_NAME}=${userId}; path=/; max-age=${oneYearSeconds}; SameSite=Lax`
   } catch {
-    // Ignore cookie errors in restricted contexts
+    // Ignore
   }
 }
 
@@ -89,10 +91,6 @@ function clearPersistentCookie() {
   }
 }
 
-/**
- * Strips password and oversized Base64 image strings before saving to localStorage
- * so mobile browsers never reject or evict the saved login session.
- */
 function sanitizeUserForStorage(raw: any): AlumniUser {
   const pic = typeof raw.profile_picture_url === 'string' ? raw.profile_picture_url : null
   const lightweightPic = pic && pic.startsWith('data:') && pic.length > 50000 ? null : pic
@@ -109,7 +107,6 @@ function persistSession(rawUser: any) {
   try {
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(safeUser))
   } catch {
-    // Fallback minimal session object
     try {
       localStorage.setItem(
         SESSION_STORAGE_KEY,
@@ -118,6 +115,7 @@ function persistSession(rawUser: any) {
           full_name: safeUser.full_name,
           custom_username: safeUser.custom_username,
           is_admin: Boolean(safeUser.is_admin),
+          officer_title: safeUser.officer_title || null,
           is_placeholder: false,
         })
       )
@@ -156,23 +154,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   })
 
-  // Restore session from cookie if localStorage was cleared, and refresh latest profile silently
   useEffect(() => {
     const restoreOrRefreshSession = async () => {
       const storedId = user?.id ?? getPersistentCookieUserId()
       if (!storedId) return
 
-      const { data, error } = await supabase
-        .from('alumni_directory_safe')
-        .select('*')
-        .eq('id', storedId)
-        .eq('is_placeholder', false)
-        .maybeSingle()
+      const [{ data, error }, execInfo] = await Promise.all([
+        supabase
+          .from('alumni_directory_safe')
+          .select('*')
+          .eq('id', storedId)
+          .eq('is_placeholder', false)
+          .maybeSingle(),
+        checkIsPresidentOrGenSec(storedId),
+      ])
 
       if (data && !error) {
-        const hydrated = { ...data, custom_password: '' } as AlumniUser
+        const effectiveAdmin = Boolean(data.is_admin || execInfo.hasExecutiveAdmin)
+        const hydrated = {
+          ...data,
+          custom_password: '',
+          is_admin: effectiveAdmin,
+          officer_title: execInfo.officeTitle,
+        } as AlumniUser
         setUser(hydrated)
-        setIsAdmin(Boolean(data.is_admin))
+        setIsAdmin(effectiveAdmin)
         persistSession(hydrated)
       }
     }
@@ -183,7 +189,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (identifier: string, password: string) => {
     const cleanId = identifier.trim()
 
-    // 1. Server-side credential check
     const { data: rpcRows } = await supabase.rpc('verify_member_credentials', {
       p_identifier: cleanId,
       p_password: password,
@@ -191,7 +196,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let matchedUser = Array.isArray(rpcRows) && rpcRows.length > 0 ? rpcRows[0] : null
 
-    // 2. Fallback query if RPC is not yet created
     if (!matchedUser) {
       const { data, error } = await supabase
         .from('alumni')
@@ -207,10 +211,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       matchedUser = data
     }
 
-    const safeUser = { ...matchedUser, custom_password: '' } as AlumniUser
+    const execInfo = await checkIsPresidentOrGenSec(matchedUser.id)
+    const effectiveAdmin = Boolean(matchedUser.is_admin || execInfo.hasExecutiveAdmin)
+
+    const safeUser = {
+      ...matchedUser,
+      custom_password: '',
+      is_admin: effectiveAdmin,
+      officer_title: execInfo.officeTitle,
+    } as AlumniUser
+
     setUser(safeUser)
-    setIsAdmin(Boolean(matchedUser.is_admin))
-    persistSession(matchedUser)
+    setIsAdmin(effectiveAdmin)
+    persistSession(safeUser)
     return { success: true }
   }, [])
 
@@ -222,8 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       p_password: password,
     })
 
-    let matchedAdmin =
-      Array.isArray(rpcRows) && rpcRows.length > 0 && rpcRows[0].is_admin ? rpcRows[0] : null
+    let matchedAdmin = Array.isArray(rpcRows) && rpcRows.length > 0 ? rpcRows[0] : null
 
     if (!matchedAdmin) {
       const { data } = await supabase
@@ -231,7 +243,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select('*')
         .eq('custom_username', cleanUser)
         .eq('custom_password', password)
-        .eq('is_admin', true)
+        .eq('is_placeholder', false)
         .maybeSingle()
 
       if (!data) {
@@ -240,10 +252,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       matchedAdmin = data
     }
 
-    const safeAdmin = { ...matchedAdmin, custom_password: '' } as AlumniUser
+    const execInfo = await checkIsPresidentOrGenSec(matchedAdmin.id)
+    if (!matchedAdmin.is_admin && !execInfo.hasExecutiveAdmin) {
+      return { success: false, error: 'Access Denied.' }
+    }
+
+    const safeAdmin = {
+      ...matchedAdmin,
+      custom_password: '',
+      is_admin: true,
+      officer_title: execInfo.officeTitle,
+    } as AlumniUser
+
     setUser(safeAdmin)
     setIsAdmin(true)
-    persistSession(matchedAdmin)
+    persistSession(safeAdmin)
     return { success: true }
   }, [])
 
