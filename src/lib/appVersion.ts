@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.49",
-  "timestamp": "22 Nov 2026, 11:25 PM IST",
-  "formatted": "V1.49, 22 Nov 2026, 11:25 PM IST",
+  "version": "V1.50",
+  "timestamp": "22 Nov 2026, 11:26 PM IST",
+  "formatted": "V1.50, 22 Nov 2026, 11:26 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Notification alerts updated)",
+  "summary": "Minor technical update (Refactor task creation and add audit items)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.50",
+      "timestamp": "22 Nov 2026, 11:26 PM IST",
+      "formatted": "V1.50, 22 Nov 2026, 11:26 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor task creation and add audit items)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.49",
       "timestamp": "22 Nov 2026, 11:25 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.26, 21 Nov 2026, 02:10 AM IST",
       "type": "minor",
       "summary": "Minor general update (Update family member checks to use alumni_id)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.25",
-      "timestamp": "21 Nov 2026, 02:09 AM IST",
-      "formatted": "V1.25, 21 Nov 2026, 02:09 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor GalleryTab for improved media management)",
       "requiresReinstall": false
     }
   ]
