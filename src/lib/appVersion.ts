@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.57",
-  "timestamp": "22 Nov 2026, 11:51 PM IST",
-  "formatted": "V1.57, 22 Nov 2026, 11:51 PM IST",
+  "version": "V1.58",
+  "timestamp": "22 Nov 2026, 11:52 PM IST",
+  "formatted": "V1.58, 22 Nov 2026, 11:52 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement real-time listener for header badges)",
+  "summary": "Minor general update (Implement search and filter features in DirectoryTab)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.58",
+      "timestamp": "22 Nov 2026, 11:52 PM IST",
+      "formatted": "V1.58, 22 Nov 2026, 11:52 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Implement search and filter features in DirectoryTab)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.57",
       "timestamp": "22 Nov 2026, 11:51 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.34, 21 Nov 2026, 02:40 AM IST",
       "type": "minor",
       "summary": "Minor general update (Member profile details updated)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.33",
-      "timestamp": "21 Nov 2026, 02:31 AM IST",
-      "formatted": "V1.33, 21 Nov 2026, 02:31 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Remove unnecessary comments in ChatTab component)",
       "requiresReinstall": false
     }
   ]
