@@ -7,6 +7,7 @@ import {
   fetchOfficerNamePrefixMap,
   buildSubItemsForTask,
   type TaskSubItem,
+  type OfficerPrefixMap,
 } from '@/lib/taskAuditService'
 import { publishArchivedAlert } from '@/lib/notificationService'
 import SmartDateInput from '@/components/shared/SmartDateInput'
@@ -22,12 +23,10 @@ import {
   Trash2,
   CheckCircle2,
   Clock,
-  Users,
   Lock,
   Globe,
   X,
   Send,
-  CalendarDays,
   UserCheck,
 } from 'lucide-react'
 
@@ -77,14 +76,12 @@ export default function TasksTab() {
 
   const [tasks, setTasks] = useState<TaskRow[]>([])
   const [members, setMembers] = useState<Array<{ id: number; full_name: string }>>([])
-  const [officerPrefixMap, setOfficerPrefixMap] = useState>(new Map())
+  const [officerPrefixMap, setOfficerPrefixMap] = useState<OfficerPrefixMap>(() => new Map())
   const [loading, setLoading] = useState(true)
 
-  // Detail modal state (can inspect single TaskRow OR CombinedPublicTask)
   const [inspectedTask, setInspectedTask] = useState<TaskRow | null>(null)
   const [inspectedPublicGroup, setInspectedPublicGroup] = useState<CombinedPublicTask | null>(null)
 
-  // Assign New Task Form states
   const [taskTitle, setTaskTitle] = useState('')
   const [taskBulletsText, setTaskBulletsText] = useState('')
   const [taskDueDate, setTaskDueDate] = useState('')
@@ -148,7 +145,6 @@ export default function TasksTab() {
     return getMemberName(t.assigned_by_user_id, 'System / Admin')
   }
 
-  // Personal Active & Completed Lists
   const activeAssignedToMe = useMemo(
     () =>
       tasks.filter(
@@ -193,16 +189,12 @@ export default function TasksTab() {
     [tasks, user?.id]
   )
 
-  // Public Non-Private Tasks (Combining common tasks assigned to multiple members!)
   const publicCombinedTasks = useMemo<CombinedPublicTask[]>(() => {
     const publicRows = tasks.filter(t => !t.is_private)
     const groups = new Map<string, CombinedPublicTask>()
 
     for (const row of publicRows) {
-      const key = row.batch_id
-        ? `batch_${row.batch_id}`
-        : `single_${row.id}`
-
+      const key = row.batch_id ? `batch_${row.batch_id}` : `single_${row.id}`
       const assigneeName = getMemberName(row.assigned_to_user_id)
       const senderLabel = getSenderLabel(row)
 
@@ -244,9 +236,7 @@ export default function TasksTab() {
 
   const handleCreateAndAssignTask = async () => {
     if (!user) return
-    const chosenIds = members
-      .filter(m => selectedAssigneeIds[m.id])
-      .map(m => m.id)
+    const chosenIds = members.filter(m => selectedAssigneeIds[m.id]).map(m => m.id)
 
     if (!taskTitle.trim()) {
       alert('Please enter a Task Title.')
@@ -274,7 +264,6 @@ export default function TasksTab() {
 
     setAssigning(true)
     try {
-      // Automatically prepend ExCom officer title before sender's name if applicable
       const senderTitledName = await resolveOfficerDisplayName(user.id, user.full_name)
       const batchId = chosenIds.length > 1 ? `COMMON-${Date.now()}-${user.id}` : null
       const bulletFormatted = checklistLines.map(l => `• ${l}`).join('\n')
@@ -363,7 +352,6 @@ export default function TasksTab() {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* ASSIGN NEW TASK FORM */}
           {showAssignForm && (
             <div className="rounded-xl border border-primary/35 bg-primary/5 p-4 space-y-3 text-xs">
               <p className="font-bold text-primary text-sm">Assign Task to Member(s)</p>
@@ -473,7 +461,6 @@ export default function TasksTab() {
             </div>
           )}
 
-          {/* MAIN TABS: Active Tasks | Completed Tasks | Public Tasks Board */}
           <div className="flex flex-wrap gap-1.5 rounded-xl border border-border/50 bg-background/60 p-1">
             <button
               type="button"
@@ -512,7 +499,6 @@ export default function TasksTab() {
             </button>
           </div>
 
-          {/* SUB-TABS FOR ACTIVE & COMPLETED: Assigned to Me | Assigned by Me */}
           {mainSection !== 'public' && (
             <div className="flex gap-2 border-b border-border/30 pb-3">
               <Button
@@ -553,7 +539,6 @@ export default function TasksTab() {
             </div>
           )}
 
-          {/* LIST RENDERING */}
           {loading ? (
             <p className="py-8 text-center text-xs text-muted-foreground">Loading tasks...</p>
           ) : mainSection !== 'public' ? (
@@ -626,8 +611,7 @@ export default function TasksTab() {
                 })}
               </div>
             )
-          ) : /* PUBLIC NON-PRIVATE TASKS BOARD (Common Tasks Combined) */
-          publicCombinedTasks.length === 0 ? (
+          ) : publicCombinedTasks.length === 0 ? (
             <div className="rounded-xl border border-border/30 bg-muted/10 p-8 text-center text-xs text-muted-foreground">
               No public tasks posted yet.
             </div>
@@ -694,7 +678,6 @@ export default function TasksTab() {
         </CardContent>
       </Card>
 
-      {/* MODAL 1: SINGLE TASK ASSIGNMENT DETAILS (IST Timestamps) */}
       {inspectedTask && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
@@ -791,7 +774,6 @@ export default function TasksTab() {
         </div>
       )}
 
-      {/* MODAL 2: COMBINED PUBLIC / COMMON TASK DETAILS */}
       {inspectedPublicGroup && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
