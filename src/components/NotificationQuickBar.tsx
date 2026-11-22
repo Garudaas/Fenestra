@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -8,7 +8,9 @@ import {
   isChatNotification,
   isCallNotification,
 } from '@/lib/notificationService'
-import { Bell, MessageSquare, Phone } from 'lucide-react'
+import { Bell, MessageSquare, Phone, GripVertical } from 'lucide-react'
+
+const POS_STORAGE_KEY = 'fenestrians_quickbar_pos'
 
 export default function NotificationQuickBar() {
   const { user } = useAuth()
@@ -18,6 +20,24 @@ export default function NotificationQuickBar() {
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0)
   const [unreadChatCount, setUnreadChatCount] = useState(0)
   const [unreadCallCount, setUnreadCallCount] = useState(0)
+
+  // Custom draggable position (x, y from top-left); null = default bottom-right
+  const [customPos, setCustomPos] = useState<{ x: number; y: number } | null>(() => {
+    try {
+      const saved = localStorage.getItem(POS_STORAGE_KEY)
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
+  const dragStateRef = useRef<{
+    dragging: boolean
+    startX: number
+    startY: number
+    origX: number
+    origY: number
+  }>({ dragging: false, startX: 0, startY: 0, origX: 0, origY: 0 })
+  const barRef = useRef<HTMLDivElement | null>(null)
 
   const refreshCounts = useCallback(async () => {
     if (!user || user.is_placeholder) return
@@ -75,7 +95,6 @@ export default function NotificationQuickBar() {
     if (!user || user.is_placeholder) return
     refreshCounts()
 
-    // Instant Supabase Realtime subscription for user_notifications & notifications_archive
     const channel = supabase
       .channel(`live-quickbar-${user.id}`)
       .on(
@@ -119,10 +138,106 @@ export default function NotificationQuickBar() {
     }
   }, [user, location.search])
 
+  const clampPosition = (x: number, y: number) => {
+    const el = barRef.current
+    const width = el?.offsetWidth || 230
+    const height = el?.offsetHeight || 48
+    const maxX = Math.max(8, window.innerWidth - width - 8)
+    const maxY = Math.max(60, window.innerHeight - height - 8)
+    return {
+      x: Math.min(maxX, Math.max(8, x)),
+      y: Math.min(maxY, Math.max(60, y)),
+    }
+  }
+
+  const startDrag = (clientX: number, clientY: number) => {
+    const rect = barRef.current?.getBoundingClientRect()
+    const origX = rect ? rect.left : window.innerWidth - 240
+    const origY = rect ? rect.top : window.innerHeight - 64
+    dragStateRef.current = {
+      dragging: true,
+      startX: clientX,
+      startY: clientY,
+      origX,
+      origY,
+    }
+  }
+
+  useEffect(() => {
+    const onMove = (clientX: number, clientY: number) => {
+      if (!dragStateRef.current.dragging) return
+      const dx = clientX - dragStateRef.current.startX
+      const dy = clientY - dragStateRef.current.startY
+      const next = clampPosition(
+        dragStateRef.current.origX + dx,
+        dragStateRef.current.origY + dy
+      )
+      setCustomPos(next)
+    }
+
+    const handleMouseMove = (e: MouseEvent) => onMove(e.clientX, e.clientY)
+    const handleTouchMove = (e: TouchEvent) => {
+      if (dragStateRef.current.dragging && e.touches[0]) {
+        onMove(e.touches[0].clientX, e.touches[0].clientY)
+      }
+    }
+
+    const handleEnd = () => {
+      if (dragStateRef.current.dragging) {
+        dragStateRef.current.dragging = false
+        setCustomPos(curr => {
+          if (curr) {
+            try {
+              localStorage.setItem(POS_STORAGE_KEY, JSON.stringify(curr))
+            } catch {
+              // Ignore
+            }
+          }
+          return curr
+        })
+      }
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('touchmove', handleTouchMove, { passive: true })
+    window.addEventListener('mouseup', handleEnd)
+    window.addEventListener('touchend', handleEnd)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('touchmove', handleTouchMove)
+      window.removeEventListener('mouseup', handleEnd)
+      window.removeEventListener('touchend', handleEnd)
+    }
+  }, [])
+
   if (!user || user.is_placeholder) return null
 
+  const positionStyle: React.CSSProperties = customPos
+    ? { left: `${customPos.x}px`, top: `${customPos.y}px` }
+    : { right: '16px', bottom: '16px' }
+
   return (
-    <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-primary/40 bg-card/90 px-3 py-2 shadow-2xl backdrop-blur-md">
+    <div
+      ref={barRef}
+      style={positionStyle}
+      className="fixed z-40 flex items-center gap-1.5 rounded-full border border-primary/40 bg-card/90 px-2.5 py-2 shadow-2xl backdrop-blur-md"
+    >
+      {/* Drag Handle to move the floating bar anywhere on screen */}
+      <button
+        type="button"
+        title="Drag to move floating bar"
+        onMouseDown={e => {
+          e.preventDefault()
+          startDrag(e.clientX, e.clientY)
+        }}
+        onTouchStart={e => {
+          if (e.touches[0]) startDrag(e.touches[0].clientX, e.touches[0].clientY)
+        }}
+        className="flex h-7 w-5 cursor-grab active:cursor-grabbing items-center justify-center text-muted-foreground hover:text-primary touch-none"
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+
       <button
         type="button"
         onClick={() => navigate('/notifications')}
@@ -158,8 +273,8 @@ export default function NotificationQuickBar() {
 
       <button
         type="button"
-        onClick={() => navigate('/dashboard?tab=voice')}
-        title="Calls"
+        onClick={() => navigate('/dashboard?tab=calls')}
+        title="Voice & Video Calls"
         className="relative flex items-center gap-1 rounded-full bg-muted/40 px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-all"
       >
         <Phone className="h-4 w-4 text-amber-400" />
