@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import OneSignal from 'react-onesignal'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import LandingPage, { MemberLoginPage, AdminLoginPage, RegisterPage } from '@/pages/AuthPages'
@@ -21,6 +21,26 @@ function OneSignalUserSync() {
       OneSignal.login(String(user.id)).catch(() => {})
     }
   }, [user])
+
+  return null
+}
+
+function PersistentSessionRedirect() {
+  const { user, isAdmin } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (user && !user.is_placeholder) {
+      if (
+        location.pathname === '/' ||
+        location.pathname === '/login' ||
+        location.pathname === '/admin'
+      ) {
+        navigate(isAdmin || user.is_admin ? '/admin-dashboard' : '/dashboard', { replace: true })
+      }
+    }
+  }, [user, isAdmin, location.pathname, navigate])
 
   return null
 }
@@ -50,6 +70,7 @@ export function App() {
       <SplashScreen />
       <OneSignalUserSync />
       <BrowserRouter>
+        <PersistentSessionRedirect />
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/app" element={<SmartAppLauncher />} />
