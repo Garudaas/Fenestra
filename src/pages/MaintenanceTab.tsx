@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { hasAuditPreference, formatBytes } from '@/lib/fenestriansCore'
+import { formatBytes } from '@/lib/fenestriansCore'
+import { cleanPhoneNumber, formatFullDate } from '@/lib/formatters'
 import { publishArchivedAlert, type AuditActionItem } from '@/lib/notificationService'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -18,14 +19,30 @@ import {
   CheckSquare,
   Send,
   Trash2,
+  UserCheck,
 } from 'lucide-react'
 
-interface MissingFieldEntry {
-  key: string
+interface StagedAuditTask {
+  id: number
   userId: number
   memberName: string
   fieldKey: string
   label: string
+  preferenceType: 'skip_missing_field' | 'retain_duplicate'
+  createdAt: string
+}
+
+interface MemberAuditGroup {
+  userId: number
+  memberName: string
+  items: StagedAuditTask[]
+}
+
+function inferPreferenceType(fieldKey: string): 'skip_missing_field' | 'retain_duplicate' {
+  if (fieldKey === 'duplicate_phone_numbers' || fieldKey.startsWith('family_name_')) {
+    return 'retain_duplicate'
+  }
+  return 'skip_missing_field'
 }
 
 export default function MaintenanceTab() {
@@ -33,14 +50,14 @@ export default function MaintenanceTab() {
   const [busyAction, setBusyAction] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState<string>('')
   const [staleGroups, setStaleGroups] = useState<Array<{ room_id: string; last_active: string }>>([])
-  const [missingEntries, setMissingEntries] = useState<MissingFieldEntry[]>([])
-  const [selectedMissingKeys, setSelectedMissingKeys] = useState<Record<string, boolean>>({})
+  const [unsentTasks, setUnsentTasks] = useState<StagedAuditTask[]>([])
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Record<number, boolean>>({})
 
   const userIsAdmin = Boolean(isAdmin || user?.is_admin)
 
   useEffect(() => {
     if (userIsAdmin) {
-      scanMissingDetails()
+      loadUnsentAuditTasks()
       scanStalePrivateGroups()
     }
   }, [userIsAdmin])
@@ -53,72 +70,407 @@ export default function MaintenanceTab() {
     )
   }
 
-  const scanMissingDetails = async () => {
-    const [{ data: members }, { data: familyRows }] = await Promise.all([
-      supabase.from('alumni').select('*').eq('is_placeholder', false),
-      supabase.from('family_members').select('*'),
+  /**
+   * Loads all staged unsent audit tasks, automatically purging any item where
+   * the member has saved a preference to leave that detail unfilled or retain a duplicate.
+   */
+  const loadUnsentAuditTasks = async () => {
+    const [{ data: stagedRows }, { data: members }, { data: prefs }] = await Promise.all([
+      supabase
+        .from('member_tasks')
+        .select('*')
+        .eq('task_type', 'audit_staging')
+        .eq('status', 'unsent')
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('alumni')
+        .select('id, full_name, is_placeholder')
+        .eq('is_placeholder', false)
+        .neq('full_name', 'System Administrator'),
+      supabase.from('audit_preferences').select('user_id, preference_type, target_key'),
     ])
 
-    const list: MissingFieldEntry[] = []
-    const checkFields: Array<{ col: string; label: string }> = [
-      { col: 'profile_picture_url', label: 'Profile Picture' },
-      { col: 'dob', label: 'Date of Birth' },
-      { col: 'blood_group', label: 'Blood Group' },
-      { col: 'education_level', label: 'Education Level' },
-      { col: 'contact_number', label: 'Contact Number' },
-      { col: 'whatsapp_number', label: 'WhatsApp Number' },
-      { col: 'current_address', label: 'Current Address' },
-      { col: 'permanent_address', label: 'Permanent Address' },
-      { col: 'current_status', label: 'Current Profession / Status' },
-    ]
+    const memberNameMap = new Map<number, string>()
+    for (const m of members ?? []) {
+      memberNameMap.set(m.id, m.full_name)
+    }
+
+    const ignoredSet = new Set<string>()
+    for (const p of prefs ?? []) {
+      ignoredSet.add(`${p.user_id}::${p.preference_type}::${p.target_key}`)
+    }
+
+    const validItems: StagedAuditTask[] = []
+    const idsToDelete: number[] = []
+
+    for (const row of stagedRows ?? []) {
+      const uid = Number(row.assigned_to_user_id)
+      const fKey = String(row.field_key || '')
+      const prefType = inferPreferenceType(fKey)
+      const memberName = memberNameMap.get(uid)
+
+      // Remove if member no longer exists, is System Admin, or opted to leave this field unfilled
+      if (!memberName || ignoredSet.has(`${uid}::${prefType}::${fKey}`)) {
+        idsToDelete.push(row.id)
+        continue
+      }
+
+      validItems.push({
+        id: row.id,
+        userId: uid,
+        memberName,
+        fieldKey: fKey,
+        label: String(row.description || row.title || fKey),
+        preferenceType: prefType,
+        createdAt: row.created_at,
+      })
+    }
+
+    if (idsToDelete.length > 0) {
+      await supabase.from('member_tasks').delete().in('id', idsToDelete)
+    }
+
+    setUnsentTasks(validItems)
+  }
+
+  /**
+   * Runs Profile Audits across all members, respects saved member preferences,
+   * replaces existing unsent audit points for the same detail, and groups results by member.
+   */
+  const runProfileAudits = async () => {
+    setBusyAction('audit')
+    setStatusMessage('')
+
+    const [
+      { data: members },
+      { data: storageRows },
+      { data: familyRows },
+      { data: prefs },
+      { data: existingUnsent },
+    ] = await Promise.all([
+      supabase
+        .from('alumni')
+        .select('*')
+        .eq('is_placeholder', false)
+        .neq('full_name', 'System Administrator')
+        .order('full_name', { ascending: true }),
+      supabase.from('admin_user_storage_summary').select('*'),
+      supabase.from('family_members').select('*'),
+      supabase.from('audit_preferences').select('user_id, preference_type, target_key'),
+      supabase
+        .from('member_tasks')
+        .select('id, assigned_to_user_id, field_key')
+        .eq('task_type', 'audit_staging')
+        .eq('status', 'unsent'),
+    ])
+
+    const ignoredSet = new Set<string>()
+    for (const p of prefs ?? []) {
+      ignoredSet.add(`${p.user_id}::${p.preference_type}::${p.target_key}`)
+    }
+
+    // Map existing unsent staging items by "userId::fieldKey" so similar tasks are replaced cleanly
+    const existingStagedMap = new Map<string, number[]>()
+    for (const row of existingUnsent ?? []) {
+      const key = `${row.assigned_to_user_id}::${row.field_key}`
+      const arr = existingStagedMap.get(key) ?? []
+      arr.push(row.id)
+      existingStagedMap.set(key, arr)
+    }
+
+    const activeFindingKeys = new Set<string>()
+    const toInsert: any[] = []
+    const idsToReplaceOrPurge: number[] = []
 
     for (const m of members ?? []) {
-      for (const f of checkFields) {
-        if (!m[f.col] || String(m[f.col]).trim() === '') {
-          list.push({
-            key: `member_${m.id}_${f.col}`,
-            userId: m.id,
-            memberName: m.full_name,
-            fieldKey: f.col,
-            label: `${f.label} (Own Profile)`,
-          })
+      const addAuditPoint = (
+        isIssue: boolean,
+        fieldKey: string,
+        label: string,
+        preferenceType: 'skip_missing_field' | 'retain_duplicate' = 'skip_missing_field'
+      ) => {
+        const composite = `${m.id}::${fieldKey}`
+        const isIgnoredByMember = ignoredSet.has(`${m.id}::${preferenceType}::${fieldKey}`)
+
+        if (!isIssue || isIgnoredByMember) {
+          // Permanently remove any old unsent audit point if now resolved or member prefers it unfilled
+          const staleIds = existingStagedMap.get(composite)
+          if (staleIds && staleIds.length > 0) {
+            idsToReplaceOrPurge.push(...staleIds)
+          }
+          return
         }
-      }
-      if (m.marital_status?.toLowerCase() === 'married' && !m.wedding_date) {
-        list.push({
-          key: `member_${m.id}_wedding_date`,
-          userId: m.id,
-          memberName: m.full_name,
-          fieldKey: 'wedding_date',
-          label: 'Wedding Date (Own Profile)',
+
+        activeFindingKeys.add(composite)
+
+        // Replace any existing unsent task for this exact detail with the fresh audit point
+        const oldIds = existingStagedMap.get(composite)
+        if (oldIds && oldIds.length > 0) {
+          idsToReplaceOrPurge.push(...oldIds)
+        }
+
+        toInsert.push({
+          assigned_to_user_id: m.id,
+          assigned_by_user_id: user.id,
+          task_type: 'audit_staging',
+          field_key: fieldKey,
+          title: `Missing / Audit Detail: ${label}`,
+          description: label,
+          is_micromanaged: false,
+          status: 'unsent',
         })
       }
+
+      // 1. Own Profile Fields
+      addAuditPoint(!m.profile_picture_url, 'profile_picture_url', 'Profile Picture')
+      addAuditPoint(!m.dob, 'dob', 'Date of Birth')
+      addAuditPoint(!m.blood_group || !String(m.blood_group).trim(), 'blood_group', 'Blood Group')
+      addAuditPoint(
+        !m.education_level || !String(m.education_level).trim(),
+        'education_level',
+        'Education Level'
+      )
+      addAuditPoint(!cleanPhoneNumber(m.contact_number), 'contact_number', 'Contact Number')
+      addAuditPoint(!cleanPhoneNumber(m.whatsapp_number), 'whatsapp_number', 'WhatsApp Number')
+      addAuditPoint(
+        !m.current_status || !String(m.current_status).trim(),
+        'current_status',
+        'Current Career Status / Profession'
+      )
+      addAuditPoint(
+        !m.permanent_address || !String(m.permanent_address).trim(),
+        'permanent_address',
+        'Permanent Address'
+      )
+      addAuditPoint(
+        !m.current_address || !String(m.current_address).trim(),
+        'current_address',
+        'Current Address'
+      )
+
+      // 2. Marital & Spouse Details
+      const maritalLower = (m.marital_status || '').trim().toLowerCase()
+      if (maritalLower === 'married') {
+        addAuditPoint(!m.wedding_date, 'wedding_date', 'Wedding Date')
+        addAuditPoint(!m.spouse_name || !String(m.spouse_name).trim(), 'spouse_name', 'Spouse Name')
+        addAuditPoint(!m.spouse_dob, 'spouse_dob', 'Spouse Date of Birth')
+      } else if (maritalLower === 'divorced') {
+        addAuditPoint(!m.divorce_date, 'divorce_date', 'Divorce Date')
+      }
+
+      // 3. Duplicate Phone Numbers Check
+      const cleanC = cleanPhoneNumber(m.contact_number)
+      const cleanW = cleanPhoneNumber(m.whatsapp_number)
+      addAuditPoint(
+        Boolean(cleanC && cleanW && cleanC === cleanW),
+        'duplicate_phone_numbers',
+        'Duplicate entry: Contact Number and WhatsApp Number are identical',
+        'retain_duplicate'
+      )
+
+      // 4. Family Details & Duplicate Family Members
+      const myFamily = (familyRows ?? []).filter(fm => fm.alumni_id === m.id)
+      addAuditPoint(myFamily.length === 0, 'family_details', 'Family Details')
+
+      const seenNames = new Set<string>()
+      for (const fm of myFamily) {
+        const lowerName = (fm.name || '').trim().toLowerCase()
+        if (lowerName) {
+          addAuditPoint(
+            seenNames.has(lowerName),
+            `family_name_${lowerName}`,
+            `Duplicate family member entry: "${fm.name}" appears twice`,
+            'retain_duplicate'
+          )
+          seenNames.add(lowerName)
+        }
+
+        addAuditPoint(
+          !fm.dob,
+          `family_${fm.id}_dob`,
+          `Date of Birth for ${fm.name} (${fm.relationship || 'Family'})`
+        )
+        addAuditPoint(
+          !fm.blood_group || !String(fm.blood_group).trim(),
+          `family_${fm.id}_blood_group`,
+          `Blood Group for ${fm.name} (${fm.relationship || 'Family'})`
+        )
+        addAuditPoint(
+          !fm.education_level || !String(fm.education_level).trim(),
+          `family_${fm.id}_education_level`,
+          `Education Level for ${fm.name} (${fm.relationship || 'Family'})`
+        )
+      }
+
+      // 5. Storage Quota Check
+      const st = (storageRows ?? []).find(s => s.user_id === m.id)
+      const isOverQuota = Boolean(
+        st && Number(st.total_used_bytes) > Number(st.storage_quota_mb) * 1024 * 1024
+      )
+      addAuditPoint(
+        isOverQuota,
+        'storage_overrun',
+        st
+          ? `Storage limit exceeded: Using ${formatBytes(Number(st.total_used_bytes))} of ${st.storage_quota_mb} MB`
+          : 'Storage limit exceeded'
+      )
     }
 
-    for (const fm of familyRows ?? []) {
-      const owner = (members ?? []).find(m => m.id === fm.alumni_id)
-      if (!owner) continue
-      const famChecks: Array<{ col: string; label: string }> = [
-        { col: 'relationship', label: `Relationship for ${fm.name}` },
-        { col: 'gender', label: `Gender for ${fm.name}` },
-        { col: 'dob', label: `Birthday for ${fm.name}` },
-        { col: 'blood_group', label: `Blood Group for ${fm.name}` },
-        { col: 'education_level', label: `Education Level for ${fm.name}` },
-      ]
-      for (const fc of famChecks) {
-        if (!fm[fc.col] || String(fm[fc.col]).trim() === '') {
-          list.push({
-            key: `family_${fm.id}_${fc.col}`,
-            userId: owner.id,
-            memberName: owner.full_name,
-            fieldKey: `family_${fm.id}_${fc.col}`,
-            label: `${fc.label} (Family Profile)`,
-          })
-        }
+    // Purge any leftover obsolete unsent rows not matched in this audit pass
+    for (const [composite, ids] of existingStagedMap.entries()) {
+      if (!activeFindingKeys.has(composite)) {
+        idsToReplaceOrPurge.push(...ids)
       }
     }
 
-    setMissingEntries(list)
+    const uniqueDeleteIds = Array.from(new Set(idsToReplaceOrPurge))
+    if (uniqueDeleteIds.length > 0) {
+      await supabase.from('member_tasks').delete().in('id', uniqueDeleteIds)
+    }
+
+    if (toInsert.length > 0) {
+      await supabase.from('member_tasks').insert(toInsert)
+    }
+
+    setSelectedTaskIds({})
+    await loadUnsentAuditTasks()
+    setBusyAction(null)
+    setStatusMessage(
+      `Profile Audit complete: ${toInsert.length} unsent audit point(s) staged below for your review.`
+    )
+  }
+
+  // Group unsent audit items under individual member names
+  const groupedByMember = useMemo<MemberAuditGroup[]>(() => {
+    const map = new Map<number, MemberAuditGroup>()
+    for (const item of unsentTasks) {
+      if (!map.has(item.userId)) {
+        map.set(item.userId, {
+          userId: item.userId,
+          memberName: item.memberName,
+          items: [],
+        })
+      }
+      map.get(item.userId)!.items.push(item)
+    }
+    return Array.from(map.values()).sort((a, b) => a.memberName.localeCompare(b.memberName))
+  }, [unsentTasks])
+
+  const toggleMemberAll = (group: MemberAuditGroup, checked: boolean) => {
+    setSelectedTaskIds(prev => {
+      const next = { ...prev }
+      for (const item of group.items) {
+        next[item.id] = checked
+      }
+      return next
+    })
+  }
+
+  /**
+   * Sends selected audit tasks for one member (or all selected members) using the exact
+   * same friendly reminder format as when an individual member requests profile completion.
+   */
+  const sendTasksForItems = async (chosenItems: StagedAuditTask[]) => {
+    if (chosenItems.length === 0) {
+      alert('Please select at least one audit point to send.')
+      return
+    }
+
+    setBusyAction('send_tasks')
+
+    const byMember = new Map<number, { memberName: string; items: StagedAuditTask[] }>()
+    for (const item of chosenItems) {
+      if (!byMember.has(item.userId)) {
+        byMember.set(item.userId, { memberName: item.memberName, items: [] })
+      }
+      byMember.get(item.userId)!.items.push(item)
+    }
+
+    for (const [targetUserId, group] of byMember.entries()) {
+      const bulletList = group.items.map(i => `• ${i.label}`).join('\n')
+      const formattedMessage = `${user.full_name} has requested you to complete the below details in your profile in the Fenestrians App:\n\n${bulletList}`
+
+      const auditActionItems: AuditActionItem[] = group.items.map(i => ({
+        label: i.label,
+        preferenceType: i.preferenceType,
+        targetKey: i.fieldKey,
+      }))
+
+      // 1. Create active pending task for the member
+      const { data: createdTask } = await supabase
+        .from('member_tasks')
+        .insert([
+          {
+            assigned_to_user_id: targetUserId,
+            assigned_by_user_id: user.id,
+            task_type: 'admin_profile_audit',
+            field_key: group.items.map(i => i.fieldKey).join(','),
+            title: `Personal task alert: Profile Request from ${user.full_name}`,
+            description: formattedMessage,
+            is_micromanaged: false,
+            status: 'pending',
+          },
+        ])
+        .select('id')
+        .single()
+
+      // 2. Send in-app notification + device push alert
+      await publishArchivedAlert({
+        category: 'personal_task',
+        shortTitle: 'Personal task alert',
+        fullMessage: formattedMessage,
+        targetUserId,
+        metadata: {
+          task_id: createdTask?.id,
+          is_micromanaged: false,
+          audit_items: auditActionItems,
+        },
+      })
+    }
+
+    // Remove the sent staging rows from the unsent list
+    const sentStagingIds = chosenItems.map(i => i.id)
+    await supabase.from('member_tasks').delete().in('id', sentStagingIds)
+
+    setSelectedTaskIds(prev => {
+      const next = { ...prev }
+      for (const id of sentStagingIds) delete next[id]
+      return next
+    })
+
+    await loadUnsentAuditTasks()
+    setBusyAction(null)
+    setStatusMessage(
+      `Sent profile completion alert(s) to ${byMember.size} member(s) for ${chosenItems.length} item(s).`
+    )
+  }
+
+  /**
+   * Deletes one or more unsent audit points when Admin decides they need not be sent.
+   */
+  const deleteStagedItems = async (itemsToDelete: StagedAuditTask[]) => {
+    if (itemsToDelete.length === 0) return
+    if (
+      !window.confirm(
+        `Delete ${itemsToDelete.length} unsent audit item(s) so they will not be sent?`
+      )
+    ) {
+      return
+    }
+
+    setBusyAction('delete_staged')
+    const ids = itemsToDelete.map(i => i.id)
+    await supabase.from('member_tasks').delete().in('id', ids)
+
+    setSelectedTaskIds(prev => {
+      const next = { ...prev }
+      for (const id of ids) delete next[id]
+      return next
+    })
+
+    await loadUnsentAuditTasks()
+    setBusyAction(null)
+    setStatusMessage(`Removed ${ids.length} unsent audit item(s).`)
   }
 
   const scanStalePrivateGroups = async () => {
@@ -143,132 +495,6 @@ export default function MaintenanceTab() {
       }
     }
     setStaleGroups(stale)
-  }
-
-  const runProfileAudits = async () => {
-    setBusyAction('audit')
-    setStatusMessage('')
-
-    const [{ data: members }, { data: storageRows }, { data: familyRows }] = await Promise.all([
-      supabase.from('alumni').select('*').eq('is_placeholder', false),
-      supabase.from('admin_user_storage_summary').select('*'),
-      supabase.from('family_members').select('*'),
-    ])
-
-    let tasksCreated = 0
-
-    for (const m of members ?? []) {
-      const issues: string[] = []
-      const auditItems: AuditActionItem[] = []
-
-      if (!m.profile_picture_url) {
-        const skipped = await hasAuditPreference(m.id, 'skip_missing_field', 'profile_picture_url')
-        if (!skipped) {
-          issues.push('• Missing Profile Picture')
-          auditItems.push({
-            label: 'Missing Profile Picture',
-            preferenceType: 'skip_missing_field',
-            targetKey: 'profile_picture_url',
-          })
-        }
-      }
-
-      const fieldsToAudit = [
-        { col: 'dob', name: 'Date of Birth' },
-        { col: 'blood_group', name: 'Blood Group' },
-        { col: 'education_level', name: 'Education Level' },
-        { col: 'current_address', name: 'Current Address' },
-      ]
-      for (const f of fieldsToAudit) {
-        if (!m[f.col] || String(m[f.col]).trim() === '') {
-          const skipped = await hasAuditPreference(m.id, 'skip_missing_field', f.col)
-          if (!skipped) {
-            issues.push(`• Missing ${f.name}`)
-            auditItems.push({
-              label: `Missing ${f.name}`,
-              preferenceType: 'skip_missing_field',
-              targetKey: f.col,
-            })
-          }
-        }
-      }
-
-      if (
-        m.contact_number &&
-        m.whatsapp_number &&
-        m.contact_number.replace(/\D/g, '') === m.whatsapp_number.replace(/\D/g, '')
-      ) {
-        const retained = await hasAuditPreference(m.id, 'retain_duplicate', 'duplicate_phone_numbers')
-        if (!retained) {
-          issues.push('• Duplicate entry: Contact Number and WhatsApp Number are identical')
-          auditItems.push({
-            label: 'Duplicate entry: Contact Number and WhatsApp Number are identical',
-            preferenceType: 'retain_duplicate',
-            targetKey: 'duplicate_phone_numbers',
-          })
-        }
-      }
-
-      const myFamily = (familyRows ?? []).filter(fm => fm.alumni_id === m.id)
-      const seenNames = new Set<string>()
-      for (const fm of myFamily) {
-        const lowerName = (fm.name || '').trim().toLowerCase()
-        if (lowerName && seenNames.has(lowerName)) {
-          const retained = await hasAuditPreference(m.id, 'retain_duplicate', `family_name_${lowerName}`)
-          if (!retained) {
-            issues.push(`• Duplicate family member entry: "${fm.name}" appears twice`)
-            auditItems.push({
-              label: `Duplicate family member entry: "${fm.name}" appears twice`,
-              preferenceType: 'retain_duplicate',
-              targetKey: `family_name_${lowerName}`,
-            })
-          }
-        }
-        if (lowerName) seenNames.add(lowerName)
-      }
-
-      const st = (storageRows ?? []).find(s => s.user_id === m.id)
-      if (st && Number(st.total_used_bytes) > Number(st.storage_quota_mb) * 1024 * 1024) {
-        issues.push(
-          `• Storage overrun: Using ${formatBytes(Number(st.total_used_bytes))} of ${st.storage_quota_mb} MB limit`
-        )
-      }
-
-      if (issues.length > 0) {
-        const summaryText = `Profile Audit found ${issues.length} item(s):\n${issues.join('\n')}`
-        const { data: createdTask } = await supabase
-          .from('member_tasks')
-          .insert([
-            {
-              assigned_to_user_id: m.id,
-              assigned_by_user_id: user.id,
-              task_type: 'profile_audit',
-              title: 'Personal task alert: Profile Audit',
-              description: summaryText,
-              is_micromanaged: false,
-              status: 'pending',
-            },
-          ])
-          .select('id')
-          .single()
-
-        await publishArchivedAlert({
-          category: 'personal_task',
-          shortTitle: 'Personal task alert',
-          fullMessage: summaryText,
-          targetUserId: m.id,
-          metadata: {
-            task_id: createdTask?.id,
-            is_micromanaged: false,
-            audit_items: auditItems,
-          },
-        })
-        tasksCreated += 1
-      }
-    }
-
-    setBusyAction(null)
-    setStatusMessage(`Profile Audit complete: Sent ${tasksCreated} personalized audit task(s).`)
   }
 
   const handleArchiveAndClearChats = async () => {
@@ -408,60 +634,7 @@ export default function MaintenanceTab() {
     setStatusMessage(`Cleared ${totalCleared} completed task(s).`)
   }
 
-  const handleSendBulkMissingTasks = async () => {
-    const chosen = missingEntries.filter(e => selectedMissingKeys[e.key])
-    if (chosen.length === 0) {
-      alert('Select at least one missing detail checkbox first.')
-      return
-    }
-
-    setBusyAction('tool9')
-    const byUser = new Map<number, { memberName: string; items: MissingFieldEntry[] }>()
-    for (const item of chosen) {
-      if (!byUser.has(item.userId)) {
-        byUser.set(item.userId, { memberName: item.memberName, items: [] })
-      }
-      byUser.get(item.userId)!.items.push(item)
-    }
-
-    for (const [targetUserId, group] of byUser.entries()) {
-      const bulletList = group.items.map(i => `• ${i.label}`).join('\n')
-      const message = `Admin Request: Please update the following missing detail(s) in your profile:\n${bulletList}`
-
-      const { data: createdTask } = await supabase
-        .from('member_tasks')
-        .insert([
-          {
-            assigned_to_user_id: targetUserId,
-            assigned_by_user_id: user.id,
-            task_type: 'admin_micromanaged',
-            field_key: group.items.map(i => i.fieldKey).join(','),
-            title: 'Personal task alert: Missing Profile Details',
-            description: message,
-            is_micromanaged: true,
-            status: 'pending',
-          },
-        ])
-        .select('id')
-        .single()
-
-      await publishArchivedAlert({
-        category: 'personal_task',
-        shortTitle: 'Personal task alert',
-        fullMessage: message,
-        targetUserId,
-        metadata: {
-          task_id: createdTask?.id,
-          is_micromanaged: true,
-          audit_items: [],
-        },
-      })
-    }
-
-    setSelectedMissingKeys({})
-    setBusyAction(null)
-    setStatusMessage(`Sent ${byUser.size} bulk private task(s) for ${chosen.length} selected missing field(s).`)
-  }
+  const allChosenItems = unsentTasks.filter(t => selectedTaskIds[t.id])
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -475,18 +648,18 @@ export default function MaintenanceTab() {
             <Button
               type="button"
               title="Run Profile Audits for All Members"
-              disabled={busyAction === 'audit'}
+              disabled={busyAction !== null}
               onClick={runProfileAudits}
               className="gold-gradient text-gold-foreground font-semibold gap-2"
             >
               <ClipboardCheck className="h-4 w-4" />
-              {busyAction === 'audit' ? 'Running Profile Audits...' : 'Profile Audits'}
+              {busyAction === 'audit' ? 'Scanning Profiles...' : 'Profile Audits'}
             </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Run automated member audits (respecting members’ saved preferences for retained duplicates or intentionally blank fields) or execute system cleanup tasks below.
+            Click <strong>Profile Audits</strong> to scan member &amp; family profiles. Audit points are grouped under each member below so you can review, delete unneeded items, or send selected reminders.
           </p>
           {statusMessage && (
             <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-300">
@@ -496,6 +669,147 @@ export default function MaintenanceTab() {
         </CardContent>
       </Card>
 
+      {/* GROUPED UNSENT AUDIT TASKS BY MEMBER */}
+      <Card className="border-primary/30 bg-card/75">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2 text-sm text-primary">
+              <UserCheck className="h-4 w-4" />
+              Unsent Profile Audit Tasks ({unsentTasks.length} item{unsentTasks.length === 1 ? '' : 's'} across{' '}
+              {groupedByMember.length} member{groupedByMember.length === 1 ? '' : 's'})
+            </CardTitle>
+
+            {allChosenItems.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  disabled={busyAction !== null}
+                  onClick={() => deleteStagedItems(allChosenItems)}
+                  className="h-8 gap-1.5 text-xs"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete Selected ({allChosenItems.length})
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busyAction !== null}
+                  onClick={() => sendTasksForItems(allChosenItems)}
+                  className="h-8 gold-gradient text-gold-foreground font-semibold gap-1.5 text-xs"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  Send Selected ({allChosenItems.length})
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {groupedByMember.length === 0 ? (
+            <p className="rounded-xl border border-border/30 bg-muted/15 p-6 text-center text-xs text-muted-foreground">
+              No unsent audit tasks pending review. Click <strong>Profile Audits</strong> above to scan all member profiles.
+            </p>
+          ) : (
+            groupedByMember.map(group => {
+              const memberSelectedItems = group.items.filter(i => selectedTaskIds[i.id])
+              const allMemberChecked =
+                group.items.length > 0 && memberSelectedItems.length === group.items.length
+
+              return (
+                <div
+                  key={group.userId}
+                  className="rounded-xl border border-border/40 bg-muted/15 p-3.5 space-y-2.5"
+                >
+                  {/* Member Group Header */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/30 pb-2">
+                    <label className="flex items-center gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={allMemberChecked}
+                        onChange={e => toggleMemberAll(group, e.target.checked)}
+                        className="h-4 w-4 accent-amber-500"
+                      />
+                      <span className="text-sm font-bold text-primary">{group.memberName}</span>
+                      <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                        {group.items.length} item{group.items.length === 1 ? '' : 's'}
+                      </span>
+                    </label>
+
+                    <div className="flex items-center gap-2">
+                      {memberSelectedItems.length > 0 && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={busyAction !== null}
+                          onClick={() => sendTasksForItems(memberSelectedItems)}
+                          className="h-7 gold-gradient text-gold-foreground font-semibold gap-1 text-[11px]"
+                        >
+                          <Send className="h-3 w-3" />
+                          Send ({memberSelectedItems.length}) to {group.memberName.split(' ')[0]}
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        title={`Delete all unsent audit items for ${group.memberName}`}
+                        disabled={busyAction !== null}
+                        onClick={() => deleteStagedItems(group.items)}
+                        className="h-7 px-2 text-[11px] text-destructive hover:bg-destructive/10 gap-1"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Clear Member
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Individual Audit Points Under This Member */}
+                  <div className="space-y-1.5 pl-1">
+                    {group.items.map(item => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-border/30 bg-background/60 px-3 py-2 text-xs hover:border-primary/30"
+                      >
+                        <label className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(selectedTaskIds[item.id])}
+                            onChange={e =>
+                              setSelectedTaskIds(prev => ({
+                                ...prev,
+                                [item.id]: e.target.checked,
+                              }))
+                            }
+                            className="h-4 w-4 accent-amber-500 shrink-0"
+                          />
+                          <span className="text-foreground/95 truncate">{item.label}</span>
+                        </label>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          title="Delete this audit item if it need not be sent"
+                          disabled={busyAction !== null}
+                          onClick={() => deleteStagedItems([item])}
+                          className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </CardContent>
+      </Card>
+
+      {/* SYSTEM CLEANUP TOOLS */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Button
           type="button"
@@ -601,7 +915,7 @@ export default function MaintenanceTab() {
                 <div>
                   <span className="font-bold text-foreground">{g.room_id}</span>
                   <span className="ml-2 text-muted-foreground">
-                    Last active: {new Date(g.last_active).toLocaleDateString('en-IN')}
+                    Last active: {formatFullDate(g.last_active)}
                   </span>
                 </div>
                 <Button
@@ -616,53 +930,6 @@ export default function MaintenanceTab() {
                   Delete Group
                 </Button>
               </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="border-border/40 bg-card/70">
-        <CardHeader className="pb-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-sm text-primary">
-              9. Missing Member &amp; Family Details ({missingEntries.length})
-            </CardTitle>
-            <Button
-              type="button"
-              size="sm"
-              title="Send Selected Bulk Tasks Privately"
-              disabled={busyAction === 'tool9'}
-              onClick={handleSendBulkMissingTasks}
-              className="gold-gradient text-gold-foreground font-semibold gap-1.5 text-xs"
-            >
-              <Send className="h-3.5 w-3.5" />
-              Send Selected Bulk Tasks
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-2 max-h-80 overflow-y-auto">
-          {missingEntries.length === 0 ? (
-            <p className="text-xs text-muted-foreground">All member and family profiles are complete.</p>
-          ) : (
-            missingEntries.map(entry => (
-              <label
-                key={entry.key}
-                className="flex items-center gap-3 rounded-lg border border-border/30 bg-muted/15 px-3 py-2 text-xs cursor-pointer hover:bg-muted/25"
-              >
-                <input
-                  type="checkbox"
-                  checked={Boolean(selectedMissingKeys[entry.key])}
-                  onChange={e =>
-                    setSelectedMissingKeys(prev => ({
-                      ...prev,
-                      [entry.key]: e.target.checked,
-                    }))
-                  }
-                  className="h-4 w-4 accent-amber-500"
-                />
-                <span className="font-bold text-primary">{entry.memberName}:</span>
-                <span className="text-foreground/90">{entry.label}</span>
-              </label>
             ))
           )}
         </CardContent>
