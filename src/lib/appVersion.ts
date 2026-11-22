@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.65",
-  "timestamp": "23 Nov 2026, 12:23 AM IST",
-  "formatted": "V1.65, 23 Nov 2026, 12:23 AM IST",
+  "version": "V1.66",
+  "timestamp": "23 Nov 2026, 12:24 AM IST",
+  "formatted": "V1.66, 23 Nov 2026, 12:24 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor DirectoryTab by removing family data logic)",
+  "summary": "Minor general update (Chat and calling screen updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.66",
+      "timestamp": "23 Nov 2026, 12:24 AM IST",
+      "formatted": "V1.66, 23 Nov 2026, 12:24 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Chat and calling screen updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.65",
       "timestamp": "23 Nov 2026, 12:23 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.42, 21 Nov 2026, 03:22 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add SmartAppLauncher component for app installation)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.41",
-      "timestamp": "21 Nov 2026, 03:22 AM IST",
-      "formatted": "V1.41, 21 Nov 2026, 03:22 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Delete src/SmartAppLauncher.tsx)",
       "requiresReinstall": false
     }
   ]
