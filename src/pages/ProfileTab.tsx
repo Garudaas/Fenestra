@@ -15,11 +15,33 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import CameraModal from '@/components/shared/CameraModal'
 import { readFileAsDataURL } from '@/lib/helpers'
-import { User, Camera, Upload, MapPin, Heart, Shield, EyeOff, Eye, Lock, Save } from 'lucide-react'
+import {
+  User,
+  Camera,
+  Upload,
+  MapPin,
+  Heart,
+  Shield,
+  EyeOff,
+  Eye,
+  Lock,
+  Save,
+  ClipboardCheck,
+  CheckCircle2,
+} from 'lucide-react'
+
+interface MyPendingTask {
+  id: number
+  title: string
+  description: string
+  is_micromanaged: boolean
+  created_at: string
+}
 
 export default function ProfileTab() {
   const { user } = useAuth()
 
+  const [myTasks, setMyTasks] = useState<MyPendingTask[]>([])
   const [nickname, setNickname] = useState('')
   const [gender, setGender] = useState('')
   const [blood, setBlood] = useState('')
@@ -58,6 +80,17 @@ export default function ProfileTab() {
   const [showNewPass, setShowNewPass] = useState(false)
   const [showConfirmPass, setShowConfirmPass] = useState(false)
 
+  const loadMyPendingTasks = async (userId: number) => {
+    const { data } = await supabase
+      .from('member_tasks')
+      .select('id, title, description, is_micromanaged, created_at')
+      .eq('assigned_to_user_id', userId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+
+    setMyTasks((data ?? []) as MyPendingTask[])
+  }
+
   useEffect(() => {
     const fetchLatestProfile = async () => {
       if (!user) return
@@ -68,6 +101,7 @@ export default function ProfileTab() {
       ])
 
       setBloodOptions(bgs)
+      await loadMyPendingTasks(user.id)
 
       if (profileRes.data && !profileRes.error) {
         hydrate({ ...user, ...profileRes.data })
@@ -78,6 +112,19 @@ export default function ProfileTab() {
 
     fetchLatestProfile()
   }, [user])
+
+  const handleCompleteMyTask = async (taskId: number) => {
+    if (!user) return
+    await supabase
+      .from('member_tasks')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', taskId)
+
+    await loadMyPendingTasks(user.id)
+  }
 
   const hydrate = (d: any) => {
     setCurrentUsername(d.custom_username || '')
@@ -130,7 +177,6 @@ export default function ProfileTab() {
     if (!user || !imageUrl) return
     const approxSizeBytes = Math.round(imageUrl.length * 0.75)
 
-    // Save non-deletable copy in member's individual Gallery archive
     await supabase.from('member_media_files').insert([
       {
         owner_id: user.id,
@@ -166,7 +212,6 @@ export default function ProfileTab() {
     let finalWA = waNum ? `${waCC} ${waNum}` : ''
     let finalPh = phoneNum ? `${phoneCC} ${phoneNum}` : ''
 
-    // Double-dip check on identical phone & WhatsApp numbers or identical addresses
     if (
       finalPh &&
       finalWA &&
@@ -217,14 +262,12 @@ export default function ProfileTab() {
       return
     }
 
-    // Update custom blood group table & clean up edited typos
     await syncCustomBloodGroupOnChange({
       userId: user.id,
       newBloodGroup: blood.trim(),
       previousBloodGroup: previousBlood,
     })
 
-    // Save a copy of the updated profile picture to the member's Gallery archive
     if (pic && pic !== previousPic) {
       await archiveProfilePictureCopy(pic)
       setPreviousPic(pic)
@@ -252,337 +295,373 @@ export default function ProfileTab() {
   if (!user) return null
 
   return (
-    <Card className="mx-auto max-w-2xl border-border/40 bg-card/60 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-primary">
-          <User className="h-5 w-5" />
-          Update Profile
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4 text-sm">
-        {/* Credentials Section */}
-        <h3 className="flex items-center gap-2 font-bold text-primary">
-          <Lock className="h-4 w-4" />
-          Account Credentials
-        </h3>
-        <div className="space-y-3 rounded-lg border border-border/50 bg-background/40 p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <Label>Current Username</Label>
-              <Input
-                value={currentUsername}
-                readOnly
-                className="mt-1 bg-input/30 text-muted-foreground"
-                placeholder="No username set"
-              />
-            </div>
-            <div>
-              <Label>Current Password</Label>
-              <div className="relative mt-1">
-                <Input
-                  type={showPassword ? 'text' : 'password'}
-                  value={currentPassword}
-                  readOnly
-                  className="bg-input/30 text-muted-foreground pr-10"
-                  placeholder="No password set"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                </Button>
-              </div>
-            </div>
-          </div>
-          <hr className="border-border/30 my-2" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="col-span-1 md:col-span-2">
-              <Label>Update Username</Label>
-              <Input
-                value={newUsername}
-                onChange={e => setNewUsername(e.target.value)}
-                placeholder="Leave blank to keep current"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Update Password</Label>
-              <div className="relative mt-1">
-                <Input
-                  type={showNewPass ? 'text' : 'password'}
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  placeholder="New Password"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1 h-7 w-7 p-0"
-                  onClick={() => setShowNewPass(!showNewPass)}
-                >
-                  {showNewPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                </Button>
-              </div>
-            </div>
-            <div>
-              <Label>Retype New Password</Label>
-              <div className="relative mt-1">
-                <Input
-                  type={showConfirmPass ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm New Password"
-                  className={confirmPassword && newPassword !== confirmPassword ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1 h-7 w-7 p-0"
-                  onClick={() => setShowConfirmPass(!showConfirmPass)}
-                >
-                  {showConfirmPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                </Button>
-              </div>
-              {confirmPassword && newPassword !== confirmPassword && (
-                <p className="mt-1 text-xs text-red-500 font-medium">Passwords do not match</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <hr className="border-border/30" />
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label>Nickname</Label>
-            <Input value={nickname} onChange={e => setNickname(e.target.value)} className="mt-1" />
-          </div>
-          <div>
-            <Label>Gender</Label>
-            <select
-              value={gender}
-              onChange={e => setGender(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Select Gender...</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-            </select>
-          </div>
-          <div>
-            <Label>Blood Group</Label>
-            <Input
-              list="profile-blood-groups"
-              value={blood}
-              onChange={e => setBlood(e.target.value)}
-              placeholder="Select or type..."
-              className="mt-1"
-            />
-            <datalist id="profile-blood-groups">
-              {bloodOptions.map(bg => (
-                <option key={bg} value={bg} />
-              ))}
-            </datalist>
-          </div>
-          <div>
-            <Label>Education Level</Label>
-            <select
-              value={educationLevel}
-              onChange={e => setEducationLevel(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Select Education Level...</option>
-              {EDUCATION_LEVELS.map(level => (
-                <option key={level} value={level}>
-                  {level}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <Label>Contact Number</Label>
-            <div className="mt-1 flex gap-1">
-              <Input className="w-1/4 text-center" value={phoneCC} onChange={e => setPhoneCC(e.target.value)} />
-              <Input className="w-3/4" value={phoneNum} onChange={e => setPhoneNum(e.target.value)} />
-            </div>
-          </div>
-          <div>
-            <Label>WhatsApp Number</Label>
-            <div className="mt-1 flex gap-1">
-              <Input className="w-1/4 text-center" value={waCC} onChange={e => setWaCC(e.target.value)} />
-              <Input className="w-3/4" value={waNum} onChange={e => setWaNum(e.target.value)} />
-            </div>
-          </div>
-          <div className="col-span-2">
-            <Label>Current Career Status</Label>
-            <select
-              value={status}
-              onChange={e => setStatus(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              <option value="Noble Services">Noble Services</option>
-              <option value="Freelancer">Freelancer</option>
-              <option value="Business">Business</option>
-              <option value="Self-Employed">Self-Employed</option>
-              <option value="Employed">Employed</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <Label>Profile Photo (A copy is automatically archived in your Gallery folder)</Label>
-          <Input value={pic} onChange={e => setPic(e.target.value)} className="mt-1" placeholder="URL or Data String" />
-          <div className="mt-1.5 flex gap-2">
-            <input type="file" accept="image/*" id="profile-pic-file" className="hidden" onChange={handleFileUpload} />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              title="Upload Profile Image"
-              className="gap-1.5 border-primary/30 hover:shadow-primary/5"
-              onClick={() => document.getElementById('profile-pic-file')?.click()}
-            >
-              <Upload className="h-3.5 w-3.5" />
-              Upload Image
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              title="Capture Profile Photo with Camera"
-              className="gap-1.5 border-primary/30 hover:shadow-primary/5"
-              onClick={() => setShowCamera(true)}
-            >
-              <Camera className="h-3.5 w-3.5" />
-              Use Camera
-            </Button>
-          </div>
-        </div>
-
-        <div>
-          <Label className="flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5 text-primary" />
-            Permanent Address
-          </Label>
-          <Textarea value={permAddr} onChange={e => setPermAddr(e.target.value)} className="mt-1 h-12" />
-        </div>
-        <div>
-          <Label>Permanent Google Map Link</Label>
-          <Input value={permGeo} onChange={e => setPermGeo(e.target.value)} className="mt-1" placeholder="https://maps.google.com/..." />
-        </div>
-        <div>
-          <Label className="flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5 text-primary" />
-            Current Address
-          </Label>
-          <Textarea value={currAddr} onChange={e => setCurrAddr(e.target.value)} className="mt-1 h-12" />
-        </div>
-        <div>
-          <Label>Current Google Map Link</Label>
-          <Input value={currGeo} onChange={e => setCurrGeo(e.target.value)} className="mt-1" placeholder="https://maps.google.com/..." />
-        </div>
-
-        <hr className="border-border/30" />
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <Label className="flex items-center gap-1.5">
-              <Heart className="h-3.5 w-3.5 text-primary" />
-              Marital Status
-            </Label>
-            <select
-              value={marital}
-              onChange={e => setMarital(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              <option value="Single">Single</option>
-              <option value="Married">Married</option>
-              <option value="Divorced">Divorced</option>
-            </select>
-          </div>
-          {marital !== 'Single' && (
-            <div>
-              <Label>Wedding Date</Label>
-              <Input type="date" value={wedding} onChange={e => setWedding(e.target.value)} className="mt-1" />
-            </div>
-          )}
-          {marital === 'Divorced' && (
-            <div>
-              <Label>Divorce Date</Label>
-              <Input type="date" value={divorce} onChange={e => setDivorce(e.target.value)} className="mt-1" />
-            </div>
-          )}
-        </div>
-
-        {marital === 'Married' && (
-          <Card className="border-primary/20 bg-primary/5">
-            <CardContent className="space-y-2 p-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label>Spouse Name</Label>
-                  <Input value={spouseName} onChange={e => setSpouseName(e.target.value)} className="mt-1" />
+    <div className="mx-auto max-w-2xl space-y-4">
+      {/* My Assigned Audit & Admin Tasks */}
+      {myTasks.length > 0 && (
+        <Card className="border-amber-500/40 bg-amber-500/5 backdrop-blur-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm text-amber-300">
+              <ClipboardCheck className="h-4 w-4" />
+              My Assigned Tasks ({myTasks.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2.5">
+            {myTasks.map(t => (
+              <div
+                key={t.id}
+                className="rounded-xl border border-border/40 bg-background/70 p-3 space-y-2 text-xs"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-primary">{t.title}</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => handleCompleteMyTask(t.id)}
+                    className="h-7 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold gap-1 text-[11px]"
+                  >
+                    <CheckCircle2 className="h-3 w-3" />
+                    Mark Completed
+                  </Button>
                 </div>
-                <div>
-                  <Label>Spouse DOB</Label>
-                  <Input type="date" value={spouseDob} onChange={e => setSpouseDob(e.target.value)} className="mt-1" />
+                <p className="text-foreground/90 whitespace-pre-line leading-relaxed">{t.description}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="border-border/40 bg-card/60 backdrop-blur-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-primary">
+            <User className="h-5 w-5" />
+            Update Profile
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm">
+          {/* Credentials Section */}
+          <h3 className="flex items-center gap-2 font-bold text-primary">
+            <Lock className="h-4 w-4" />
+            Account Credentials
+          </h3>
+          <div className="space-y-3 rounded-lg border border-border/50 bg-background/40 p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label>Current Username</Label>
+                <Input
+                  value={currentUsername}
+                  readOnly
+                  className="mt-1 bg-input/30 text-muted-foreground"
+                  placeholder="No username set"
+                />
+              </div>
+              <div>
+                <Label>Current Password</Label>
+                <div className="relative mt-1">
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    value={currentPassword}
+                    readOnly
+                    className="bg-input/30 text-muted-foreground pr-10"
+                    placeholder="No password set"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <hr className="border-border/30 my-2" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="col-span-1 md:col-span-2">
+                <Label>Update Username</Label>
+                <Input
+                  value={newUsername}
+                  onChange={e => setNewUsername(e.target.value)}
+                  placeholder="Leave blank to keep current"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Update Password</Label>
+                <div className="relative mt-1">
+                  <Input
+                    type={showNewPass ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    placeholder="New Password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1 h-7 w-7 p-0"
+                    onClick={() => setShowNewPass(!showNewPass)}
+                  >
+                    {showNewPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </Button>
                 </div>
               </div>
               <div>
-                <Label>Spouse Details</Label>
-                <Input value={spouseDetails} onChange={e => setSpouseDetails(e.target.value)} className="mt-1" />
+                <Label>Retype New Password</Label>
+                <div className="relative mt-1">
+                  <Input
+                    type={showConfirmPass ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm New Password"
+                    className={confirmPassword && newPassword !== confirmPassword ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1 h-7 w-7 p-0"
+                    onClick={() => setShowConfirmPass(!showConfirmPass)}
+                  >
+                    {showConfirmPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
+                {confirmPassword && newPassword !== confirmPassword && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">Passwords do not match</p>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </div>
 
-        <div>
-          <Label>Personal Timeline / Notes</Label>
-          <Textarea
-            value={diary}
-            onChange={e => setDiary(e.target.value)}
-            className="mt-1 h-24 font-mono text-xs"
-            placeholder="Add important life events here..."
+          <hr className="border-border/30" />
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Nickname</Label>
+              <Input value={nickname} onChange={e => setNickname(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label>Gender</Label>
+              <select
+                value={gender}
+                onChange={e => setGender(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select Gender...</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
+            <div>
+              <Label>Blood Group</Label>
+              <Input
+                list="profile-blood-groups"
+                value={blood}
+                onChange={e => setBlood(e.target.value)}
+                placeholder="Select or type..."
+                className="mt-1"
+              />
+              <datalist id="profile-blood-groups">
+                {bloodOptions.map(bg => (
+                  <option key={bg} value={bg} />
+                ))}
+              </datalist>
+            </div>
+            <div>
+              <Label>Education Level</Label>
+              <select
+                value={educationLevel}
+                onChange={e => setEducationLevel(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select Education Level...</option>
+                {EDUCATION_LEVELS.map(level => (
+                  <option key={level} value={level}>
+                    {level}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label>Contact Number</Label>
+              <div className="mt-1 flex gap-1">
+                <Input className="w-1/4 text-center" value={phoneCC} onChange={e => setPhoneCC(e.target.value)} />
+                <Input className="w-3/4" value={phoneNum} onChange={e => setPhoneNum(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <Label>WhatsApp Number</Label>
+              <div className="mt-1 flex gap-1">
+                <Input className="w-1/4 text-center" value={waCC} onChange={e => setWaCC(e.target.value)} />
+                <Input className="w-3/4" value={waNum} onChange={e => setWaNum(e.target.value)} />
+              </div>
+            </div>
+            <div className="col-span-2">
+              <Label>Current Career Status</Label>
+              <select
+                value={status}
+                onChange={e => setStatus(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="Noble Services">Noble Services</option>
+                <option value="Freelancer">Freelancer</option>
+                <option value="Business">Business</option>
+                <option value="Self-Employed">Self-Employed</option>
+                <option value="Employed">Employed</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <Label>Profile Photo (A copy is automatically archived in your Gallery folder)</Label>
+            <Input value={pic} onChange={e => setPic(e.target.value)} className="mt-1" placeholder="URL or Data String" />
+            <div className="mt-1.5 flex gap-2">
+              <input type="file" accept="image/*" id="profile-pic-file" className="hidden" onChange={handleFileUpload} />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                title="Upload Profile Image"
+                className="gap-1.5 border-primary/30 hover:shadow-primary/5"
+                onClick={() => document.getElementById('profile-pic-file')?.click()}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Upload Image
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                title="Capture Profile Photo with Camera"
+                className="gap-1.5 border-primary/30 hover:shadow-primary/5"
+                onClick={() => setShowCamera(true)}
+              >
+                <Camera className="h-3.5 w-3.5" />
+                Use Camera
+              </Button>
+            </div>
+          </div>
+
+          <div>
+            <Label className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-primary" />
+              Permanent Address
+            </Label>
+            <Textarea value={permAddr} onChange={e => setPermAddr(e.target.value)} className="mt-1 h-12" />
+          </div>
+          <div>
+            <Label>Permanent Google Map Link</Label>
+            <Input value={permGeo} onChange={e => setPermGeo(e.target.value)} className="mt-1" placeholder="https://maps.google.com/..." />
+          </div>
+          <div>
+            <Label className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-primary" />
+              Current Address
+            </Label>
+            <Textarea value={currAddr} onChange={e => setCurrAddr(e.target.value)} className="mt-1 h-12" />
+          </div>
+          <div>
+            <Label>Current Google Map Link</Label>
+            <Input value={currGeo} onChange={e => setCurrGeo(e.target.value)} className="mt-1" placeholder="https://maps.google.com/..." />
+          </div>
+
+          <hr className="border-border/30" />
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <Label className="flex items-center gap-1.5">
+                <Heart className="h-3.5 w-3.5 text-primary" />
+                Marital Status
+              </Label>
+              <select
+                value={marital}
+                onChange={e => setMarital(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="Single">Single</option>
+                <option value="Married">Married</option>
+                <option value="Divorced">Divorced</option>
+              </select>
+            </div>
+            {marital !== 'Single' && (
+              <div>
+                <Label>Wedding Date</Label>
+                <Input type="date" value={wedding} onChange={e => setWedding(e.target.value)} className="mt-1" />
+              </div>
+            )}
+            {marital === 'Divorced' && (
+              <div>
+                <Label>Divorce Date</Label>
+                <Input type="date" value={divorce} onChange={e => setDivorce(e.target.value)} className="mt-1" />
+              </div>
+            )}
+          </div>
+
+          {marital === 'Married' && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardContent className="space-y-2 p-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Spouse Name</Label>
+                    <Input value={spouseName} onChange={e => setSpouseName(e.target.value)} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>Spouse DOB</Label>
+                    <Input type="date" value={spouseDob} onChange={e => setSpouseDob(e.target.value)} className="mt-1" />
+                  </div>
+                </div>
+                <div>
+                  <Label>Spouse Details</Label>
+                  <Input value={spouseDetails} onChange={e => setSpouseDetails(e.target.value)} className="mt-1" />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div>
+            <Label>Personal Timeline / Notes</Label>
+            <Textarea
+              value={diary}
+              onChange={e => setDiary(e.target.value)}
+              className="mt-1 h-24 font-mono text-xs"
+              placeholder="Add important life events here..."
+            />
+          </div>
+
+          <hr className="border-border/30" />
+          <h3 className="flex items-center gap-2 font-bold text-primary">
+            <Shield className="h-4 w-4" />
+            Privacy Settings
+          </h3>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={hidePeers} onCheckedChange={v => setHidePeers(!!v)} />
+              <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+              Hide my profile from classmates
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={hideAdmin} onCheckedChange={v => setHideAdmin(!!v)} />
+              <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+              Hide my profile from Admin
+            </label>
+          </div>
+
+          <Button onClick={handleSave} title="Save Profile Settings" className="w-full gold-gradient text-gold-foreground gap-2">
+            <Save className="h-4 w-4" />
+            Save Profile Settings
+          </Button>
+        </CardContent>
+
+        {showCamera && (
+          <CameraModal
+            onCapture={data => {
+              setPic(data)
+              setShowCamera(false)
+            }}
+            onClose={() => setShowCamera(false)}
           />
-        </div>
-
-        <hr className="border-border/30" />
-        <h3 className="flex items-center gap-2 font-bold text-primary">
-          <Shield className="h-4 w-4" />
-          Privacy Settings
-        </h3>
-        <div className="flex flex-wrap gap-4">
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={hidePeers} onCheckedChange={v => setHidePeers(!!v)} />
-            <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
-            Hide my profile from classmates
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={hideAdmin} onCheckedChange={v => setHideAdmin(!!v)} />
-            <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
-            Hide my profile from Admin
-          </label>
-        </div>
-
-        <Button onClick={handleSave} title="Save Profile Settings" className="w-full gold-gradient text-gold-foreground gap-2">
-          <Save className="h-4 w-4" />
-          Save Profile Settings
-        </Button>
-      </CardContent>
-
-      {showCamera && (
-        <CameraModal
-          onCapture={data => {
-            setPic(data)
-            setShowCamera(false)
-          }}
-          onClose={() => setShowCamera(false)}
-        />
-      )}
-    </Card>
+        )}
+      </Card>
+    </div>
   )
 }
