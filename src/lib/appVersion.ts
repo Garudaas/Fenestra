@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.98",
-  "timestamp": "23 Nov 2026, 04:39 AM IST",
-  "formatted": "V1.98, 23 Nov 2026, 04:39 AM IST",
+  "version": "V1.99",
+  "timestamp": "23 Nov 2026, 04:41 AM IST",
+  "formatted": "V1.99, 23 Nov 2026, 04:41 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Member profile details updated)",
+  "summary": "Minor technical update (Refactor taskAuditService for clarity and type safety)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.99",
+      "timestamp": "23 Nov 2026, 04:41 AM IST",
+      "formatted": "V1.99, 23 Nov 2026, 04:41 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor taskAuditService for clarity and type safety)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.98",
       "timestamp": "23 Nov 2026, 04:39 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.75, 23 Nov 2026, 02:06 AM IST",
       "type": "minor",
       "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.74",
-      "timestamp": "23 Nov 2026, 02:04 AM IST",
-      "formatted": "V1.74, 23 Nov 2026, 02:04 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add new line at the end of MediaArchiveTab.tsx)",
       "requiresReinstall": false
     }
   ]
