@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.45",
-  "timestamp": "22 Nov 2026, 09:46 PM IST",
-  "formatted": "V1.45, 22 Nov 2026, 09:46 PM IST",
+  "version": "V1.46",
+  "timestamp": "22 Nov 2026, 09:47 PM IST",
+  "formatted": "V1.46, 22 Nov 2026, 09:47 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Handle errors in syncArchivedNotificationsForUser)",
+  "summary": "Minor technical update (Refactor celebrations to use structured objects)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.46",
+      "timestamp": "22 Nov 2026, 09:47 PM IST",
+      "formatted": "V1.46, 22 Nov 2026, 09:47 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor celebrations to use structured objects)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.45",
       "timestamp": "22 Nov 2026, 09:46 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.22, 21 Nov 2026, 02:06 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor FamilyTab component state management)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.21",
-      "timestamp": "21 Nov 2026, 02:05 AM IST",
-      "formatted": "V1.21, 21 Nov 2026, 02:05 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Member profile details updated)",
       "requiresReinstall": false
     }
   ]
