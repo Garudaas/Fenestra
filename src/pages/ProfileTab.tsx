@@ -5,8 +5,17 @@ import {
   fetchAllBloodGroups,
   syncCustomBloodGroupOnChange,
   saveAuditPreference,
+  getDefaultSpouseGender,
   EDUCATION_LEVELS,
 } from '@/lib/fenestriansCore'
+import { publishArchivedAlert } from '@/lib/notificationService'
+import {
+  formatFullDate,
+  cleanPhoneNumber,
+  splitPhoneForEditor,
+} from '@/lib/formatters'
+import SmartDateInput from '@/components/shared/SmartDateInput'
+import SmartPhoneInput from '@/components/shared/SmartPhoneInput'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -36,6 +45,10 @@ import {
   Briefcase,
   CalendarDays,
   ArrowLeft,
+  Plus,
+  Trash2,
+  AlertTriangle,
+  Users,
 } from 'lucide-react'
 
 interface MyPendingTask {
@@ -46,10 +59,6 @@ interface MyPendingTask {
   created_at: string
 }
 
-/**
- * Resizes and compresses any image file or data URL into a lightweight JPEG blob (~60–120 KB)
- * so profile updates never hit database statement timeouts.
- */
 async function compressImageToJpegBlob(source: File | string, maxDimension = 800, quality = 0.82): Promise<Blob> {
   const objectUrl = typeof source === 'string' ? source : URL.createObjectURL(source)
   try {
@@ -106,17 +115,20 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 export default function ProfileTab() {
   const { user } = useAuth()
 
-  // Toggle between Profile View and Edit Profile Form
   const [isEditing, setIsEditing] = useState(false)
+  const [showFamilyEditor, setShowFamilyEditor] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploadingPic, setUploadingPic] = useState(false)
   const [saveBanner, setSaveBanner] = useState('')
 
   const [profileData, setProfileData] = useState<any>(null)
+  const [familyMembers, setFamilyMembers] = useState<any[]>([])
   const [myTasks, setMyTasks] = useState<MyPendingTask[]>([])
 
+  // Profile fields
   const [nickname, setNickname] = useState('')
   const [gender, setGender] = useState('')
+  const [dob, setDob] = useState('')
   const [blood, setBlood] = useState('')
   const [previousBlood, setPreviousBlood] = useState('')
   const [bloodOptions, setBloodOptions] = useState<string[]>([])
@@ -137,10 +149,14 @@ export default function ProfileTab() {
   const [diary, setDiary] = useState('')
   const [hidePeers, setHidePeers] = useState(false)
   const [hideAdmin, setHideAdmin] = useState(false)
+
+  // Phone & WhatsApp states
   const [phoneCC, setPhoneCC] = useState('+91')
   const [phoneNum, setPhoneNum] = useState('')
   const [waCC, setWaCC] = useState('+91')
   const [waNum, setWaNum] = useState('')
+  const [waSameAsContact, setWaSameAsContact] = useState(false)
+
   const [showCamera, setShowCamera] = useState(false)
 
   // Credentials states
@@ -153,6 +169,25 @@ export default function ProfileTab() {
   const [showNewPass, setShowNewPass] = useState(false)
   const [showConfirmPass, setShowConfirmPass] = useState(false)
 
+  // Inline Family Member Form states
+  const [editingFamilyId, setEditingFamilyId] = useState<string | null>(null)
+  const [previousFamBlood, setPreviousFamBlood] = useState('')
+  const [famGenderAutoSet, setFamGenderAutoSet] = useState(false)
+  const [famRelationship, setFamRelationship] = useState('')
+  const [famCustomRel, setFamCustomRel] = useState('')
+  const [famName, setFamName] = useState('')
+  const [famGender, setFamGender] = useState('')
+  const [famDob, setFamDob] = useState('')
+  const [famBloodGroup, setFamBloodGroup] = useState('')
+  const [famEdu, setFamEdu] = useState('')
+  const [famEduSpec, setFamEduSpec] = useState('')
+  const [famGradYear, setFamGradYear] = useState('')
+  const [famCareer, setFamCareer] = useState('')
+  const [famBio, setFamBio] = useState('')
+  const [famNeedsSupport, setFamNeedsSupport] = useState(false)
+  const [famSupportDetails, setFamSupportDetails] = useState('')
+  const [famIsPrivate, setFamIsPrivate] = useState(false)
+
   const loadMyPendingTasks = async (userId: number) => {
     const { data } = await supabase
       .from('member_tasks')
@@ -164,6 +199,11 @@ export default function ProfileTab() {
     setMyTasks((data ?? []) as MyPendingTask[])
   }
 
+  const loadFamily = async (userId: number) => {
+    const { data } = await supabase.from('family_members').select('*').eq('alumni_id', userId)
+    if (data) setFamilyMembers(data)
+  }
+
   const fetchLatestProfile = async () => {
     if (!user) return
 
@@ -173,7 +213,7 @@ export default function ProfileTab() {
     ])
 
     setBloodOptions(bgs)
-    await loadMyPendingTasks(user.id)
+    await Promise.all([loadMyPendingTasks(user.id), loadFamily(user.id)])
 
     if (profileRes.data && !profileRes.error) {
       const merged = { ...user, ...profileRes.data }
@@ -208,6 +248,7 @@ export default function ProfileTab() {
 
     setNickname(d.class_nickname || '')
     setGender(d.gender || '')
+    setDob(d.dob || '')
     setBlood(d.blood_group || '')
     setPreviousBlood(d.blood_group || '')
     setEducationLevel(d.education_level || '')
@@ -228,30 +269,183 @@ export default function ProfileTab() {
     setHidePeers(d.hide_from_peers || false)
     setHideAdmin(d.hide_from_admin || false)
 
-    const cRaw = d.contact_number || ''
-    const cParts = cRaw.split(' ')
-    if (cParts.length > 1 && cParts[0].startsWith('+')) {
-      setPhoneCC(cParts[0])
-      setPhoneNum(cParts.slice(1).join(' '))
-    } else {
-      setPhoneCC('+91')
-      setPhoneNum(cRaw)
-    }
+    const splitContact = splitPhoneForEditor(d.contact_number)
+    const splitWa = splitPhoneForEditor(d.whatsapp_number)
+    setPhoneCC(splitContact.countryCode)
+    setPhoneNum(splitContact.localNumber)
 
-    const waRaw = d.whatsapp_number || ''
-    const waParts = waRaw.split(' ')
-    if (waParts.length > 1 && waParts[0].startsWith('+')) {
-      setWaCC(waParts[0])
-      setWaNum(waParts.slice(1).join(' '))
+    const cleanC = cleanPhoneNumber(d.contact_number)
+    const cleanW = cleanPhoneNumber(d.whatsapp_number)
+    if (cleanC && cleanW && cleanC === cleanW) {
+      setWaSameAsContact(true)
+      setWaCC(splitContact.countryCode)
+      setWaNum(splitContact.localNumber)
     } else {
-      setWaCC('+91')
-      setWaNum(waRaw)
+      setWaSameAsContact(false)
+      setWaCC(splitWa.countryCode)
+      setWaNum(splitWa.localNumber)
     }
   }
 
-  /**
-   * Compresses image and uploads to Supabase Storage so profile_picture_url is a fast short URL.
-   */
+  const resetFamilyForm = () => {
+    setEditingFamilyId(null)
+    setPreviousFamBlood('')
+    setFamGenderAutoSet(false)
+    setFamRelationship('')
+    setFamCustomRel('')
+    setFamName('')
+    setFamGender('')
+    setFamDob('')
+    setFamBloodGroup('')
+    setFamEdu('')
+    setFamEduSpec('')
+    setFamGradYear('')
+    setFamCareer('')
+    setFamBio('')
+    setFamNeedsSupport(false)
+    setFamSupportDetails('')
+    setFamIsPrivate(false)
+  }
+
+  const openAddFamilyForm = () => {
+    resetFamilyForm()
+    setShowFamilyEditor(true)
+  }
+
+  const openEditFamilyForm = (fm: any) => {
+    setEditingFamilyId(String(fm.id))
+    setFamGenderAutoSet(false)
+    setFamName(fm.name || '')
+    setFamRelationship(fm.relationship || '')
+    setFamGender(fm.gender || '')
+    setFamDob(fm.dob || '')
+    setFamBloodGroup(fm.blood_group || '')
+    setPreviousFamBlood(fm.blood_group || '')
+    setFamEdu(fm.education_level || '')
+    setFamEduSpec(fm.education_details || '')
+    setFamGradYear(fm.graduation_year || '')
+    setFamCareer(fm.career || '')
+    setFamBio(fm.bio || '')
+    setFamSupportDetails(fm.support_details || '')
+    setFamNeedsSupport(Boolean(fm.needs_support))
+    setFamIsPrivate(Boolean(fm.is_private))
+    setShowFamilyEditor(true)
+  }
+
+  const handleFamRelationshipChange = (nextRel: string) => {
+    setFamRelationship(nextRel)
+    if (editingFamilyId) return
+
+    if (nextRel === 'Spouse') {
+      const opposite = getDefaultSpouseGender(gender || profileData?.gender || '')
+      setFamGender(opposite)
+      setFamGenderAutoSet(Boolean(opposite))
+    } else if (nextRel === 'Son') {
+      setFamGender('Male')
+      setFamGenderAutoSet(true)
+    } else if (nextRel === 'Daughter') {
+      setFamGender('Female')
+      setFamGenderAutoSet(true)
+    } else if (famGenderAutoSet) {
+      setFamGender('')
+      setFamGenderAutoSet(false)
+    }
+  }
+
+  const handleSaveFamilyMember = async () => {
+    if (!user || !famName.trim() || !famRelationship) {
+      alert('Please select Relationship and enter Full Name.')
+      return
+    }
+
+    const finalRelationship = famRelationship === 'Other' ? famCustomRel.trim() || 'Other' : famRelationship
+    const trimmedName = famName.trim()
+
+    const duplicateMatches = familyMembers.filter(m => {
+      if (editingFamilyId && String(m.id) === String(editingFamilyId)) return false
+      const sameName = (m.name || '').trim().toLowerCase() === trimmedName.toLowerCase()
+      const sameSpouse =
+        finalRelationship.toLowerCase() === 'spouse' &&
+        (m.relationship || '').trim().toLowerCase() === 'spouse'
+      return sameName || sameSpouse
+    })
+
+    if (duplicateMatches.length > 0) {
+      const existing = duplicateMatches[0]
+      const removeDuplicate = window.confirm(
+        `Duplicate Entry Detected: "${existing.name}" (${existing.relationship}) is already listed.\n\nClick OK to DELETE the earlier duplicate entry and keep this one, or click Cancel to RETAIN both entries.`
+      )
+      if (removeDuplicate) {
+        await supabase.from('family_members').delete().eq('id', existing.id)
+      } else {
+        await saveAuditPreference(
+          user.id,
+          'retain_duplicate',
+          `family_name_${trimmedName.toLowerCase()}`
+        )
+      }
+    }
+
+    const payload = {
+      alumni_id: user.id,
+      relationship: finalRelationship,
+      name: trimmedName,
+      gender: famGender.trim(),
+      dob: famDob || null,
+      blood_group: famBloodGroup.trim(),
+      education_level: famEdu,
+      education_details: famEduSpec.trim(),
+      graduation_year: famGradYear || null,
+      career: famCareer.trim(),
+      bio: famBio.trim(),
+      is_private: famIsPrivate,
+      needs_support: famNeedsSupport,
+      support_details: famSupportDetails.trim(),
+    }
+
+    if (editingFamilyId) {
+      const { alumni_id, ...updatePayload } = payload
+      await supabase.from('family_members').update(updatePayload).eq('id', editingFamilyId)
+    } else {
+      await supabase.from('family_members').insert([payload])
+    }
+
+    await syncCustomBloodGroupOnChange({
+      userId: user.id,
+      newBloodGroup: famBloodGroup.trim(),
+      previousBloodGroup: previousFamBlood,
+    })
+
+    if (famNeedsSupport && famSupportDetails.trim()) {
+      await supabase.from('family_support_requests').insert([
+        {
+          member_id: user.id,
+          member_name: user.full_name,
+          title: `Support needed for ${trimmedName} (${finalRelationship})`,
+          description: famSupportDetails.trim(),
+          status: 'open',
+        },
+      ])
+      await publishArchivedAlert({
+        category: 'help_needed',
+        shortTitle: 'Your friend Needs help',
+        fullMessage: `${user.full_name}'s ${finalRelationship} (${trimmedName}) needs support: ${famSupportDetails.trim()}`,
+        needsHelpFlag: true,
+      })
+    }
+
+    resetFamilyForm()
+    const [refreshedBgs] = await Promise.all([fetchAllBloodGroups(), loadFamily(user.id)])
+    setBloodOptions(refreshedBgs)
+    setShowFamilyEditor(false)
+  }
+
+  const handleDeleteFamilyMember = async (id: string) => {
+    if (!user || !window.confirm('Are you sure you want to delete this family member?')) return
+    await supabase.from('family_members').delete().eq('id', id)
+    await loadFamily(user.id)
+  }
+
   const processAndUploadProfileImage = async (source: File | string): Promise<string> => {
     if (!user) return ''
     const compressedBlob = await compressImageToJpegBlob(source, 800, 0.82)
@@ -273,7 +467,6 @@ export default function ProfileTab() {
       }
     }
 
-    // Fallback to small compressed JPEG data URL (~70 KB) if storage bucket is unreachable
     return await blobToDataUrl(compressedBlob)
   }
 
@@ -315,28 +508,15 @@ export default function ProfileTab() {
       return
     }
 
-    let finalWA = waNum ? `${waCC} ${waNum}` : ''
-    let finalPh = phoneNum ? `${phoneCC} ${phoneNum}` : ''
+    const finalPh = cleanPhoneNumber(phoneNum, phoneCC)
+    const finalWA = waSameAsContact ? finalPh : cleanPhoneNumber(waNum, waCC)
 
-    if (
-      finalPh &&
-      finalWA &&
-      finalPh.replace(/\D/g, '') === finalWA.replace(/\D/g, '')
-    ) {
-      const removeDuplicate = window.confirm(
-        `Duplicate Entry Detected: Your Contact Number (${finalPh}) and WhatsApp Number (${finalWA}) are identical.\n\nClick OK to remove the duplicate WhatsApp entry, or click Cancel to RETAIN both.`
-      )
-      if (removeDuplicate) {
-        finalWA = ''
-        setWaNum('')
-      } else {
-        await saveAuditPreference(user.id, 'retain_duplicate', 'duplicate_phone_numbers')
-      }
+    if (finalPh && finalWA && finalPh === finalWA && !waSameAsContact) {
+      await saveAuditPreference(user.id, 'retain_duplicate', 'duplicate_phone_numbers')
     }
 
     setSaving(true)
     try {
-      // Ensure any oversized raw data URL is compressed and uploaded to Storage first
       let finalPicUrl = pic.trim()
       if (finalPicUrl.startsWith('data:') && finalPicUrl.length > 150000) {
         finalPicUrl = await processAndUploadProfileImage(finalPicUrl)
@@ -346,6 +526,7 @@ export default function ProfileTab() {
       const updatePayload: any = {
         class_nickname: nickname,
         gender,
+        dob: dob || null,
         whatsapp_number: finalWA,
         contact_number: finalPh,
         blood_group: blood.trim(),
@@ -377,14 +558,12 @@ export default function ProfileTab() {
         return
       }
 
-      // Update custom blood group table & clean up edited typos
       await syncCustomBloodGroupOnChange({
         userId: user.id,
         newBloodGroup: blood.trim(),
         previousBloodGroup: previousBlood,
       })
 
-      // Save a copy of the updated profile picture to the member's Gallery archive
       if (finalPicUrl && finalPicUrl !== previousPic) {
         await archiveProfilePictureCopy(finalPicUrl)
         setPreviousPic(finalPicUrl)
@@ -397,10 +576,8 @@ export default function ProfileTab() {
       setNewPassword('')
       setConfirmPassword('')
 
-      // Refresh profile state and switch directly to Profile View
       await fetchLatestProfile()
 
-      // Keep localStorage session updated
       try {
         const saved = localStorage.getItem('alumni_session')
         if (saved) {
@@ -415,11 +592,12 @@ export default function ProfileTab() {
           )
         }
       } catch {
-        // Ignore storage errors
+        // Ignore
       }
 
       setSaveBanner('Profile updated successfully!')
       setIsEditing(false)
+      setShowFamilyEditor(false)
       window.scrollTo({ top: 0, behavior: 'smooth' })
       setTimeout(() => setSaveBanner(''), 4000)
     } catch (err: any) {
@@ -461,6 +639,8 @@ export default function ProfileTab() {
   if (!user) return null
 
   const activeProfile = profileData || user
+  const displayContact = cleanPhoneNumber(activeProfile.contact_number)
+  const displayWhatsApp = cleanPhoneNumber(activeProfile.whatsapp_number)
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -505,7 +685,7 @@ export default function ProfileTab() {
         </Card>
       )}
 
-      {/* DIRECT PROFILE VIEW (Shown on load and immediately after clicking Update Profile) */}
+      {/* 1. PROFILE VIEW */}
       {!isEditing ? (
         <Card className="border-border/40 bg-card/70 backdrop-blur-sm shadow-xl">
           <CardHeader className="pb-3">
@@ -528,7 +708,6 @@ export default function ProfileTab() {
           </CardHeader>
 
           <CardContent className="space-y-5 text-sm">
-            {/* Profile Header & Photo */}
             <div className="flex flex-col sm:flex-row items-center gap-4 rounded-xl border border-primary/25 bg-primary/5 p-4">
               {activeProfile.profile_picture_url ? (
                 <img
@@ -568,8 +747,41 @@ export default function ProfileTab() {
               </div>
             </div>
 
-            {/* Key Details Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="rounded-lg border border-border/30 bg-muted/15 p-3 space-y-1">
+                <p className="flex items-center gap-1.5 text-muted-foreground">
+                  <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                  Date of Birth
+                </p>
+                <p className="font-semibold text-foreground text-sm">
+                  {formatFullDate(activeProfile.dob, 'Not provided')}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-border/30 bg-muted/15 p-3 space-y-1">
+                <p className="flex items-center gap-1.5 text-muted-foreground">
+                  <GraduationCap className="h-3.5 w-3.5 text-primary" />
+                  Education Level
+                </p>
+                <p className="font-semibold text-foreground text-sm">{activeProfile.education_level || 'Not provided'}</p>
+              </div>
+
+              <div className="rounded-lg border border-border/30 bg-muted/15 p-3 space-y-1">
+                <p className="flex items-center gap-1.5 text-muted-foreground">
+                  <Phone className="h-3.5 w-3.5 text-primary" />
+                  Contact Number
+                </p>
+                <p className="font-semibold text-foreground text-sm">{displayContact || 'Not provided'}</p>
+              </div>
+
+              <div className="rounded-lg border border-border/30 bg-muted/15 p-3 space-y-1">
+                <p className="flex items-center gap-1.5 text-muted-foreground">
+                  <Phone className="h-3.5 w-3.5 text-emerald-400" />
+                  WhatsApp Number
+                </p>
+                <p className="font-semibold text-emerald-400 text-sm">{displayWhatsApp || 'Not provided'}</p>
+              </div>
+
               <div className="rounded-lg border border-border/30 bg-muted/15 p-3 space-y-1">
                 <p className="flex items-center gap-1.5 text-muted-foreground">
                   <Briefcase className="h-3.5 w-3.5 text-primary" />
@@ -580,46 +792,13 @@ export default function ProfileTab() {
 
               <div className="rounded-lg border border-border/30 bg-muted/15 p-3 space-y-1">
                 <p className="flex items-center gap-1.5 text-muted-foreground">
-                  <GraduationCap className="h-3.5 w-3.5 text-primary" />
-                  Education Level
-                </p>
-                <p className="font-semibold text-foreground text-sm">{activeProfile.education_level || '-'}</p>
-              </div>
-
-              <div className="rounded-lg border border-border/30 bg-muted/15 p-3 space-y-1">
-                <p className="flex items-center gap-1.5 text-muted-foreground">
-                  <Phone className="h-3.5 w-3.5 text-primary" />
-                  Contact Number
-                </p>
-                <p className="font-semibold text-foreground text-sm">{activeProfile.contact_number || '-'}</p>
-              </div>
-
-              <div className="rounded-lg border border-border/30 bg-muted/15 p-3 space-y-1">
-                <p className="flex items-center gap-1.5 text-muted-foreground">
-                  <Phone className="h-3.5 w-3.5 text-emerald-400" />
-                  WhatsApp Number
-                </p>
-                <p className="font-semibold text-emerald-400 text-sm">{activeProfile.whatsapp_number || '-'}</p>
-              </div>
-
-              <div className="rounded-lg border border-border/30 bg-muted/15 p-3 space-y-1">
-                <p className="flex items-center gap-1.5 text-muted-foreground">
                   <Mail className="h-3.5 w-3.5 text-primary" />
                   Email
                 </p>
                 <p className="font-semibold text-foreground text-sm truncate">{activeProfile.email || '-'}</p>
               </div>
-
-              <div className="rounded-lg border border-border/30 bg-muted/15 p-3 space-y-1">
-                <p className="flex items-center gap-1.5 text-muted-foreground">
-                  <CalendarDays className="h-3.5 w-3.5 text-primary" />
-                  Date of Birth
-                </p>
-                <p className="font-semibold text-foreground text-sm">{activeProfile.dob || '-'}</p>
-              </div>
             </div>
 
-            {/* Addresses */}
             <div className="space-y-2 rounded-xl border border-border/30 bg-muted/15 p-3.5 text-xs">
               <div>
                 <p className="flex items-center gap-1.5 font-semibold text-primary">
@@ -627,16 +806,6 @@ export default function ProfileTab() {
                   Permanent Address
                 </p>
                 <p className="text-foreground/90 mt-0.5">{activeProfile.permanent_address || 'Not provided'}</p>
-                {activeProfile.permanent_geo_location && (
-                  <a
-                    href={activeProfile.permanent_geo_location}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-primary hover:underline text-[11px] font-medium"
-                  >
-                    Open Map Location →
-                  </a>
-                )}
               </div>
 
               <hr className="border-border/30" />
@@ -647,20 +816,9 @@ export default function ProfileTab() {
                   Current Address
                 </p>
                 <p className="text-foreground/90 mt-0.5">{activeProfile.current_address || 'Not provided'}</p>
-                {activeProfile.current_geo_location && (
-                  <a
-                    href={activeProfile.current_geo_location}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-primary hover:underline text-[11px] font-medium"
-                  >
-                    Open Map Location →
-                  </a>
-                )}
               </div>
             </div>
 
-            {/* Marital & Spouse Info */}
             <div className="rounded-xl border border-border/30 bg-muted/15 p-3.5 text-xs space-y-1.5">
               <p className="flex items-center gap-1.5 font-semibold text-primary">
                 <Heart className="h-3.5 w-3.5" />
@@ -668,49 +826,265 @@ export default function ProfileTab() {
               </p>
               {activeProfile.wedding_date && (
                 <p className="text-muted-foreground">
-                  Wedding Date: <span className="font-medium text-foreground">{activeProfile.wedding_date}</span>
+                  Wedding Date:{' '}
+                  <span className="font-medium text-foreground">{formatFullDate(activeProfile.wedding_date)}</span>
                 </p>
               )}
               {activeProfile.marital_status === 'Divorced' && activeProfile.divorce_date && (
                 <p className="text-muted-foreground">
-                  Divorce Date: <span className="font-medium text-foreground">{activeProfile.divorce_date}</span>
+                  Divorce Date:{' '}
+                  <span className="font-medium text-foreground">{formatFullDate(activeProfile.divorce_date)}</span>
                 </p>
               )}
               {activeProfile.marital_status === 'Married' && activeProfile.spouse_name && (
                 <p className="text-muted-foreground">
                   Spouse: <span className="font-medium text-foreground">{activeProfile.spouse_name}</span>
-                  {activeProfile.spouse_dob ? ` (DOB: ${activeProfile.spouse_dob})` : ''}
+                  {activeProfile.spouse_dob ? ` (${formatFullDate(activeProfile.spouse_dob)})` : ''}
                 </p>
               )}
             </div>
 
-            {/* Personal Timeline */}
-            {activeProfile.diary_logs && (
-              <div className="rounded-xl border border-border/30 bg-muted/15 p-3.5 text-xs space-y-1">
-                <p className="font-semibold text-primary">Personal Timeline / Notes</p>
-                <p className="whitespace-pre-line font-mono text-foreground/90">{activeProfile.diary_logs}</p>
+            {/* Family Members Display */}
+            <div className="rounded-xl border border-border/30 bg-muted/15 p-3.5 text-xs space-y-2">
+              <p className="flex items-center gap-1.5 font-semibold text-primary">
+                <Users className="h-3.5 w-3.5" />
+                Family Members ({familyMembers.length})
+              </p>
+              {familyMembers.length === 0 ? (
+                <p className="italic text-muted-foreground">No family members added yet.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {familyMembers.map(f => (
+                    <div
+                      key={f.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/30 bg-background/50 px-3 py-2"
+                    >
+                      <div>
+                        <span className="font-bold text-foreground">{f.name}</span>{' '}
+                        <span className="text-muted-foreground">({f.relationship})</span>
+                        {f.dob && (
+                          <span className="ml-2 text-primary/90">• {formatFullDate(f.dob)}</span>
+                        )}
+                      </div>
+                      {f.is_private && <Lock className="h-3.5 w-3.5 text-primary" />}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : showFamilyEditor ? (
+        /* 2. ADD / EDIT FAMILY MEMBER VIEW (Opened from Edit Profile) */
+        <Card className="border-primary/40 bg-card/75 backdrop-blur-sm shadow-xl">
+          <CardHeader>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="flex items-center gap-2 text-primary">
+                <Heart className="h-5 w-5" />
+                {editingFamilyId ? 'Edit' : 'Add'} Family Member
+              </CardTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  resetFamilyForm()
+                  setShowFamilyEditor(false)
+                }}
+                className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back to Edit Profile
+              </Button>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label>Relationship *</Label>
+                <select
+                  value={famRelationship}
+                  onChange={e => handleFamRelationshipChange(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                >
+                  <option value="">Select Relationship...</option>
+                  <option value="Spouse">Spouse</option>
+                  <option value="Child">Child</option>
+                  <option value="Son">Son</option>
+                  <option value="Daughter">Daughter</option>
+                  <option value="Parent">Parent</option>
+                  <option value="Other">Other Relation</option>
+                </select>
+              </div>
+              <div>
+                <Label>Full Name *</Label>
+                <Input
+                  value={famName}
+                  onChange={e => setFamName(e.target.value)}
+                  className="mt-1 text-xs"
+                />
+              </div>
+            </div>
+
+            {famRelationship === 'Other' && (
+              <div>
+                <Label className="text-primary">Specify Custom Relationship *</Label>
+                <Input
+                  value={famCustomRel}
+                  onChange={e => setFamCustomRel(e.target.value)}
+                  className="mt-1 text-xs"
+                  placeholder="e.g., Father-in-law, Cousin"
+                />
               </div>
             )}
 
-            {/* Privacy Summary */}
-            <div className="flex flex-wrap gap-2 text-[11px]">
-              <span className="rounded-full border border-border/40 bg-background/60 px-3 py-1 text-muted-foreground">
-                Directory Visibility:{' '}
-                <strong className="text-foreground">
-                  {activeProfile.hide_from_peers ? 'Hidden from classmates' : 'Visible to classmates'}
-                </strong>
-              </span>
-              <span className="rounded-full border border-border/40 bg-background/60 px-3 py-1 text-muted-foreground">
-                Admin Visibility:{' '}
-                <strong className="text-foreground">
-                  {activeProfile.hide_from_admin ? 'Hidden from Admin' : 'Visible to Admin'}
-                </strong>
-              </span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <Label>Gender</Label>
+                <select
+                  value={famGender}
+                  onChange={e => {
+                    setFamGender(e.target.value)
+                    setFamGenderAutoSet(false)
+                  }}
+                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                >
+                  <option value="">Select Gender...</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+              <div>
+                <Label>Date of Birth (DD/MM/YYYY)</Label>
+                <SmartDateInput
+                  value={famDob}
+                  onChange={setFamDob}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Blood Group</Label>
+                <Input
+                  list="inline-family-blood-groups"
+                  value={famBloodGroup}
+                  onChange={e => setFamBloodGroup(e.target.value)}
+                  placeholder="Select or type..."
+                  className="mt-1 text-xs"
+                />
+                <datalist id="inline-family-blood-groups">
+                  {bloodOptions.map(bg => (
+                    <option key={bg} value={bg} />
+                  ))}
+                </datalist>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label>Education Level</Label>
+                <select
+                  value={famEdu}
+                  onChange={e => setFamEdu(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                >
+                  <option value="">Select Education Level...</option>
+                  <option value="Toddler">Toddler</option>
+                  <option value="At School">At School</option>
+                  {EDUCATION_LEVELS.map(level => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>Education Details</Label>
+                <Input
+                  value={famEduSpec}
+                  onChange={e => setFamEduSpec(e.target.value)}
+                  className="mt-1 text-xs"
+                />
+              </div>
+            </div>
+
+            {famRelationship && !['Child', 'Son', 'Daughter', 'Spouse'].includes(famRelationship) && (
+              <div>
+                <Label>Graduation Year</Label>
+                <Input
+                  type="number"
+                  value={famGradYear}
+                  onChange={e => setFamGradYear(e.target.value)}
+                  className="mt-1 text-xs"
+                />
+              </div>
+            )}
+
+            <div>
+              <Label>Career Profile</Label>
+              <Textarea
+                value={famCareer}
+                onChange={e => setFamCareer(e.target.value)}
+                className="mt-1 h-12 text-xs"
+              />
+            </div>
+
+            <div>
+              <Label>Personal Notes</Label>
+              <Textarea
+                value={famBio}
+                onChange={e => setFamBio(e.target.value)}
+                className="mt-1 h-12 text-xs"
+              />
+            </div>
+
+            <Card className="border-destructive/20 bg-destructive/5">
+              <CardContent className="space-y-2 p-3">
+                <label className="flex items-center gap-2 font-bold text-destructive text-xs">
+                  <Checkbox checked={famNeedsSupport} onCheckedChange={v => setFamNeedsSupport(!!v)} />
+                  <AlertTriangle className="h-4 w-4" />
+                  Highlight: This member needs assistance/support
+                </label>
+                <Input
+                  value={famSupportDetails}
+                  onChange={e => setFamSupportDetails(e.target.value)}
+                  placeholder="Describe the help needed..."
+                  className="text-xs"
+                />
+              </CardContent>
+            </Card>
+
+            <label className="flex items-center gap-2 font-bold text-primary text-xs">
+              <Checkbox checked={famIsPrivate} onCheckedChange={v => setFamIsPrivate(!!v)} />
+              <Lock className="h-4 w-4" />
+              Keep this family member's details private
+            </label>
+
+            <div className="flex gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  resetFamilyForm()
+                  setShowFamilyEditor(false)
+                }}
+                className="w-1/3 text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveFamilyMember}
+                className="w-2/3 gold-gradient text-gold-foreground font-semibold gap-2 text-xs"
+              >
+                <Plus className="h-4 w-4" />
+                Save Family Member
+              </Button>
             </div>
           </CardContent>
         </Card>
       ) : (
-        /* EDIT PROFILE FORM */
+        /* 3. EDIT PROFILE FORM */
         <Card className="border-border/40 bg-card/60 backdrop-blur-sm">
           <CardHeader>
             <div className="flex items-center justify-between gap-2">
@@ -794,7 +1168,7 @@ export default function ProfileTab() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="absolute right-1 top-1 h-7 w-7 p-0"
+                      className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground"
                       onClick={() => setShowNewPass(!showNewPass)}
                     >
                       {showNewPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -834,7 +1208,7 @@ export default function ProfileTab() {
 
             <hr className="border-border/30" />
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>Nickname</Label>
                 <Input value={nickname} onChange={e => setNickname(e.target.value)} className="mt-1" />
@@ -852,6 +1226,10 @@ export default function ProfileTab() {
                 </select>
               </div>
               <div>
+                <Label>Date of Birth (DD/MM/YYYY)</Label>
+                <SmartDateInput value={dob} onChange={setDob} className="mt-1" />
+              </div>
+              <div>
                 <Label>Blood Group</Label>
                 <Input
                   list="profile-blood-groups"
@@ -866,7 +1244,7 @@ export default function ProfileTab() {
                   ))}
                 </datalist>
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <Label>Education Level</Label>
                 <select
                   value={educationLevel}
@@ -881,21 +1259,61 @@ export default function ProfileTab() {
                   ))}
                 </select>
               </div>
-              <div>
+
+              {/* Smart Contact Number */}
+              <div className="sm:col-span-2">
                 <Label>Contact Number</Label>
-                <div className="mt-1 flex gap-1">
-                  <Input className="w-1/4 text-center" value={phoneCC} onChange={e => setPhoneCC(e.target.value)} />
-                  <Input className="w-3/4" value={phoneNum} onChange={e => setPhoneNum(e.target.value)} />
+                <div className="mt-1">
+                  <SmartPhoneInput
+                    countryCode={phoneCC}
+                    localNumber={phoneNum}
+                    onChange={(nextCC, nextLocal) => {
+                      setPhoneCC(nextCC)
+                      setPhoneNum(nextLocal)
+                      if (waSameAsContact) {
+                        setWaCC(nextCC)
+                        setWaNum(nextLocal)
+                      }
+                    }}
+                    placeholder="Enter mobile number"
+                  />
                 </div>
               </div>
-              <div>
-                <Label>WhatsApp Number</Label>
-                <div className="mt-1 flex gap-1">
-                  <Input className="w-1/4 text-center" value={waCC} onChange={e => setWaCC(e.target.value)} />
-                  <Input className="w-3/4" value={waNum} onChange={e => setWaNum(e.target.value)} />
+
+              {/* Smart WhatsApp Number + Same-as-Contact Checkbox */}
+              <div className="sm:col-span-2 space-y-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label>WhatsApp Number</Label>
+                  <label className="flex items-center gap-2 text-xs font-medium text-primary cursor-pointer">
+                    <Checkbox
+                      checked={waSameAsContact}
+                      onCheckedChange={v => {
+                        const checked = Boolean(v)
+                        setWaSameAsContact(checked)
+                        if (checked) {
+                          setWaCC(phoneCC)
+                          setWaNum(phoneNum)
+                        }
+                      }}
+                    />
+                    <span>Same as Contact Number</span>
+                  </label>
                 </div>
+                <SmartPhoneInput
+                  countryCode={waSameAsContact ? phoneCC : waCC}
+                  localNumber={waSameAsContact ? phoneNum : waNum}
+                  disabled={waSameAsContact}
+                  onChange={(nextCC, nextLocal) => {
+                    if (!waSameAsContact) {
+                      setWaCC(nextCC)
+                      setWaNum(nextLocal)
+                    }
+                  }}
+                  placeholder="Enter WhatsApp number"
+                />
               </div>
-              <div className="col-span-2">
+
+              <div className="sm:col-span-2">
                 <Label>Current Career Status</Label>
                 <select
                   value={status}
@@ -909,57 +1327,6 @@ export default function ProfileTab() {
                   <option value="Employed">Employed</option>
                 </select>
               </div>
-            </div>
-
-            {/* Profile Photo Upload & Preview */}
-            <div className="space-y-2 rounded-xl border border-primary/25 bg-primary/5 p-3.5">
-              <Label>Profile Photo (Automatically optimized &amp; archived in your Gallery folder)</Label>
-              <div className="flex items-center gap-3 pt-1">
-                {pic ? (
-                  <img
-                    src={pic}
-                    alt="Profile preview"
-                    className="h-16 w-16 rounded-full border border-primary/40 object-cover shrink-0"
-                  />
-                ) : (
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted text-lg font-bold text-primary">
-                    {user.full_name?.[0] || '?'}
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  <input type="file" accept="image/*" id="profile-pic-file" className="hidden" onChange={handleFileUpload} />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={uploadingPic}
-                    title="Upload Profile Image"
-                    className="gap-1.5 border-primary/30 hover:shadow-primary/5"
-                    onClick={() => document.getElementById('profile-pic-file')?.click()}
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                    {uploadingPic ? 'Optimizing Photo...' : 'Upload Image'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={uploadingPic}
-                    title="Capture Profile Photo with Camera"
-                    className="gap-1.5 border-primary/30 hover:shadow-primary/5"
-                    onClick={() => setShowCamera(true)}
-                  >
-                    <Camera className="h-3.5 w-3.5" />
-                    Use Camera
-                  </Button>
-                </div>
-              </div>
-              <Input
-                value={pic}
-                onChange={e => setPic(e.target.value)}
-                className="mt-1 text-xs"
-                placeholder="Image URL"
-              />
             </div>
 
             <div>
@@ -996,7 +1363,7 @@ export default function ProfileTab() {
             </div>
 
             <hr className="border-border/30" />
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div>
                 <Label className="flex items-center gap-1.5">
                   <Heart className="h-3.5 w-3.5 text-primary" />
@@ -1015,13 +1382,13 @@ export default function ProfileTab() {
               {marital !== 'Single' && (
                 <div>
                   <Label>Wedding Date</Label>
-                  <Input type="date" value={wedding} onChange={e => setWedding(e.target.value)} className="mt-1" />
+                  <SmartDateInput value={wedding} onChange={setWedding} className="mt-1" />
                 </div>
               )}
               {marital === 'Divorced' && (
                 <div>
                   <Label>Divorce Date</Label>
-                  <Input type="date" value={divorce} onChange={e => setDivorce(e.target.value)} className="mt-1" />
+                  <SmartDateInput value={divorce} onChange={setDivorce} className="mt-1" />
                 </div>
               )}
             </div>
@@ -1029,14 +1396,14 @@ export default function ProfileTab() {
             {marital === 'Married' && (
               <Card className="border-primary/20 bg-primary/5">
                 <CardContent className="space-y-2 p-3">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
                       <Label>Spouse Name</Label>
                       <Input value={spouseName} onChange={e => setSpouseName(e.target.value)} className="mt-1" />
                     </div>
                     <div>
                       <Label>Spouse DOB</Label>
-                      <Input type="date" value={spouseDob} onChange={e => setSpouseDob(e.target.value)} className="mt-1" />
+                      <SmartDateInput value={spouseDob} onChange={setSpouseDob} className="mt-1" />
                     </div>
                   </div>
                   <div>
@@ -1054,6 +1421,119 @@ export default function ProfileTab() {
                 onChange={e => setDiary(e.target.value)}
                 className="mt-1 h-24 font-mono text-xs"
                 placeholder="Add important life events here..."
+              />
+            </div>
+
+            {/* Family Members Management Inside Edit Profile (Before Upload Profile Photo & Privacy Settings) */}
+            <hr className="border-border/30" />
+            <div className="space-y-2.5 rounded-xl border border-primary/25 bg-primary/5 p-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="flex items-center gap-2 font-bold text-primary text-xs">
+                  <Heart className="h-4 w-4" />
+                  Family Members ({familyMembers.length})
+                </h3>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={openAddFamilyForm}
+                  className="h-8 gold-gradient text-gold-foreground font-semibold gap-1.5 text-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Family Member
+                </Button>
+              </div>
+
+              {familyMembers.length === 0 ? (
+                <p className="text-xs italic text-muted-foreground">No family members added yet.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {familyMembers.map(f => (
+                    <div
+                      key={f.id}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-border/30 bg-background/70 px-3 py-2 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <span className="font-bold text-foreground">{f.name}</span>{' '}
+                        <span className="text-muted-foreground">({f.relationship})</span>
+                        {f.dob && (
+                          <span className="ml-1.5 text-primary/90">• {formatFullDate(f.dob)}</span>
+                        )}
+                        {f.is_private && <Lock className="inline ml-1.5 h-3 w-3 text-primary" />}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          title="Edit Family Member"
+                          onClick={() => openEditFamilyForm(f)}
+                          className="h-7 w-7 p-0 text-primary hover:bg-primary/10"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          title="Delete Family Member"
+                          onClick={() => handleDeleteFamilyMember(f.id)}
+                          className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Profile Photo Upload & Preview */}
+            <div className="space-y-2 rounded-xl border border-primary/25 bg-primary/5 p-3.5">
+              <Label>Profile Photo (Automatically saved in your Gallery &amp; Folder)</Label>
+              <div className="flex items-center gap-3 pt-1">
+                {pic ? (
+                  <img
+                    src={pic}
+                    alt="Profile preview"
+                    className="h-16 w-16 rounded-full border border-primary/40 object-cover shrink-0"
+                  />
+                ) : (
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted text-lg font-bold text-primary">
+                    {user.full_name?.[0] || '?'}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <input type="file" accept="image/*" id="profile-pic-file" className="hidden" onChange={handleFileUpload} />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={uploadingPic}
+                    onClick={() => document.getElementById('profile-pic-file')?.click()}
+                    className="gap-1.5 border-primary/30 hover:shadow-primary/5"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {uploadingPic ? 'Optimizing Photo...' : 'Upload Image'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={uploadingPic}
+                    onClick={() => setShowCamera(true)}
+                    className="gap-1.5 border-primary/30 hover:shadow-primary/5"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                    Use Camera
+                  </Button>
+                </div>
+              </div>
+              <Input
+                value={pic}
+                onChange={e => setPic(e.target.value)}
+                className="mt-1 text-xs"
+                placeholder="Image URL"
               />
             </div>
 
@@ -1089,7 +1569,6 @@ export default function ProfileTab() {
                 type="button"
                 disabled={saving || uploadingPic}
                 onClick={handleSave}
-                title="Update Profile & View"
                 className="w-2/3 gold-gradient text-gold-foreground gap-2 font-semibold"
               >
                 <Save className="h-4 w-4" />
