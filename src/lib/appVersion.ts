@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V1.75",
-  "timestamp": "23 Nov 2026, 02:06 AM IST",
-  "formatted": "V1.75, 23 Nov 2026, 02:06 AM IST",
+  "version": "V1.76",
+  "timestamp": "23 Nov 2026, 02:09 AM IST",
+  "formatted": "V1.76, 23 Nov 2026, 02:09 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
+  "summary": "Minor general update (Remove unnecessary closing braces and empty lines)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V1.76",
+      "timestamp": "23 Nov 2026, 02:09 AM IST",
+      "formatted": "V1.76, 23 Nov 2026, 02:09 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Remove unnecessary closing braces and empty lines)",
+      "requiresReinstall": false
+    },
     {
       "version": "V1.75",
       "timestamp": "23 Nov 2026, 02:06 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.52, 22 Nov 2026, 11:29 PM IST",
       "type": "minor",
       "summary": "Minor general update (Enhance ProfileTab with new user fields and task features)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.51",
-      "timestamp": "22 Nov 2026, 11:28 PM IST",
-      "formatted": "V1.51, 22 Nov 2026, 11:28 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Screen appearance and layout improved)",
       "requiresReinstall": false
     }
   ]
