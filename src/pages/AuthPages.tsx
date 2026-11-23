@@ -1,78 +1,172 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { supabase } from '@/lib/supabase'
+import { getSavedBiometricCredential } from '@/lib/biometricAuth'
+import SmartDateInput from '@/components/shared/SmartDateInput'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { UserPlus, Eye, EyeOff, LogIn, ShieldAlert } from 'lucide-react'
+import { Label } from '@/components/ui/label'
+import { LogIn, ShieldCheck, UserPlus, Fingerprint, ArrowLeft } from 'lucide-react'
+
+export default function LandingPage() {
+  const navigate = useNavigate()
+  const savedBio = getSavedBiometricCredential()
+
+  return (
+    <div className="flex min-h-svh items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md border-primary/40 bg-card/85 backdrop-blur-md shadow-2xl">
+        <CardHeader className="text-center space-y-3">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl gold-border bg-background/70 p-1 shadow-lg">
+            <img src="/icon.png" alt="Fenestrians" className="h-full w-full rounded-xl object-contain" />
+          </div>
+          <CardTitle className="text-2xl font-bold text-primary">Fenestrians</CardTitle>
+          <CardDescription className="text-xs text-muted-foreground">
+            Exclusive Batch Network, Directory &amp; Alumni Association
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-3">
+          <Button
+            type="button"
+            onClick={() => navigate('/login')}
+            className="w-full gold-gradient text-gold-foreground font-bold gap-2 py-5"
+          >
+            {savedBio ? <Fingerprint className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
+            {savedBio ? `Member Sign In (${savedBio.fullName})` : 'Member Sign In'}
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate('/register')}
+            className="w-full border-primary/40 text-primary hover:bg-primary/10 font-semibold gap-2"
+          >
+            <UserPlus className="h-4 w-4" />
+            New Member Registration (With Invite Code)
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => navigate('/admin')}
+            className="w-full text-xs text-muted-foreground hover:text-foreground gap-1.5"
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Administrator / Officer Sign In
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
 
 export function MemberLoginPage() {
+  const { login, loginWithBiometrics } = useAuth()
+  const navigate = useNavigate()
+  const savedBio = getSavedBiometricCredential()
+
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
-  const [showPass, setShowPass] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
-  const navigate = useNavigate()
+  const [busy, setBusy] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
-  const handleLogin = async () => {
-    if (!identifier || !password) {
-      alert('Please fill in both fields')
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!identifier.trim() || !password) return
+    setBusy(true)
+    setErrorMsg('')
+    const res = await login(identifier.trim(), password)
+    setBusy(false)
+    if (!res.success) {
+      setErrorMsg(res.error || 'Invalid credentials.')
       return
     }
-    setLoading(true)
-    const result = await login(identifier, password)
-    setLoading(false)
-    if (result.success) {
-      navigate('/dashboard')
-    } else {
-      alert(result.error)
+    navigate('/dashboard', { replace: true })
+  }
+
+  const handleBiometricLogin = async () => {
+    setBusy(true)
+    setErrorMsg('')
+    const res = await loginWithBiometrics()
+    setBusy(false)
+    if (!res.success) {
+      setErrorMsg(res.error || 'Biometric login failed.')
+      return
     }
+    navigate('/dashboard', { replace: true })
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute inset-0 royal-gradient" />
-      <Card className="relative w-full max-w-md border-border/50 bg-card/80 backdrop-blur-xl shadow-2xl shadow-black/40">
-        <CardHeader className="text-center space-y-3">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-primary/30 bg-primary/10">
-            <LogIn className="h-5 w-5 text-primary" />
-          </div>
-          <CardTitle className="text-xl text-primary">Member Login</CardTitle>
+    <div className="flex min-h-svh items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md border-primary/40 bg-card/85 backdrop-blur-md shadow-2xl">
+        <CardHeader className="space-y-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/')}
+            className="w-fit px-0 text-xs text-muted-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+            Back
+          </Button>
+          <CardTitle className="text-xl text-primary">Member Sign In</CardTitle>
+          <CardDescription className="text-xs">
+            Sign in using your Username, Email, or Phone Number
+          </CardDescription>
         </CardHeader>
+
         <CardContent className="space-y-4">
-          <Input
-            placeholder="Username"
-            value={identifier}
-            onChange={e => setIdentifier(e.target.value)}
-            className="bg-input/50 border-border/50"
-          />
-          <div className="relative">
-            <Input
-              type={showPass ? 'text' : 'password'}
-              placeholder="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="bg-input/50 border-border/50 pr-10"
-            />
+          {savedBio && (
             <Button
               type="button"
-              variant="ghost"
-              size="sm"
-              className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground"
-              onClick={() => setShowPass(!showPass)}
+              disabled={busy}
+              onClick={handleBiometricLogin}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2 py-5"
             >
-              {showPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              <Fingerprint className="h-5 w-5" />
+              Sign In with Fingerprint / Face ID ({savedBio.fullName})
             </Button>
-          </div>
-          <Button onClick={handleLogin} className="w-full gold-gradient text-gold-foreground font-semibold shadow-lg" disabled={loading}>
-            {loading ? 'Logging in...' : 'Login'}
-          </Button>
-          <div className="text-center mt-4">
-            <Button variant="link" onClick={() => navigate('/register')} className="text-sm text-muted-foreground">
-              First time? Register here
+          )}
+
+          {errorMsg && (
+            <div className="rounded-lg border border-red-500/40 bg-red-500/15 p-2.5 text-xs text-red-300">
+              {errorMsg}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+            <div>
+              <Label>Username, Email, or Contact Number</Label>
+              <Input
+                value={identifier}
+                onChange={e => setIdentifier(e.target.value)}
+                placeholder="Enter username, email, or +91..."
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label>Password</Label>
+              <Input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="Enter password"
+                className="mt-1"
+              />
+            </div>
+
+            <Button
+              type="submit"
+              disabled={busy}
+              className="w-full gold-gradient text-gold-foreground font-bold gap-2"
+            >
+              <LogIn className="h-4 w-4" />
+              {busy ? 'Signing In...' : 'Sign In'}
             </Button>
-          </div>
+          </form>
         </CardContent>
       </Card>
     </div>
@@ -80,69 +174,83 @@ export function MemberLoginPage() {
 }
 
 export function AdminLoginPage() {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPass, setShowPass] = useState(false)
-  const [loading, setLoading] = useState(false)
   const { adminLogin } = useAuth()
   const navigate = useNavigate()
 
-  const handleLogin = async () => {
-    if (!username || !password) {
-      alert('Please fill in both fields')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!username.trim() || !password) return
+    setBusy(true)
+    setErrorMsg('')
+    const res = await adminLogin(username.trim(), password)
+    setBusy(false)
+    if (!res.success) {
+      setErrorMsg(res.error || 'Access Denied.')
       return
     }
-    setLoading(true)
-    const result = await adminLogin(username, password)
-    setLoading(false)
-    if (result.success) {
-      navigate('/admin-dashboard')
-    } else {
-      alert(result.error)
-    }
+    navigate('/dashboard', { replace: true })
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute inset-0 royal-gradient" />
-      <Card className="relative w-full max-w-md border-border/50 bg-card/80 backdrop-blur-xl shadow-2xl shadow-black/40">
-        <CardHeader className="text-center space-y-3">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10">
-            <ShieldAlert className="h-5 w-5 text-amber-400" />
-          </div>
-          <CardTitle className="text-xl text-amber-400">Admin Login</CardTitle>
+    <div className="flex min-h-svh items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md border-primary/40 bg-card/85 backdrop-blur-md shadow-2xl">
+        <CardHeader className="space-y-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/')}
+            className="w-fit px-0 text-xs text-muted-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+            Back
+          </Button>
+          <CardTitle className="flex items-center gap-2 text-xl text-primary">
+            <ShieldCheck className="h-5 w-5" />
+            Administrator / Officer Sign In
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Input
-            placeholder="Admin Username"
-            value={username}
-            onChange={e => setUsername(e.target.value)}
-            className="bg-input/50 border-border/50"
-          />
-          <div className="relative">
-            <Input
-              type={showPass ? 'text' : 'password'}
-              placeholder="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="bg-input/50 border-border/50 pr-10"
-            />
+
+        <CardContent className="space-y-3 text-xs">
+          {errorMsg && (
+            <div className="rounded-lg border border-red-500/40 bg-red-500/15 p-2.5 text-red-300">
+              {errorMsg}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <Label>Username</Label>
+              <Input
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label>Password</Label>
+              <Input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+
             <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground"
-              onClick={() => setShowPass(!showPass)}
+              type="submit"
+              disabled={busy}
+              className="w-full gold-gradient text-gold-foreground font-bold"
             >
-              {showPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              {busy ? 'Verifying...' : 'Sign In as Officer / Admin'}
             </Button>
-          </div>
-          <Button onClick={handleLogin} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold shadow-lg transition-all" disabled={loading}>
-            {loading ? 'Logging in...' : 'Admin Login'}
-          </Button>
-          <Button variant="ghost" onClick={() => navigate('/')} className="w-full text-xs text-muted-foreground">
-            Back to Home
-          </Button>
+          </form>
         </CardContent>
       </Card>
     </div>
@@ -150,150 +258,145 @@ export function AdminLoginPage() {
 }
 
 export function RegisterPage() {
-  const [searchParams] = useSearchParams()
-  const [code, setCode] = useState('')
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [name, setName] = useState('')
-  const [nameManuallyEdited, setNameManuallyEdited] = useState(false)
-  const [gender, setGender] = useState('')
-  const [dob, setDob] = useState('')
-  const [email, setEmail] = useState('')
-  const [cc, setCc] = useState('+91')
-  const [phone, setPhone] = useState('')
-  const [showCode, setShowCode] = useState(false)
-  const [showPass, setShowPass] = useState(false)
-  const [showConfirmPass, setShowConfirmPass] = useState(false)
-  const [loading, setLoading] = useState(false)
   const { register } = useAuth()
   const navigate = useNavigate()
 
-  const lookupInviteSlot = async (passcodeToCheck: string) => {
-    const trimmed = passcodeToCheck.trim()
-    if (!trimmed) return
-    const { data } = await supabase
-      .from('alumni')
-      .select('full_name')
-      .eq('placeholder_code', trimmed)
-      .eq('is_placeholder', true)
-      .maybeSingle()
+  const [code, setCode] = useState('')
+  const [name, setName] = useState('')
+  const [gender, setGender] = useState('Male')
+  const [dob, setDob] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
-    if (data?.full_name && !nameManuallyEdited) {
-      setName(data.full_name)
-    }
-  }
-
-  useEffect(() => {
-    const linkCode = searchParams.get('code')?.trim() || localStorage.getItem('pending_invite_code') || ''
-    if (linkCode) {
-      lookupInviteSlot(linkCode)
-    }
-  }, [searchParams])
-
-  useEffect(() => {
-    if (code.trim().length >= 4) {
-      lookupInviteSlot(code)
-    }
-  }, [code])
-
-  const handleRegister = async () => {
-    if (!code || !username || !password || !confirmPassword || !name || !gender || !dob || !email || !phone) {
-      alert('Please fill all fields.')
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!code.trim() || !name.trim() || !username.trim() || !password) {
+      setErrorMsg('Please complete all required fields.')
       return
     }
-    if (password !== confirmPassword) {
-      alert('Passwords do not match.')
+
+    setBusy(true)
+    setErrorMsg('')
+    const res = await register(
+      code.trim(),
+      username.trim(),
+      password,
+      name.trim(),
+      gender,
+      dob,
+      email.trim(),
+      phone.trim()
+    )
+    setBusy(false)
+
+    if (!res.success) {
+      setErrorMsg(res.error || 'Registration failed.')
       return
     }
-    const fullPhone = `${cc} ${phone}`
-    setLoading(true)
-    const result = await register(code.trim(), username, password, name.trim(), gender, dob, email, fullPhone)
-    setLoading(false)
-    if (result.success) {
-      localStorage.removeItem('pending_invite_code')
-      alert('Registration successful!')
-      navigate('/')
-    } else {
-      alert(result.error)
-    }
+
+    alert('Registration successful! You can now sign in with your new credentials.')
+    navigate('/login')
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute inset-0 royal-gradient" />
-      <Card className="relative w-full max-w-md border-border/50 bg-card/80 backdrop-blur-xl shadow-2xl shadow-black/40 max-h-[90vh] overflow-y-auto">
-        <CardHeader className="text-center space-y-3">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10">
-            <UserPlus className="h-5 w-5 text-emerald-400" />
-          </div>
-          <CardTitle className="text-xl text-emerald-400">First Time Registration</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="relative">
-            <Input type={showCode ? 'text' : 'password'} placeholder="Temporary Passcode *" value={code} onChange={e => setCode(e.target.value)} className="bg-input/50 border-border/50 pr-10" />
-            <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground" onClick={() => setShowCode(!showCode)}>
-              {showCode ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-            </Button>
-          </div>
-          <Input placeholder="Create Username *" value={username} onChange={e => setUsername(e.target.value)} className="bg-input/50 border-border/50" />
-          <div className="relative">
-            <Input type={showPass ? 'text' : 'password'} placeholder="Create Password *" value={password} onChange={e => setPassword(e.target.value)} className="bg-input/50 border-border/50 pr-10" />
-            <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground" onClick={() => setShowPass(!showPass)}>
-              {showPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-            </Button>
-          </div>
-
-          <div>
-            <div className="relative">
-              <Input
-                type={showConfirmPass ? 'text' : 'password'}
-                placeholder="Retype Password *"
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                className={confirmPassword && password !== confirmPassword ? "bg-input/50 border-red-500 focus-visible:ring-red-500 pr-10" : "bg-input/50 border-border/50 pr-10"}
-              />
-              <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 h-7 w-7 p-0 text-muted-foreground" onClick={() => setShowConfirmPass(!showConfirmPass)}>
-                {showConfirmPass ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-              </Button>
-            </div>
-            {confirmPassword && password !== confirmPassword && (
-              <p className="mt-1 text-xs text-red-500 font-medium px-1">Passwords do not match</p>
-            )}
-          </div>
-
-          <div className="border-t border-border/30 my-1" />
-          <Input
-            placeholder="Full Name *"
-            value={name}
-            onChange={e => {
-              setName(e.target.value)
-              setNameManuallyEdited(true)
-            }}
-            className="bg-input/50 border-border/50"
-          />
-          <select value={gender} onChange={e => setGender(e.target.value)} className="w-full rounded-lg border border-border/50 bg-input/50 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50">
-            <option value="">Select Gender *</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-          </select>
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground px-1">Date of Birth *</label>
-            <Input type="date" value={dob} onChange={e => setDob(e.target.value)} className="bg-input/50 border-border/50 text-foreground" />
-          </div>
-          <Input type="email" placeholder="Email Address *" value={email} onChange={e => setEmail(e.target.value)} className="bg-input/50 border-border/50" />
-          <div className="flex gap-2">
-            <Input className="w-1/4 text-center bg-input/50 border-border/50" value={cc} onChange={e => setCc(e.target.value)} />
-            <Input className="w-3/4 bg-input/50 border-border/50" placeholder="Contact Number *" value={phone} onChange={e => setPhone(e.target.value)} />
-          </div>
-          <Button onClick={handleRegister} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-lg transition-all" disabled={loading}>
-            {loading ? 'Creating Account...' : 'Create Account'}
+    <div className="flex min-h-svh items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md border-primary/40 bg-card/85 backdrop-blur-md shadow-2xl">
+        <CardHeader className="space-y-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/')}
+            className="w-fit px-0 text-xs text-muted-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+            Back
           </Button>
-          <Button variant="ghost" onClick={() => navigate('/')} className="w-full text-xs text-muted-foreground">Cancel</Button>
+          <CardTitle className="text-xl text-primary">New Member Registration</CardTitle>
+        </CardHeader>
+
+        <CardContent className="space-y-3 text-xs">
+          {errorMsg && (
+            <div className="rounded-lg border border-red-500/40 bg-red-500/15 p-2.5 text-red-300">
+              {errorMsg}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <Label>Invite Passcode *</Label>
+              <Input
+                value={code}
+                onChange={e => setCode(e.target.value)}
+                placeholder="e.g., FEN-XXXXXX"
+                className="mt-1 font-mono"
+              />
+            </div>
+
+            <div>
+              <Label>Full Name *</Label>
+              <Input value={name} onChange={e => setName(e.target.value)} className="mt-1" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Gender</Label>
+                <select
+                  value={gender}
+                  onChange={e => setGender(e.target.value)}
+                  className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+                >
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+              <div>
+                <Label>Date of Birth (DD/MM/YYYY)</Label>
+                <SmartDateInput value={dob} onChange={setDob} className="mt-1" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Email</Label>
+                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label>Phone Number</Label>
+                <Input value={phone} onChange={e => setPhone(e.target.value)} className="mt-1" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Choose Username *</Label>
+                <Input value={username} onChange={e => setUsername(e.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label>Choose Password *</Label>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={busy}
+              className="w-full gold-gradient text-gold-foreground font-bold"
+            >
+              {busy ? 'Registering...' : 'Complete Registration'}
+            </Button>
+          </form>
         </CardContent>
       </Card>
     </div>
   )
 }
-
-export default MemberLoginPage
