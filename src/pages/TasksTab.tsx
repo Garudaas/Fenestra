@@ -10,6 +10,7 @@ import {
   type OfficerPrefixMap,
 } from '@/lib/taskAuditService'
 import { publishArchivedAlert } from '@/lib/notificationService'
+import { exportRowsToCSV, openPrintableReport } from '@/lib/reportExporter'
 import SmartDateInput from '@/components/shared/SmartDateInput'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -28,6 +29,9 @@ import {
   X,
   Send,
   UserCheck,
+  Repeat,
+  FileSpreadsheet,
+  Printer,
 } from 'lucide-react'
 
 interface TaskRow {
@@ -40,6 +44,7 @@ interface TaskRow {
   description: string
   status: string
   due_date: string | null
+  recurrence_rule: string | null
   is_private: boolean
   batch_id: string | null
   sender_display_name: string | null
@@ -85,6 +90,7 @@ export default function TasksTab() {
   const [taskTitle, setTaskTitle] = useState('')
   const [taskBulletsText, setTaskBulletsText] = useState('')
   const [taskDueDate, setTaskDueDate] = useState('')
+  const [taskRecurrence, setTaskRecurrence] = useState<'none' | 'monthly' | 'quarterly'>('none')
   const [taskIsPrivate, setTaskIsPrivate] = useState(false)
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<Record<number, boolean>>({})
   const [assigning, setAssigning] = useState(false)
@@ -268,7 +274,9 @@ export default function TasksTab() {
       const batchId = chosenIds.length > 1 ? `COMMON-${Date.now()}-${user.id}` : null
       const bulletFormatted = checklistLines.map(l => `• ${l}`).join('\n')
       const dueNote = taskDueDate ? `\nDue Date: ${formatFullDate(taskDueDate)}` : ''
-      const fullMessage = `${senderTitledName} assigned you a task: "${taskTitle.trim()}"${dueNote}\n\n${bulletFormatted}`
+      const recurNote =
+        taskRecurrence !== 'none' ? ` (${taskRecurrence.toUpperCase()} Recurring)` : ''
+      const fullMessage = `${senderTitledName} assigned you a task: "${taskTitle.trim()}"${recurNote}${dueNote}\n\n${bulletFormatted}`
 
       for (const targetUserId of chosenIds) {
         const { data: created } = await supabase
@@ -284,6 +292,7 @@ export default function TasksTab() {
               is_micromanaged: false,
               status: 'pending',
               due_date: taskDueDate || null,
+              recurrence_rule: taskRecurrence,
               is_private: taskIsPrivate,
               batch_id: batchId,
               sender_display_name: senderTitledName,
@@ -309,6 +318,7 @@ export default function TasksTab() {
       setTaskTitle('')
       setTaskBulletsText('')
       setTaskDueDate('')
+      setTaskRecurrence('none')
       setTaskIsPrivate(false)
       setSelectedAssigneeIds({})
       setShowAssignForm(false)
@@ -316,6 +326,48 @@ export default function TasksTab() {
     } finally {
       setAssigning(false)
     }
+  }
+
+  const buildTasksReportData = () => {
+    const headers = [
+      'Task Title',
+      'Sender',
+      'Assignee',
+      'Status',
+      'Sent Date & Time (IST)',
+      'Due Date',
+      'Completed Date & Time (IST)',
+    ]
+    const visibleTasks = tasks.filter(t => !t.is_private || t.assigned_by_user_id === user?.id || t.assigned_to_user_id === user?.id)
+    const rows = visibleTasks.map(t => [
+      t.title,
+      getSenderLabel(t),
+      getMemberName(t.assigned_to_user_id),
+      t.status.toUpperCase(),
+      formatISTDateTime(t.created_at),
+      t.due_date ? formatFullDate(t.due_date) : '-',
+      t.completed_at ? formatISTDateTime(t.completed_at) : 'Pending',
+    ])
+    return { headers, rows }
+  }
+
+  const handleExportTasksCsv = () => {
+    const { headers, rows } = buildTasksReportData()
+    exportRowsToCSV(
+      `Fenestrians_Tasks_Report_${new Date().toISOString().slice(0, 10)}.csv`,
+      headers,
+      rows
+    )
+  }
+
+  const handlePrintTasksReport = () => {
+    const { headers, rows } = buildTasksReportData()
+    openPrintableReport(
+      'Committee & Member Task Summary Report',
+      `Total Tasks: ${rows.length}`,
+      headers,
+      rows
+    )
   }
 
   if (!user) return null
@@ -333,21 +385,43 @@ export default function TasksTab() {
     <div className="mx-auto max-w-5xl space-y-4">
       <Card className="border-border/40 bg-card/75 backdrop-blur-sm">
         <CardHeader className="pb-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2 text-primary">
               <ListTodo className="h-5 w-5" />
               Tasks &amp; Action Items
             </CardTitle>
 
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setShowAssignForm(prev => !prev)}
-              className="gold-gradient text-gold-foreground font-semibold gap-1.5 text-xs"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {showAssignForm ? 'Close Assign Form' : 'Assign New Task'}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleExportTasksCsv}
+                className="h-8 text-xs gap-1"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5" />
+                Export CSV
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handlePrintTasksReport}
+                className="h-8 text-xs gap-1"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Print Report
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setShowAssignForm(prev => !prev)}
+                className="h-8 gold-gradient text-gold-foreground font-semibold gap-1.5 text-xs"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {showAssignForm ? 'Close Form' : 'Assign New Task'}
+              </Button>
+            </div>
           </div>
         </CardHeader>
 
@@ -356,13 +430,13 @@ export default function TasksTab() {
             <div className="rounded-xl border border-primary/35 bg-primary/5 p-4 space-y-3 text-xs">
               <p className="font-bold text-primary text-sm">Assign Task to Member(s)</p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="font-semibold text-foreground">Task Title *</label>
                   <Input
                     value={taskTitle}
                     onChange={e => setTaskTitle(e.target.value)}
-                    placeholder="e.g., Coordinate Alumni Reunion Venue"
+                    placeholder="e.g., Monthly Treasury Review"
                     className="mt-1 text-xs"
                   />
                 </div>
@@ -373,6 +447,20 @@ export default function TasksTab() {
                     onChange={setTaskDueDate}
                     className="mt-1"
                   />
+                </div>
+                <div>
+                  <label className="font-semibold text-foreground">Recurring Schedule</label>
+                  <select
+                    value={taskRecurrence}
+                    onChange={e =>
+                      setTaskRecurrence(e.target.value as 'none' | 'monthly' | 'quarterly')
+                    }
+                    className="mt-1 w-full h-9 rounded-md border border-border/50 bg-background px-3 text-xs"
+                  >
+                    <option value="none">One-Time Task</option>
+                    <option value="monthly">Repeat Monthly</option>
+                    <option value="quarterly">Repeat Quarterly</option>
+                  </select>
                 </div>
               </div>
 
@@ -572,6 +660,12 @@ export default function TasksTab() {
                           >
                             {isCompleted ? 'Completed' : 'Pending'}
                           </Badge>
+                          {t.recurrence_rule && t.recurrence_rule !== 'none' && (
+                            <span className="inline-flex items-center gap-1 rounded bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-sky-300 capitalize">
+                              <Repeat className="h-2.5 w-2.5" />
+                              {t.recurrence_rule}
+                            </span>
+                          )}
                           {t.is_private && (
                             <span className="inline-flex items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-300">
                               <Lock className="h-2.5 w-2.5" /> Private
