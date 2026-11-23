@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.10",
+  "version": "V2.11",
   "timestamp": "23 Nov 2026, 10:02 PM IST",
-  "formatted": "V2.10, 23 Nov 2026, 10:02 PM IST",
+  "formatted": "V2.11, 23 Nov 2026, 10:02 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Login and registration screen updated)",
+  "summary": "Minor technical update (Refactor authentication pages for improved usability)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.11",
+      "timestamp": "23 Nov 2026, 10:02 PM IST",
+      "formatted": "V2.11, 23 Nov 2026, 10:02 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor authentication pages for improved usability)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.10",
       "timestamp": "23 Nov 2026, 10:02 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.87, 23 Nov 2026, 03:52 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor MaintenanceTab for audit task management)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.86",
-      "timestamp": "23 Nov 2026, 03:05 AM IST",
-      "formatted": "V1.86, 23 Nov 2026, 03:05 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
       "requiresReinstall": false
     }
   ]
