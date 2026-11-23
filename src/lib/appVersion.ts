@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.06",
-  "timestamp": "23 Nov 2026, 09:56 PM IST",
-  "formatted": "V2.06, 23 Nov 2026, 09:56 PM IST",
+  "version": "V2.07",
+  "timestamp": "23 Nov 2026, 09:58 PM IST",
+  "formatted": "V2.07, 23 Nov 2026, 09:58 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Add ShareTargetPage component for sharing content)",
+  "summary": "Minor general update (Add web app manifest for Fenestrians Network)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.07",
+      "timestamp": "23 Nov 2026, 09:58 PM IST",
+      "formatted": "V2.07, 23 Nov 2026, 09:58 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Add web app manifest for Fenestrians Network)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.06",
       "timestamp": "23 Nov 2026, 09:56 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.83, 23 Nov 2026, 02:39 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor Alumni Association Home component)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.82",
-      "timestamp": "23 Nov 2026, 02:26 AM IST",
-      "formatted": "V1.82, 23 Nov 2026, 02:26 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Remove unused import for readFileAsDataURL)",
       "requiresReinstall": false
     }
   ]
