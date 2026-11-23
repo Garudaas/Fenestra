@@ -3,6 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { APP_VERSION_INFO, type AppVersionData } from '@/lib/appVersion'
+import { formatFullDate } from '@/lib/formatters'
+import {
+  isBiometricSupported,
+  getSavedBiometricCredential,
+  registerBiometricPasskey,
+  removeBiometricCredential,
+  type SavedBiometricCredential,
+} from '@/lib/biometricAuth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,10 +29,13 @@ import {
   Copy,
   Check,
   ExternalLink,
+  Fingerprint,
+  Trash2,
 } from 'lucide-react'
 
 type SettingsSectionId =
   | 'privacy'
+  | 'biometrics'
   | 'updates'
   | 'invite'
   | 'notifications_chat'
@@ -43,7 +54,6 @@ export default function SettingsTab() {
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  // Single active collapsible section (null = all collapsed)
   const [openSection, setOpenSection] = useState<SettingsSectionId | null>('privacy')
 
   // 1. Media & Profile Picture Privacy
@@ -52,24 +62,30 @@ export default function SettingsTab() {
   const [defaultMediaPrivate, setDefaultMediaPrivate] = useState(false)
   const [savingPrivacy, setSavingPrivacy] = useState(false)
 
-  // 2. App Installation & Updates
+  // 2. Biometric Login
+  const [savedBiometric, setSavedBiometric] = useState<SavedBiometricCredential | null>(() =>
+    getSavedBiometricCredential()
+  )
+  const [bioBusy, setBioBusy] = useState(false)
+
+  // 3. App Installation & Updates
   const [latestVersion, setLatestVersion] = useState<AppVersionData>(APP_VERSION_INFO)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
 
-  // 3. Invite New Member
+  // 4. Invite New Member
   const [inviteName, setInviteName] = useState('')
   const [creatingInvite, setCreatingInvite] = useState(false)
   const [inviteUrl, setInviteUrl] = useState('')
   const [inviteCode, setInviteCode] = useState('')
   const [copiedInvite, setCopiedInvite] = useState<'url' | 'code' | null>(null)
 
-  // 4. Push Notifications, Chat & Translation Preferences
+  // 5. Push Notifications, Chat & Translation Preferences
   const [prefLang, setPrefLang] = useState(() => localStorage.getItem('pref_lang') || 'en')
   const [mentionToneEnabled, setMentionToneEnabled] = useState(
     () => localStorage.getItem('fenestrians_mention_tone') !== 'off'
   )
 
-  // 5. Voice & Video Controls
+  // 6. Voice & Video Controls
   const [defaultVoiceRoom, setDefaultVoiceRoom] = useState(
     () => localStorage.getItem('fenestrians_default_voice_room') || 'Audio-Lounge'
   )
@@ -111,6 +127,28 @@ export default function SettingsTab() {
       .eq('id', user.id)
     setSavingPrivacy(false)
     alert('Media & profile picture privacy saved!')
+  }
+
+  const handleEnableBiometrics = async () => {
+    if (!user) return
+    setBioBusy(true)
+    const res = await registerBiometricPasskey({
+      userId: user.id,
+      username: user.custom_username,
+      fullName: user.full_name,
+    })
+    setBioBusy(false)
+    if (!res.success) {
+      alert(res.error || 'Biometric setup failed.')
+      return
+    }
+    setSavedBiometric(getSavedBiometricCredential())
+    alert('Fingerprint / Face ID login enabled on this device!')
+  }
+
+  const handleDisableBiometrics = () => {
+    removeBiometricCredential()
+    setSavedBiometric(null)
   }
 
   const handleCheckUpdate = async () => {
@@ -273,7 +311,61 @@ export default function SettingsTab() {
         )}
       </Card>
 
-      {/* Tab 2: App Installation & Updates */}
+      {/* Tab 2: Fingerprint / Face ID Biometric Login */}
+      <Card className="overflow-hidden border-border/40 bg-card/70">
+        {renderAccordionHeader(
+          'biometrics',
+          'Fingerprint / Face ID Biometric Login',
+          savedBiometric && savedBiometric.userId === user.id
+            ? `Enabled for ${savedBiometric.fullName}`
+            : 'Enable one-touch biometric sign-in on this device',
+          <Fingerprint className="h-4 w-4" />
+        )}
+        {openSection === 'biometrics' && (
+          <CardContent className="space-y-3 border-t border-border/30 pt-4 text-xs">
+            {!isBiometricSupported() ? (
+              <p className="text-muted-foreground">
+                This browser or device does not support WebAuthn Fingerprint / Face ID login.
+              </p>
+            ) : savedBiometric && savedBiometric.userId === user.id ? (
+              <div className="space-y-2.5">
+                <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-emerald-300">
+                  Fingerprint / Face ID is active for <strong>{savedBiometric.fullName}</strong> (Linked on{' '}
+                  {formatFullDate(savedBiometric.registeredAt)}).
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleDisableBiometrics}
+                  className="gap-1.5"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Remove Biometric Link from This Device
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                <p className="text-muted-foreground">
+                  Link your phone or computer’s Fingerprint sensor or Face ID so you can sign in with one touch without typing your password.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={bioBusy}
+                  onClick={handleEnableBiometrics}
+                  className="gold-gradient text-gold-foreground font-semibold gap-1.5"
+                >
+                  <Fingerprint className="h-4 w-4" />
+                  {bioBusy ? 'Setting up...' : 'Link Fingerprint / Face ID Now'}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Tab 3: App Installation & Updates */}
       <Card className="overflow-hidden border-border/40 bg-card/70">
         {renderAccordionHeader(
           'updates',
@@ -317,7 +409,7 @@ export default function SettingsTab() {
         )}
       </Card>
 
-      {/* Tab 3: Invite New Member */}
+      {/* Tab 4: Invite New Member */}
       <Card className="overflow-hidden border-border/40 bg-card/70">
         {renderAccordionHeader(
           'invite',
@@ -360,7 +452,11 @@ export default function SettingsTab() {
                     }}
                     className="h-7 gap-1 shrink-0"
                   >
-                    {copiedInvite === 'url' ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                    {copiedInvite === 'url' ? (
+                      <Check className="h-3 w-3 text-emerald-400" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
                     Copy Link
                   </Button>
                 </div>
@@ -377,7 +473,11 @@ export default function SettingsTab() {
                     }}
                     className="h-7 gap-1 shrink-0"
                   >
-                    {copiedInvite === 'code' ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                    {copiedInvite === 'code' ? (
+                      <Check className="h-3 w-3 text-emerald-400" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
                     Copy Code
                   </Button>
                 </div>
@@ -397,7 +497,7 @@ export default function SettingsTab() {
         )}
       </Card>
 
-      {/* Tab 4: Push Notifications, Chat & Translation Preferences */}
+      {/* Tab 5: Push Notifications, Chat & Translation Preferences */}
       <Card className="overflow-hidden border-border/40 bg-card/70">
         {renderAccordionHeader(
           'notifications_chat',
@@ -451,7 +551,7 @@ export default function SettingsTab() {
         )}
       </Card>
 
-      {/* Tab 5: Voice & Video Controls */}
+      {/* Tab 6: Voice & Video Controls */}
       <Card className="overflow-hidden border-border/40 bg-card/70">
         {renderAccordionHeader(
           'voice_video',
