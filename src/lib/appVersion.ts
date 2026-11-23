@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.17",
-  "timestamp": "23 Nov 2026, 10:18 PM IST",
-  "formatted": "V2.17, 23 Nov 2026, 10:18 PM IST",
+  "version": "V2.18",
+  "timestamp": "23 Nov 2026, 10:19 PM IST",
+  "formatted": "V2.18, 23 Nov 2026, 10:19 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Treasury, Polls, Event RSVPs, Meeting Minutes PDFs & ExCom Reports)",
+  "summary": "Minor general update (Enhance CallsTab with scheduling and attendance features)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.18",
+      "timestamp": "23 Nov 2026, 10:19 PM IST",
+      "formatted": "V2.18, 23 Nov 2026, 10:19 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Enhance CallsTab with scheduling and attendance features)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.17",
       "timestamp": "23 Nov 2026, 10:18 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.94, 23 Nov 2026, 04:32 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add TasksTab component for task management)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.93",
-      "timestamp": "23 Nov 2026, 04:30 AM IST",
-      "formatted": "V1.93, 23 Nov 2026, 04:30 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor date formatting and task handling in NotificationsPage)",
       "requiresReinstall": false
     }
   ]
