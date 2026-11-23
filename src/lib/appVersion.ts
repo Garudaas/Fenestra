@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.21",
-  "timestamp": "23 Nov 2026, 10:28 PM IST",
-  "formatted": "V2.21, 23 Nov 2026, 10:28 PM IST",
+  "version": "V2.22",
+  "timestamp": "23 Nov 2026, 10:37 PM IST",
+  "formatted": "V2.22, 23 Nov 2026, 10:37 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Clean up comments in NotificationsPage component)",
+  "summary": "Minor general update (Enhance DirectoryTab with travel alerts and SOS features)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.22",
+      "timestamp": "23 Nov 2026, 10:37 PM IST",
+      "formatted": "V2.22, 23 Nov 2026, 10:37 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Enhance DirectoryTab with travel alerts and SOS features)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.21",
       "timestamp": "23 Nov 2026, 10:28 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.98, 23 Nov 2026, 04:39 AM IST",
       "type": "minor",
       "summary": "Minor general update (Member profile details updated)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.97",
-      "timestamp": "23 Nov 2026, 04:37 AM IST",
-      "formatted": "V1.97, 23 Nov 2026, 04:37 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor MaintenanceTab by removing comments and updating imports)",
       "requiresReinstall": false
     }
   ]
