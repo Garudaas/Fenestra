@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.09",
-  "timestamp": "23 Nov 2026, 10:00 PM IST",
-  "formatted": "V2.09, 23 Nov 2026, 10:00 PM IST",
+  "version": "V2.10",
+  "timestamp": "23 Nov 2026, 10:02 PM IST",
+  "formatted": "V2.10, 23 Nov 2026, 10:02 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance NotificationQuickBar with pending tasks count)",
+  "summary": "Minor general update (Login and registration screen updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.10",
+      "timestamp": "23 Nov 2026, 10:02 PM IST",
+      "formatted": "V2.10, 23 Nov 2026, 10:02 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Login and registration screen updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.09",
       "timestamp": "23 Nov 2026, 10:00 PM IST",
@@ -207,14 +215,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "version": "V1.86",
       "timestamp": "23 Nov 2026, 03:05 AM IST",
       "formatted": "V1.86, 23 Nov 2026, 03:05 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.85",
-      "timestamp": "23 Nov 2026, 02:59 AM IST",
-      "formatted": "V1.85, 23 Nov 2026, 02:59 AM IST",
       "type": "minor",
       "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
       "requiresReinstall": false
