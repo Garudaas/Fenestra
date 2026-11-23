@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.04",
-  "timestamp": "23 Nov 2026, 09:54 PM IST",
-  "formatted": "V2.04, 23 Nov 2026, 09:54 PM IST",
+  "version": "V2.05",
+  "timestamp": "23 Nov 2026, 09:55 PM IST",
+  "formatted": "V2.05, 23 Nov 2026, 09:55 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement biometric authentication functions)",
+  "summary": "Minor technical update (Add report exporter with CSV and HTML export functions)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.05",
+      "timestamp": "23 Nov 2026, 09:55 PM IST",
+      "formatted": "V2.05, 23 Nov 2026, 09:55 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Add report exporter with CSV and HTML export functions)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.04",
       "timestamp": "23 Nov 2026, 09:54 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.81, 23 Nov 2026, 02:22 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor MemberDashboard and update tab logic)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.80",
-      "timestamp": "23 Nov 2026, 02:15 AM IST",
-      "formatted": "V1.80, 23 Nov 2026, 02:15 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Implement draggable position for NotificationQuickBar)",
       "requiresReinstall": false
     }
   ]
