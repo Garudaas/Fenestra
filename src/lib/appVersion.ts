@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.24",
-  "timestamp": "23 Nov 2026, 10:39 PM IST",
-  "formatted": "V2.24, 23 Nov 2026, 10:39 PM IST",
+  "version": "V2.25",
+  "timestamp": "23 Nov 2026, 10:40 PM IST",
+  "formatted": "V2.25, 23 Nov 2026, 10:40 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Chat and calling screen updated)",
+  "summary": "Minor general update (Add admin audit log functionality to MaintenanceTab)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.25",
+      "timestamp": "23 Nov 2026, 10:40 PM IST",
+      "formatted": "V2.25, 23 Nov 2026, 10:40 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Add admin audit log functionality to MaintenanceTab)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.24",
       "timestamp": "23 Nov 2026, 10:39 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.01, 23 Nov 2026, 04:46 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor MemberProfilePage with hooks and imports)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.00",
-      "timestamp": "23 Nov 2026, 04:42 AM IST",
-      "formatted": "V2.00, 23 Nov 2026, 04:42 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add newline at end of taskAuditService.ts)",
       "requiresReinstall": false
     }
   ]
