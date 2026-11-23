@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { fetchAllBloodGroups } from '@/lib/fenestriansCore'
-import { cleanPhoneNumber, formatFullDateTime } from '@/lib/formatters'
+import { cleanPhoneNumber, formatFullDateTime, formatFullDate } from '@/lib/formatters'
 import { saveOfflineDirectory, loadOfflineDirectory } from '@/lib/offlineCache'
 import { exportRowsToCSV, openPrintableReport } from '@/lib/reportExporter'
+import { publishArchivedAlert, sendDevicePushNotification } from '@/lib/notificationService'
+import SmartDateInput from '@/components/shared/SmartDateInput'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,12 +26,28 @@ import {
   WifiOff,
   FileSpreadsheet,
   Printer,
+  Siren,
+  Plane,
+  Building,
+  ExternalLink,
+  Send,
+  Trash2,
 } from 'lucide-react'
 
 interface DirectoryTabProps {
   onStartDM: (id: number, name: string) => void
   onStartVideoCall: (roomName: string) => void
   onOpenSupportRequests?: () => void
+}
+
+interface TravelAlertItem {
+  id: number
+  user_id: number
+  member_name: string
+  visiting_city: string
+  arrival_date: string
+  departure_date: string | null
+  note: string | null
 }
 
 export default function DirectoryTab({
@@ -52,10 +70,29 @@ export default function DirectoryTab({
   const [professionFilter, setProfessionFilter] = useState('')
   const [bloodOptions, setBloodOptions] = useState<string[]>([])
 
+  // Panels: 'none' | 'sos' | 'city_travel'
+  const [activePanel, setActivePanel] = useState<'none' | 'sos' | 'city_travel'>('none')
+
+  // Emergency Blood Donor SOS states
+  const [sosBloodGroup, setSosBloodGroup] = useState('')
+  const [sosCity, setSosCity] = useState('')
+  const [sosNote, setSosNote] = useState('')
+  const [sendingSos, setSendingSos] = useState(false)
+  const [sosSentCount, setSosSentCount] = useState<number | null>(null)
+
+  // Travel Alerts ("I'm In Town") states
+  const [travelAlerts, setTravelAlerts] = useState<TravelAlertItem[]>([])
+  const [travelCity, setTravelCity] = useState('')
+  const [travelArrival, setTravelArrival] = useState('')
+  const [travelDeparture, setTravelDeparture] = useState('')
+  const [travelNote, setTravelNote] = useState('')
+  const [savingTravel, setSavingTravel] = useState(false)
+
   const userIsAdmin = Boolean(isAdmin || user?.is_admin)
 
   useEffect(() => {
     loadDirectory()
+    loadTravelAlerts()
   }, [])
 
   const loadDirectory = async () => {
@@ -84,7 +121,7 @@ export default function DirectoryTab({
         return
       }
     } catch {
-      // Fallback to offline IndexedDB cache
+      // Fallback to offline cache
     }
 
     const cached = await loadOfflineDirectory()
@@ -96,6 +133,16 @@ export default function DirectoryTab({
       setBloodOptions(cachedBgs)
       setOfflineInfo({ isOffline: true, syncedAt: cached.syncedAt })
     }
+  }
+
+  const loadTravelAlerts = async () => {
+    const todayIso = new Date().toISOString().slice(0, 10)
+    const { data } = await supabase
+      .from('member_travel_alerts')
+      .select('*')
+      .gte('arrival_date', todayIso)
+      .order('arrival_date', { ascending: true })
+    if (data) setTravelAlerts(data as TravelAlertItem[])
   }
 
   const professionOptions = useMemo(() => {
@@ -146,6 +193,163 @@ export default function DirectoryTab({
       return true
     })
   }, [members, searchQuery, bloodFilter, cityFilter, professionFilter])
+
+  // Matching Donors for Emergency Blood SOS
+  const matchingSosDonors = useMemo(() => {
+    if (!sosBloodGroup) return []
+    const bgLower = sosBloodGroup.trim().toLowerCase()
+    const cityLower = sosCity.trim().toLowerCase()
+
+    return members.filter(m => {
+      if (m.id === user?.id) return false
+      if ((m.blood_group || '').trim().toLowerCase() !== bgLower) return false
+      if (cityLower) {
+        const addr = `${m.current_address || ''} ${m.permanent_address || ''}`.toLowerCase()
+        if (!addr.includes(cityLower)) return false
+      }
+      return true
+    })
+  }, [members, sosBloodGroup, sosCity, user?.id])
+
+  // City Clusters for Interactive Member City Map
+  const cityClusters = useMemo(() => {
+    const map = new Map<string, Array<{ id: number; name: string; address: string; mapUrl: string }>>()
+    for (const m of members) {
+      const addr = String(m.current_address || m.permanent_address || '').trim()
+      if (!addr) continue
+      const segments = addr
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+      const rawCity =
+        segments.length >= 2
+          ? segments[segments.length - 2].replace(/\d+/g, '').trim()
+          : segments[0].replace(/\d+/g, '').trim()
+      const cityLabel = rawCity || 'Other Location'
+
+      const mapUrl =
+        m.current_geo_location && String(m.current_geo_location).startsWith('http')
+          ? m.current_geo_location
+          : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`
+
+      if (!map.has(cityLabel)) map.set(cityLabel, [])
+      map.get(cityLabel)!.push({
+        id: m.id,
+        name: m.full_name,
+        address: addr,
+        mapUrl,
+      })
+    }
+    return Array.from(map.entries()).sort((a, b) => b[1].length - a[1].length)
+  }, [members])
+
+  const handleDispatchBloodSos = async () => {
+    if (!user || !sosBloodGroup) {
+      alert('Please select the required Blood Group first.')
+      return
+    }
+    if (matchingSosDonors.length === 0) {
+      alert('No matching donors found for that Blood Group / City combination.')
+      return
+    }
+
+    setSendingSos(true)
+    const cityPart = sosCity.trim() ? ` in ${sosCity.trim()}` : ''
+    const notePart = sosNote.trim() ? `\nDetails: ${sosNote.trim()}` : ''
+    const contactPart = cleanPhoneNumber(user.contact_number)
+      ? `\nContact ${user.full_name}: ${cleanPhoneNumber(user.contact_number)}`
+      : ''
+    const sosMsg = `URGENT BLOOD SOS (${sosBloodGroup}${cityPart}): ${user.full_name} urgently needs ${sosBloodGroup} blood donors.${notePart}${contactPart}`
+
+    for (const donor of matchingSosDonors) {
+      await publishArchivedAlert({
+        category: 'help_needed',
+        shortTitle: `URGENT ${sosBloodGroup} Blood SOS`,
+        fullMessage: sosMsg,
+        targetUserId: donor.id,
+        needsHelpFlag: true,
+      })
+    }
+
+    sendDevicePushNotification({
+      shortTitle: `URGENT ${sosBloodGroup} Blood SOS`,
+      fullMessage: sosMsg,
+      targetUserIds: matchingSosDonors.map(d => d.id),
+      launchUrl: 'https://fenestrians.salmaali.in/notifications',
+    })
+
+    setSendingSos(false)
+    setSosSentCount(matchingSosDonors.length)
+  }
+
+  const handleBroadcastTravelAlert = async () => {
+    if (!user) return
+    if (!travelCity.trim() || !travelArrival) {
+      alert('Please enter the Visiting City and Arrival Date.')
+      return
+    }
+
+    setSavingTravel(true)
+    const { error } = await supabase.from('member_travel_alerts').insert([
+      {
+        user_id: user.id,
+        member_name: user.full_name,
+        visiting_city: travelCity.trim(),
+        arrival_date: travelArrival,
+        departure_date: travelDeparture || null,
+        note: travelNote.trim() || null,
+      },
+    ])
+
+    if (!error) {
+      const cityLower = travelCity.trim().toLowerCase()
+      const localBatchmates = members.filter(m => {
+        if (m.id === user.id) return false
+        const addr = `${m.current_address || ''} ${m.permanent_address || ''}`.toLowerCase()
+        return addr.includes(cityLower)
+      })
+
+      const dateRange = travelDeparture
+        ? `${formatFullDate(travelArrival)} to ${formatFullDate(travelDeparture)}`
+        : formatFullDate(travelArrival)
+      const noteText = travelNote.trim() ? ` — "${travelNote.trim()}"` : ''
+      const alertText = `I'm In Town! ${user.full_name} is visiting ${travelCity.trim()} (${dateRange})${noteText}`
+
+      if (localBatchmates.length > 0) {
+        for (const bm of localBatchmates) {
+          await publishArchivedAlert({
+            category: 'event',
+            shortTitle: `I'm In Town: ${user.full_name}`,
+            fullMessage: alertText,
+            targetUserId: bm.id,
+          })
+        }
+      } else {
+        await publishArchivedAlert({
+          category: 'event',
+          shortTitle: `I'm In Town: ${user.full_name}`,
+          fullMessage: alertText,
+        })
+      }
+    }
+
+    setSavingTravel(false)
+    if (error) {
+      alert('Could not post travel alert: ' + error.message)
+      return
+    }
+
+    setTravelCity('')
+    setTravelArrival('')
+    setTravelDeparture('')
+    setTravelNote('')
+    await loadTravelAlerts()
+  }
+
+  const handleDeleteTravelAlert = async (id: number) => {
+    await supabase.from('member_travel_alerts').delete().eq('id', id)
+    await loadTravelAlerts()
+  }
 
   const hasActiveFilters = Boolean(searchQuery || bloodFilter || cityFilter || professionFilter)
 
@@ -213,6 +417,305 @@ export default function DirectoryTab({
         </div>
       )}
 
+      {/* Quick Action Bar: Emergency Blood SOS | City Map & "I'm In Town" | Job & Referral Board */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <Button
+          type="button"
+          variant={activePanel === 'sos' ? 'default' : 'outline'}
+          onClick={() => {
+            setSosSentCount(null)
+            setActivePanel(prev => (prev === 'sos' ? 'none' : 'sos'))
+          }}
+          className={
+            activePanel === 'sos'
+              ? 'bg-red-600 hover:bg-red-500 text-white font-bold gap-1.5 text-xs'
+              : 'border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20 font-semibold gap-1.5 text-xs'
+          }
+        >
+          <Siren className="h-4 w-4" />
+          Emergency Blood Donor SOS
+        </Button>
+
+        <Button
+          type="button"
+          variant={activePanel === 'city_travel' ? 'default' : 'outline'}
+          onClick={() => setActivePanel(prev => (prev === 'city_travel' ? 'none' : 'city_travel'))}
+          className={
+            activePanel === 'city_travel'
+              ? 'gold-gradient text-gold-foreground font-bold gap-1.5 text-xs'
+              : 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 font-semibold gap-1.5 text-xs'
+          }
+        >
+          <Plane className="h-4 w-4" />
+          City Map &amp; “I’m In Town” ({travelAlerts.length})
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => navigate('/dashboard?tab=support&view=opportunities')}
+          className="border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 font-semibold gap-1.5 text-xs"
+        >
+          <Briefcase className="h-4 w-4" />
+          Batch Jobs &amp; Referrals
+        </Button>
+      </div>
+
+      {/* PANEL 1: ONE-TAP EMERGENCY BLOOD DONOR SOS */}
+      {activePanel === 'sos' && (
+        <Card className="border-red-500/50 bg-red-950/20 backdrop-blur-sm">
+          <CardContent className="p-4 space-y-3 text-xs">
+            <div className="flex items-center justify-between">
+              <p className="flex items-center gap-1.5 text-sm font-bold text-red-300">
+                <Siren className="h-4 w-4" />
+                One-Tap Emergency Blood Donor SOS
+              </p>
+              <span className="text-[11px] text-muted-foreground">
+                Alerts only matching donors
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <select
+                value={sosBloodGroup}
+                onChange={e => {
+                  setSosBloodGroup(e.target.value)
+                  setSosSentCount(null)
+                }}
+                className="h-9 rounded-md border border-red-500/40 bg-background px-3 text-xs font-bold"
+              >
+                <option value="">Select Required Blood Group *</option>
+                {bloodOptions.map(bg => (
+                  <option key={bg} value={bg}>
+                    {bg}
+                  </option>
+                ))}
+              </select>
+
+              <Input
+                value={sosCity}
+                onChange={e => {
+                  setSosCity(e.target.value)
+                  setSosSentCount(null)
+                }}
+                placeholder="City / Hospital Location (Optional)"
+                className="h-9 text-xs"
+              />
+
+              <Input
+                value={sosNote}
+                onChange={e => setSosNote(e.target.value)}
+                placeholder="Units / Hospital / Patient Note..."
+                className="h-9 text-xs"
+              />
+            </div>
+
+            {sosBloodGroup && (
+              <div className="space-y-2 rounded-lg border border-border/40 bg-background/70 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-bold text-foreground">
+                    Matching {sosBloodGroup} Donors Found:{' '}
+                    <span className="text-red-400">{matchingSosDonors.length}</span>
+                  </span>
+
+                  {matchingSosDonors.length > 0 && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={sendingSos}
+                      onClick={handleDispatchBloodSos}
+                      className="bg-red-600 hover:bg-red-500 text-white font-bold gap-1.5 text-xs"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                      {sendingSos
+                        ? 'Sending SOS...'
+                        : `Send Instant Push & WhatsApp SOS to ${matchingSosDonors.length} Donor(s)`}
+                    </Button>
+                  )}
+                </div>
+
+                {sosSentCount !== null && (
+                  <p className="text-emerald-400 font-semibold">
+                    High-priority SOS alert sent to {sosSentCount} matching donor(s)!
+                  </p>
+                )}
+
+                <div className="grid gap-1.5 sm:grid-cols-2 pt-1">
+                  {matchingSosDonors.map(donor => {
+                    const ph = cleanPhoneNumber(donor.contact_number)
+                    const wa = cleanPhoneNumber(donor.whatsapp_number).replace(/\D/g, '')
+                    const waText = encodeURIComponent(
+                      `URGENT BLOOD SOS (${sosBloodGroup}): Hi ${donor.full_name}, ${user.full_name} urgently needs ${sosBloodGroup} blood${
+                        sosCity ? ` in ${sosCity}` : ''
+                      }. ${sosNote}`
+                    )
+                    return (
+                      <div
+                        key={donor.id}
+                        className="flex items-center justify-between gap-2 rounded border border-border/30 bg-muted/20 px-2.5 py-1.5"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-bold text-foreground truncate">{donor.full_name}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {donor.current_address || 'City not set'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {ph && (
+                            <a
+                              href={`tel:${ph}`}
+                              className="rounded bg-primary/15 px-2 py-1 text-[10px] font-bold text-primary hover:bg-primary/25"
+                            >
+                              Call
+                            </a>
+                          )}
+                          {wa && (
+                            <a
+                              href={`https://wa.me/${wa}?text=${waText}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white hover:bg-emerald-500"
+                            >
+                              WhatsApp
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* PANEL 2: INTERACTIVE MEMBER CITY MAP & "I'M IN TOWN" TRAVEL ALERTS */}
+      {activePanel === 'city_travel' && (
+        <Card className="border-primary/40 bg-card/85 backdrop-blur-sm">
+          <CardContent className="p-4 space-y-4 text-xs">
+            {/* Broadcast "I'm In Town" Travel Alert */}
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2.5">
+              <p className="flex items-center gap-1.5 font-bold text-primary text-sm">
+                <Plane className="h-4 w-4" />
+                Broadcast “I’m In Town” Travel Alert
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <Input
+                  value={travelCity}
+                  onChange={e => setTravelCity(e.target.value)}
+                  placeholder="Visiting City (e.g., Chennai, Dubai) *"
+                  className="text-xs"
+                />
+                <SmartDateInput
+                  value={travelArrival}
+                  onChange={setTravelArrival}
+                  placeholder="Arrival Date *"
+                />
+                <SmartDateInput
+                  value={travelDeparture}
+                  onChange={setTravelDeparture}
+                  placeholder="Departure Date (Optional)"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  value={travelNote}
+                  onChange={e => setTravelNote(e.target.value)}
+                  placeholder="Optional meetup note (e.g., Free for dinner near T. Nagar)..."
+                  className="flex-1 min-w-[200px] text-xs"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={savingTravel}
+                  onClick={handleBroadcastTravelAlert}
+                  className="gold-gradient text-gold-foreground font-semibold gap-1.5"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  {savingTravel ? 'Alerting...' : 'Alert Batchmates in City'}
+                </Button>
+              </div>
+
+              {travelAlerts.length > 0 && (
+                <div className="space-y-1.5 pt-2 border-t border-border/30">
+                  <p className="font-semibold text-foreground">Upcoming Batch Visits:</p>
+                  {travelAlerts.map(tr => (
+                    <div
+                      key={tr.id}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-border/30 bg-background/70 px-3 py-2"
+                    >
+                      <div>
+                        <span className="font-bold text-primary">{tr.member_name}</span> is visiting{' '}
+                        <strong className="text-foreground">{tr.visiting_city}</strong> on{' '}
+                        <span className="text-emerald-400 font-semibold">
+                          {formatFullDate(tr.arrival_date)}
+                          {tr.departure_date ? ` – ${formatFullDate(tr.departure_date)}` : ''}
+                        </span>
+                        {tr.note && <span className="text-muted-foreground"> • {tr.note}</span>}
+                      </div>
+                      {(tr.user_id === user.id || userIsAdmin) && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteTravelAlert(tr.id)}
+                          className="h-6 w-6 text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Interactive Member City Map Clusters */}
+            <div className="space-y-2">
+              <p className="flex items-center gap-1.5 font-bold text-primary text-sm">
+                <Building className="h-4 w-4" />
+                Batch Locations &amp; City Map ({cityClusters.length} Cities)
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {cityClusters.map(([cityName, residents]) => (
+                  <div
+                    key={cityName}
+                    className="rounded-xl border border-border/40 bg-muted/15 p-3 space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-foreground truncate">{cityName}</span>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cityName)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary hover:bg-primary/25 shrink-0"
+                      >
+                        Map ({residents.length})
+                        <ExternalLink className="h-2.5 w-2.5" />
+                      </a>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {residents.map(r => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => navigate(`/member/${r.id}`)}
+                          className="rounded bg-background/80 px-2 py-0.5 text-[11px] text-foreground/90 hover:text-primary hover:underline"
+                        >
+                          {r.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Search Bar & Emergency Donor / Location / Profession Filters */}
       <Card className="border-primary/30 bg-card/75 backdrop-blur-sm">
         <CardContent className="p-3 space-y-2.5">
           <div className="relative">
@@ -287,7 +790,6 @@ export default function DirectoryTab({
             </div>
           </div>
 
-          {/* ExCom / Member CSV & Printable Roster Export Bar */}
           {(userIsAdmin || filteredMembers.length > 0) && (
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/25 pt-2">
               <Button
