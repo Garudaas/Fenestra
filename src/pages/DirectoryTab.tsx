@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { fetchAllBloodGroups } from '@/lib/fenestriansCore'
-import { cleanPhoneNumber } from '@/lib/formatters'
+import { cleanPhoneNumber, formatFullDateTime } from '@/lib/formatters'
+import { saveOfflineDirectory, loadOfflineDirectory } from '@/lib/offlineCache'
+import { exportRowsToCSV, openPrintableReport } from '@/lib/reportExporter'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,6 +21,9 @@ import {
   ChevronRight,
   HandHeart,
   Phone,
+  WifiOff,
+  FileSpreadsheet,
+  Printer,
 } from 'lucide-react'
 
 interface DirectoryTabProps {
@@ -32,10 +37,14 @@ export default function DirectoryTab({
   onStartVideoCall,
   onOpenSupportRequests,
 }: DirectoryTabProps) {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [members, setMembers] = useState<any[]>([])
   const [openSupportCount, setOpenSupportCount] = useState(0)
+  const [offlineInfo, setOfflineInfo] = useState<{ isOffline: boolean; syncedAt: string | null }>({
+    isOffline: false,
+    syncedAt: null,
+  })
 
   const [searchQuery, setSearchQuery] = useState('')
   const [bloodFilter, setBloodFilter] = useState('')
@@ -43,27 +52,50 @@ export default function DirectoryTab({
   const [professionFilter, setProfessionFilter] = useState('')
   const [bloodOptions, setBloodOptions] = useState<string[]>([])
 
+  const userIsAdmin = Boolean(isAdmin || user?.is_admin)
+
   useEffect(() => {
     loadDirectory()
   }, [])
 
   const loadDirectory = async () => {
-    const [usersRes, bgs, supportRes] = await Promise.all([
-      supabase
-        .from('alumni')
-        .select('*')
-        .eq('is_placeholder', false)
-        .eq('hide_from_peers', false)
-        .neq('full_name', 'System Administrator'),
-      fetchAllBloodGroups(),
-      supabase
-        .from('family_support_requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'open'),
-    ])
-    if (usersRes.data) setMembers(usersRes.data)
-    setBloodOptions(bgs)
-    setOpenSupportCount(supportRes.count || 0)
+    try {
+      const [usersRes, bgs, supportRes] = await Promise.all([
+        supabase
+          .from('alumni_directory_safe')
+          .select('*')
+          .eq('is_placeholder', false)
+          .eq('hide_from_peers', false)
+          .neq('full_name', 'System Administrator')
+          .order('full_name', { ascending: true }),
+        fetchAllBloodGroups(),
+        supabase
+          .from('family_support_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'open'),
+      ])
+
+      if (usersRes.data && usersRes.data.length > 0) {
+        setMembers(usersRes.data)
+        setBloodOptions(bgs)
+        setOpenSupportCount(supportRes.count || 0)
+        setOfflineInfo({ isOffline: false, syncedAt: new Date().toISOString() })
+        await saveOfflineDirectory(usersRes.data)
+        return
+      }
+    } catch {
+      // Fallback to offline IndexedDB cache
+    }
+
+    const cached = await loadOfflineDirectory()
+    if (cached.members.length > 0) {
+      setMembers(cached.members)
+      const cachedBgs = Array.from(
+        new Set(cached.members.map((m: any) => m.blood_group).filter(Boolean))
+      ) as string[]
+      setBloodOptions(cachedBgs)
+      setOfflineInfo({ isOffline: true, syncedAt: cached.syncedAt })
+    }
   }
 
   const professionOptions = useMemo(() => {
@@ -124,11 +156,63 @@ export default function DirectoryTab({
     setProfessionFilter('')
   }
 
+  const buildReportRows = () => {
+    const headers = [
+      'Full Name',
+      'Nickname',
+      'Blood Group',
+      'Contact Number',
+      'WhatsApp Number',
+      'Email',
+      'Profession / Status',
+      'Current Address',
+    ]
+    const rows = filteredMembers.map(m => [
+      m.full_name,
+      m.class_nickname || '-',
+      m.blood_group || '-',
+      cleanPhoneNumber(m.contact_number) || '-',
+      cleanPhoneNumber(m.whatsapp_number) || '-',
+      m.email || '-',
+      m.current_status || '-',
+      m.current_address || '-',
+    ])
+    return { headers, rows }
+  }
+
+  const handleExportCsv = () => {
+    const { headers, rows } = buildReportRows()
+    exportRowsToCSV(
+      `Fenestrians_Directory_${new Date().toISOString().slice(0, 10)}.csv`,
+      headers,
+      rows
+    )
+  }
+
+  const handlePrintReport = () => {
+    const { headers, rows } = buildReportRows()
+    openPrintableReport(
+      'Member & Emergency Donor Directory',
+      `Total Listed: ${filteredMembers.length} member(s)`,
+      headers,
+      rows
+    )
+  }
+
   if (!user) return null
 
   return (
     <div className="mx-auto max-w-5xl space-y-3">
-      {/* Search Bar & Emergency Donor / Location / Profession Filters */}
+      {offlineInfo.isOffline && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/15 px-3.5 py-2.5 text-xs text-amber-200">
+          <WifiOff className="h-4 w-4 shrink-0 text-amber-400" />
+          <span>
+            <strong>Offline Emergency Mode:</strong> Showing cached directory contacts
+            {offlineInfo.syncedAt ? ` (Last synced: ${formatFullDateTime(offlineInfo.syncedAt)})` : ''}.
+          </span>
+        </div>
+      )}
+
       <Card className="border-primary/30 bg-card/75 backdrop-blur-sm">
         <CardContent className="p-3 space-y-2.5">
           <div className="relative">
@@ -202,6 +286,32 @@ export default function DirectoryTab({
               )}
             </div>
           </div>
+
+          {/* ExCom / Member CSV & Printable Roster Export Bar */}
+          {(userIsAdmin || filteredMembers.length > 0) && (
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/25 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleExportCsv}
+                className="h-7 text-[11px] gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+              >
+                <FileSpreadsheet className="h-3 w-3" />
+                Export CSV Roster
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handlePrintReport}
+                className="h-7 text-[11px] gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+              >
+                <Printer className="h-3 w-3" />
+                Print Roster / Donors
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -307,7 +417,6 @@ export default function DirectoryTab({
         </div>
       )}
 
-      {/* Family Support Requests Button at Bottom of Member Directory */}
       <div className="pt-2">
         <Button
           type="button"
