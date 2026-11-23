@@ -1,11 +1,24 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { publishArchivedAlert } from '@/lib/notificationService'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { formatFullDate } from '@/lib/formatters'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { HandHeart, PlusCircle, CheckCircle2, Clock } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import {
+  HandHeart,
+  Plus,
+  CheckCircle2,
+  Briefcase,
+  MapPin,
+  ExternalLink,
+  Trash2,
+  Send,
+} from 'lucide-react'
 
 interface SupportRequestItem {
   id: number
@@ -13,193 +26,430 @@ interface SupportRequestItem {
   member_name: string
   title: string
   description: string
-  status: 'open' | 'achieved'
+  status: string
   created_at: string
-  resolved_at: string | null
+}
+
+interface OpportunityItem {
+  id: number
+  posted_by_id: number
+  posted_by_name: string
+  opp_type: string
+  title: string
+  company_or_org: string | null
+  location: string | null
+  description: string
+  contact_or_link: string | null
+  created_at: string
 }
 
 export default function SupportTab() {
   const { user, isAdmin } = useAuth()
-  const [requests, setRequests] = useState<SupportRequestItem[]>([])
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [loading, setLoading] = useState(true)
-
+  const [searchParams] = useSearchParams()
   const userIsAdmin = Boolean(isAdmin || user?.is_admin)
 
+  const [section, setSection] = useState<'support' | 'opportunities'>(() =>
+    searchParams.get('view') === 'opportunities' ? 'opportunities' : 'support'
+  )
+
   useEffect(() => {
-    loadRequests()
+    if (searchParams.get('view') === 'opportunities') {
+      setSection('opportunities')
+    }
+  }, [searchParams])
+
+  // Family Support states
+  const [requests, setRequests] = useState<SupportRequestItem[]>([])
+  const [suppTitle, setSuppTitle] = useState('')
+  const [suppDesc, setSuppDesc] = useState('')
+  const [postingSupport, setPostingSupport] = useState(false)
+
+  // Batch Job, Internship & Referral Board states
+  const [opportunities, setOpportunities] = useState<OpportunityItem[]>([])
+  const [oppType, setOppType] = useState('Job')
+  const [oppTitle, setOppTitle] = useState('')
+  const [oppCompany, setOppCompany] = useState('')
+  const [oppLocation, setOppLocation] = useState('')
+  const [oppDesc, setOppDesc] = useState('')
+  const [oppLink, setOppLink] = useState('')
+  const [postingOpp, setPostingOpp] = useState(false)
+
+  useEffect(() => {
+    loadSupportAndOpportunities()
   }, [])
 
-  const loadRequests = async () => {
-    setLoading(true)
-    const { data } = await supabase
-      .from('family_support_requests')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (data) setRequests(data as SupportRequestItem[])
-    setLoading(false)
+  const loadSupportAndOpportunities = async () => {
+    const [suppRes, oppRes] = await Promise.all([
+      supabase
+        .from('family_support_requests')
+        .select('*')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('batch_opportunities')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false }),
+    ])
+    setRequests((suppRes.data ?? []) as SupportRequestItem[])
+    setOpportunities((oppRes.data ?? []) as OpportunityItem[])
   }
 
-  const handleSubmitRequest = async () => {
-    if (!user) return
-    if (!title.trim() || !description.trim()) {
-      alert('Please enter both a subject and details of the support needed.')
+  const handlePostSupport = async () => {
+    if (!user || !suppTitle.trim() || !suppDesc.trim()) {
+      alert('Please enter both a Title and Description.')
       return
     }
-
-    setSubmitting(true)
+    setPostingSupport(true)
     const { error } = await supabase.from('family_support_requests').insert([
       {
         member_id: user.id,
         member_name: user.full_name,
-        title: title.trim(),
-        description: description.trim(),
+        title: suppTitle.trim(),
+        description: suppDesc.trim(),
         status: 'open',
       },
     ])
 
-    if (error) {
-      setSubmitting(false)
-      alert(`Could not post support request: ${error.message}`)
-      return
+    if (!error) {
+      await publishArchivedAlert({
+        category: 'help_needed',
+        shortTitle: 'Your friend Needs help',
+        fullMessage: `${user.full_name} posted a support request: ${suppTitle.trim()} — ${suppDesc.trim()}`,
+        needsHelpFlag: true,
+      })
     }
 
-    // Automatically broadcast & archive as "Your friend Needs help"
-    await publishArchivedAlert({
-      category: 'help_needed',
-      shortTitle: 'Your friend Needs help',
-      fullMessage: `${user.full_name} needs family support: ${title.trim()} — ${description.trim()}`,
-      needsHelpFlag: true,
-    })
-
-    setTitle('')
-    setDescription('')
-    setSubmitting(false)
-    await loadRequests()
+    setPostingSupport(false)
+    if (error) {
+      alert('Could not post request: ' + error.message)
+      return
+    }
+    setSuppTitle('')
+    setSuppDesc('')
+    await loadSupportAndOpportunities()
   }
 
-  const handleMarkAchieved = async (reqItem: SupportRequestItem) => {
-    await supabase
-      .from('family_support_requests')
-      .update({
-        status: 'achieved',
-        resolved_at: new Date().toISOString(),
-      })
-      .eq('id', reqItem.id)
+  const handleMarkAchieved = async (id: number) => {
+    await supabase.from('family_support_requests').update({ status: 'achieved' }).eq('id', id)
+    await loadSupportAndOpportunities()
+  }
 
-    await loadRequests()
+  const handlePostOpportunity = async () => {
+    if (!user || !oppTitle.trim() || !oppDesc.trim()) {
+      alert('Please enter the Role / Opportunity Title and Description.')
+      return
+    }
+    setPostingOpp(true)
+    const { error } = await supabase.from('batch_opportunities').insert([
+      {
+        posted_by_id: user.id,
+        posted_by_name: user.full_name,
+        opp_type: oppType,
+        title: oppTitle.trim(),
+        company_or_org: oppCompany.trim() || null,
+        location: oppLocation.trim() || null,
+        description: oppDesc.trim(),
+        contact_or_link: oppLink.trim() || null,
+        is_active: true,
+      },
+    ])
+
+    if (!error) {
+      await publishArchivedAlert({
+        category: 'member_message',
+        shortTitle: `New ${oppType} Opportunity`,
+        fullMessage: `${user.full_name} shared a ${oppType} opportunity: ${oppTitle.trim()}${
+          oppCompany.trim() ? ` at ${oppCompany.trim()}` : ''
+        }.`,
+      })
+    }
+
+    setPostingOpp(false)
+    if (error) {
+      alert('Could not post opportunity: ' + error.message)
+      return
+    }
+    setOppTitle('')
+    setOppCompany('')
+    setOppLocation('')
+    setOppDesc('')
+    setOppLink('')
+    await loadSupportAndOpportunities()
+  }
+
+  const handleDeleteOpportunity = async (id: number) => {
+    if (!window.confirm('Remove this listing?')) return
+    await supabase.from('batch_opportunities').delete().eq('id', id)
+    await loadSupportAndOpportunities()
   }
 
   if (!user) return null
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <Card className="border-border/40 bg-card/70 backdrop-blur-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-primary">
-            <HandHeart className="h-5 w-5" />
-            Family Support Requests
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            Request medical, educational, career, or emergency assistance for your family. Posting here immediately alerts all Fenestrians members under <span className="font-semibold text-primary">“Your friend Needs help”</span>.
-          </p>
+    <div className="mx-auto max-w-4xl space-y-4">
+      <div className="flex gap-1.5 rounded-xl border border-border/50 bg-card/80 p-1">
+        <button
+          type="button"
+          onClick={() => setSection('support')}
+          className={`flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-all ${
+            section === 'support'
+              ? 'gold-gradient text-gold-foreground shadow'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Family Support Requests ({requests.length})
+        </button>
 
-          <Input
-            placeholder="Support Title (e.g., Blood donors needed, Career guidance for son) *"
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            className="bg-input/50 border-border/50"
-          />
+        <button
+          type="button"
+          onClick={() => setSection('opportunities')}
+          className={`flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-all ${
+            section === 'opportunities'
+              ? 'gold-gradient text-gold-foreground shadow'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Jobs, Internships &amp; Referrals ({opportunities.length})
+        </button>
+      </div>
 
-          <textarea
-            rows={3}
-            placeholder="Describe how fellow members can help your family *"
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            className="w-full rounded-md border border-border/50 bg-input/50 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
-          />
+      {section === 'support' ? (
+        <Card className="border-border/40 bg-card/75 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-primary">
+              <HandHeart className="h-5 w-5" />
+              Family &amp; Batch Support Requests
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Post medical, educational, or emergency assistance requests for immediate batch support.
+            </CardDescription>
+          </CardHeader>
 
-          <Button
-            type="button"
-            title="Post Family Support Request"
-            disabled={submitting}
-            onClick={handleSubmitRequest}
-            className="gold-gradient text-gold-foreground font-semibold gap-2"
-          >
-            <PlusCircle className="h-4 w-4" />
-            {submitting ? 'Sending Help Alert...' : 'Request Family Support'}
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card className="border-border/40 bg-card/70">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-primary">Active &amp; Fulfilled Support List</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {loading ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">Loading support requests...</p>
-          ) : requests.length === 0 ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">
-              No family support requests listed right now.
-            </p>
-          ) : (
-            requests.map(item => (
-              <div
-                key={item.id}
-                className={`rounded-xl border p-4 space-y-2 ${
-                  item.status === 'achieved'
-                    ? 'border-emerald-500/30 bg-emerald-500/5'
-                    : 'border-amber-500/40 bg-amber-500/5'
-                }`}
+          <CardContent className="space-y-4 text-xs">
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2.5">
+              <Input
+                value={suppTitle}
+                onChange={e => setSuppTitle(e.target.value)}
+                placeholder="Request Title (e.g., Medical Assistance / Hospital Reference)"
+                className="text-xs"
+              />
+              <Textarea
+                value={suppDesc}
+                onChange={e => setSuppDesc(e.target.value)}
+                placeholder="Provide full details so batchmates can step in quickly..."
+                className="h-20 text-xs"
+              />
+              <Button
+                type="button"
+                disabled={postingSupport}
+                onClick={handlePostSupport}
+                className="gold-gradient text-gold-foreground font-semibold gap-1.5"
               >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-bold text-foreground">{item.title}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Requested by <span className="font-semibold text-primary">{item.member_name}</span> •{' '}
-                      {new Date(item.created_at).toLocaleDateString('en-IN')}
-                    </p>
-                  </div>
+                <Plus className="h-3.5 w-3.5" />
+                {postingSupport ? 'Posting...' : 'Post Support Request'}
+              </Button>
+            </div>
 
-                  {item.status === 'achieved' ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Support Achieved
-                    </span>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-1 text-[11px] font-semibold text-amber-300">
-                        <Clock className="h-3.5 w-3.5" />
-                        Needs Support
-                      </span>
-                      {(item.member_id === user.id || userIsAdmin) && (
+            {requests.length === 0 ? (
+              <p className="py-6 text-center text-muted-foreground">No support requests posted.</p>
+            ) : (
+              <div className="space-y-2.5">
+                {requests.map(r => (
+                  <div
+                    key={r.id}
+                    className="rounded-xl border border-border/40 bg-muted/15 p-3.5 space-y-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-foreground">{r.title}</span>
+                          <Badge
+                            variant={r.status === 'achieved' ? 'default' : 'destructive'}
+                            className={
+                              r.status === 'achieved'
+                                ? 'bg-emerald-600 text-white text-[10px]'
+                                : 'text-[10px]'
+                            }
+                          >
+                            {r.status === 'achieved' ? 'Achieved' : 'Open'}
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Posted by <strong className="text-primary">{r.member_name}</strong> •{' '}
+                          {formatFullDate(r.created_at)}
+                        </p>
+                      </div>
+
+                      {r.status !== 'achieved' && (r.member_id === user.id || userIsAdmin) && (
                         <Button
                           type="button"
                           size="sm"
-                          variant="outline"
-                          title="Mark Support Achieved"
-                          onClick={() => handleMarkAchieved(item)}
-                          className="h-7 text-xs border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
+                          onClick={() => handleMarkAchieved(r.id)}
+                          className="h-7 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] gap-1"
                         >
+                          <CheckCircle2 className="h-3 w-3" />
                           Mark Achieved
                         </Button>
                       )}
                     </div>
-                  )}
-                </div>
-
-                <p className="text-xs text-foreground/90 leading-relaxed">{item.description}</p>
+                    <p className="text-foreground/90 whitespace-pre-line">{r.description}</p>
+                  </div>
+                ))}
               </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        /* BATCH JOB, INTERNSHIP & REFERRAL BOARD */
+        <Card className="border-border/40 bg-card/75 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-primary">
+              <Briefcase className="h-5 w-5" />
+              Batch Job, Internship &amp; Referral Board
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Share career openings, freelance consulting projects, internships, or company referrals for classmates and student mentees.
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="space-y-4 text-xs">
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <select
+                  value={oppType}
+                  onChange={e => setOppType(e.target.value)}
+                  className="h-9 rounded-md border border-border/50 bg-background px-3 text-xs font-semibold"
+                >
+                  <option value="Job">Full-Time Job</option>
+                  <option value="Internship">Student Internship</option>
+                  <option value="Freelance / Project">Freelance / Consulting Project</option>
+                  <option value="Referral">Employee Referral</option>
+                </select>
+                <Input
+                  value={oppTitle}
+                  onChange={e => setOppTitle(e.target.value)}
+                  placeholder="Role / Opportunity Title *"
+                  className="text-xs"
+                />
+                <Input
+                  value={oppCompany}
+                  onChange={e => setOppCompany(e.target.value)}
+                  placeholder="Company / Organization Name"
+                  className="text-xs"
+                />
+                <Input
+                  value={oppLocation}
+                  onChange={e => setOppLocation(e.target.value)}
+                  placeholder="City / Remote / Hybrid"
+                  className="text-xs"
+                />
+              </div>
+
+              <Textarea
+                value={oppDesc}
+                onChange={e => setOppDesc(e.target.value)}
+                placeholder="Skills required, experience level, and how to apply..."
+                className="h-20 text-xs"
+              />
+
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  value={oppLink}
+                  onChange={e => setOppLink(e.target.value)}
+                  placeholder="Application Link or HR Email / Phone"
+                  className="flex-1 min-w-[200px] text-xs"
+                />
+                <Button
+                  type="button"
+                  disabled={postingOpp}
+                  onClick={handlePostOpportunity}
+                  className="gold-gradient text-gold-foreground font-semibold gap-1.5"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  {postingOpp ? 'Posting...' : 'Post Opportunity'}
+                </Button>
+              </div>
+            </div>
+
+            {opportunities.length === 0 ? (
+              <p className="py-6 text-center text-muted-foreground">
+                No opportunities listed yet. Share an opening or internship above!
+              </p>
+            ) : (
+              <div className="space-y-2.5">
+                {opportunities.map(op => {
+                  const isUrl =
+                    op.contact_or_link &&
+                    (op.contact_or_link.startsWith('http://') ||
+                      op.contact_or_link.startsWith('https://'))
+                  return (
+                    <div
+                      key={op.id}
+                      className="rounded-xl border border-border/40 bg-muted/15 p-3.5 space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-0.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" className="border-primary/40 text-primary text-[10px]">
+                              {op.opp_type}
+                            </Badge>
+                            <span className="text-sm font-bold text-foreground">{op.title}</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            {op.company_or_org ? `${op.company_or_org} • ` : ''}
+                            {op.location && (
+                              <span className="inline-flex items-center gap-1">
+                                <MapPin className="h-3 w-3 text-primary" />
+                                {op.location} •{' '}
+                              </span>
+                            )}
+                            Posted by <strong className="text-primary">{op.posted_by_name}</strong> (
+                            {formatFullDate(op.created_at)})
+                          </p>
+                        </div>
+
+                        {(op.posted_by_id === user.id || userIsAdmin) && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteOpportunity(op.id)}
+                            className="h-7 w-7 text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+
+                      <p className="text-foreground/90 whitespace-pre-line">{op.description}</p>
+
+                      {op.contact_or_link && (
+                        <div className="pt-1">
+                          {isUrl ? (
+                            <a
+                              href={op.contact_or_link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-primary font-semibold hover:underline"
+                            >
+                              Apply / Open Link
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : (
+                            <p className="text-emerald-400 font-semibold">
+                              Contact / Apply: {op.contact_or_link}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
