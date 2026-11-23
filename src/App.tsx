@@ -11,6 +11,7 @@ import InstallAppPage from '@/pages/InstallAppPage'
 import NotificationsPage from '@/pages/NotificationsPage'
 import SmartAppLauncher from '@/pages/SmartAppLauncher'
 import MemberProfilePage from '@/pages/MemberProfilePage'
+import ShareTargetPage from '@/pages/ShareTargetPage'
 import NotificationQuickBar from '@/components/NotificationQuickBar'
 import SplashScreen from '@/components/SplashScreen'
 
@@ -80,6 +81,7 @@ export function App() {
           <Route path="/invite" element={<InvitePage />} />
           <Route path="/install" element={<InstallAppPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/share-target" element={<ShareTargetPage />} />
           <Route path="/member/:id" element={<MemberProfilePage />} />
           <Route path="/admin" element={<AdminLoginPage />} />
           <Route path="/dashboard" element={<MemberDashboard />} />
