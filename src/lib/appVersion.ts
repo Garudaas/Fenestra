@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.22",
-  "timestamp": "23 Nov 2026, 10:37 PM IST",
-  "formatted": "V2.22, 23 Nov 2026, 10:37 PM IST",
+  "version": "V2.23",
+  "timestamp": "23 Nov 2026, 10:38 PM IST",
+  "formatted": "V2.23, 23 Nov 2026, 10:38 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance DirectoryTab with travel alerts and SOS features)",
+  "summary": "Minor technical update (Update SupportTab.tsx)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.23",
+      "timestamp": "23 Nov 2026, 10:38 PM IST",
+      "formatted": "V2.23, 23 Nov 2026, 10:38 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Update SupportTab.tsx)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.22",
       "timestamp": "23 Nov 2026, 10:37 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.99, 23 Nov 2026, 04:41 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor taskAuditService for clarity and type safety)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.98",
-      "timestamp": "23 Nov 2026, 04:39 AM IST",
-      "formatted": "V1.98, 23 Nov 2026, 04:39 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Member profile details updated)",
       "requiresReinstall": false
     }
   ]
