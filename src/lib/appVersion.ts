@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.18",
-  "timestamp": "23 Nov 2026, 10:19 PM IST",
-  "formatted": "V2.18, 23 Nov 2026, 10:19 PM IST",
+  "version": "V2.19",
+  "timestamp": "23 Nov 2026, 10:22 PM IST",
+  "formatted": "V2.19, 23 Nov 2026, 10:22 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance CallsTab with scheduling and attendance features)",
+  "summary": "Minor technical update (Add recurrence rule and export/print functionality)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.19",
+      "timestamp": "23 Nov 2026, 10:22 PM IST",
+      "formatted": "V2.19, 23 Nov 2026, 10:22 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Add recurrence rule and export/print functionality)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.18",
       "timestamp": "23 Nov 2026, 10:19 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.95, 23 Nov 2026, 04:34 AM IST",
       "type": "minor",
       "summary": "Minor general update (Add Tasks tab and update badge synchronization)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.94",
-      "timestamp": "23 Nov 2026, 04:32 AM IST",
-      "formatted": "V1.94, 23 Nov 2026, 04:32 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add TasksTab component for task management)",
       "requiresReinstall": false
     }
   ]
