@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.15",
-  "timestamp": "23 Nov 2026, 10:07 PM IST",
-  "formatted": "V2.15, 23 Nov 2026, 10:07 PM IST",
+  "version": "V2.16",
+  "timestamp": "23 Nov 2026, 10:16 PM IST",
+  "formatted": "V2.16, 23 Nov 2026, 10:16 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Delete public/manifest.webmanifest)",
+  "summary": "Minor general update (Add calendar event creation and download functions)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.16",
+      "timestamp": "23 Nov 2026, 10:16 PM IST",
+      "formatted": "V2.16, 23 Nov 2026, 10:16 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Add calendar event creation and download functions)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.15",
       "timestamp": "23 Nov 2026, 10:07 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.92, 23 Nov 2026, 04:28 AM IST",
       "type": "minor",
       "summary": "Minor general update (Enhance AuthContext with executive role checks)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.91",
-      "timestamp": "23 Nov 2026, 04:27 AM IST",
-      "formatted": "V1.91, 23 Nov 2026, 04:27 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor notification service and clean up comments)",
       "requiresReinstall": false
     }
   ]
