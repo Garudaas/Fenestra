@@ -1,11 +1,19 @@
 {
-  "version": "V2.16",
-  "timestamp": "23 Nov 2026, 10:16 PM IST",
-  "formatted": "V2.16, 23 Nov 2026, 10:16 PM IST",
+  "version": "V2.17",
+  "timestamp": "23 Nov 2026, 10:18 PM IST",
+  "formatted": "V2.17, 23 Nov 2026, 10:18 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Add calendar event creation and download functions)",
+  "summary": "Minor general update (Treasury, Polls, Event RSVPs, Meeting Minutes PDFs & ExCom Reports)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.17",
+      "timestamp": "23 Nov 2026, 10:18 PM IST",
+      "formatted": "V2.17, 23 Nov 2026, 10:18 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Treasury, Polls, Event RSVPs, Meeting Minutes PDFs & ExCom Reports)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.16",
       "timestamp": "23 Nov 2026, 10:16 PM IST",
@@ -196,14 +204,6 @@
       "formatted": "V1.93, 23 Nov 2026, 04:30 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor date formatting and task handling in NotificationsPage)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.92",
-      "timestamp": "23 Nov 2026, 04:28 AM IST",
-      "formatted": "V1.92, 23 Nov 2026, 04:28 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Enhance AuthContext with executive role checks)",
       "requiresReinstall": false
     }
   ]
