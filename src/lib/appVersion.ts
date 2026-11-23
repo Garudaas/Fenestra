@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.14",
-  "timestamp": "23 Nov 2026, 10:06 PM IST",
-  "formatted": "V2.14, 23 Nov 2026, 10:06 PM IST",
+  "version": "V2.15",
+  "timestamp": "23 Nov 2026, 10:07 PM IST",
+  "formatted": "V2.15, 23 Nov 2026, 10:07 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Update manifest.json with new network details)",
+  "summary": "Minor general update (Delete public/manifest.webmanifest)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.15",
+      "timestamp": "23 Nov 2026, 10:07 PM IST",
+      "formatted": "V2.15, 23 Nov 2026, 10:07 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Delete public/manifest.webmanifest)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.14",
       "timestamp": "23 Nov 2026, 10:06 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.91, 23 Nov 2026, 04:27 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor notification service and clean up comments)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.90",
-      "timestamp": "23 Nov 2026, 04:24 AM IST",
-      "formatted": "V1.90, 23 Nov 2026, 04:24 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Add taskAuditService with auditing functions)",
       "requiresReinstall": false
     }
   ]
