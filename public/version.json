@@ -1,11 +1,19 @@
 {
-  "version": "V2.08",
+  "version": "V2.09",
   "timestamp": "23 Nov 2026, 10:00 PM IST",
-  "formatted": "V2.08, 23 Nov 2026, 10:00 PM IST",
+  "formatted": "V2.09, 23 Nov 2026, 10:00 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Login and registration screen updated)",
+  "summary": "Minor general update (Enhance NotificationQuickBar with pending tasks count)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.09",
+      "timestamp": "23 Nov 2026, 10:00 PM IST",
+      "formatted": "V2.09, 23 Nov 2026, 10:00 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Enhance NotificationQuickBar with pending tasks count)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.08",
       "timestamp": "23 Nov 2026, 10:00 PM IST",
@@ -194,14 +202,6 @@
       "version": "V1.85",
       "timestamp": "23 Nov 2026, 02:59 AM IST",
       "formatted": "V1.85, 23 Nov 2026, 02:59 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.84",
-      "timestamp": "23 Nov 2026, 02:58 AM IST",
-      "formatted": "V1.84, 23 Nov 2026, 02:58 AM IST",
       "type": "minor",
       "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
       "requiresReinstall": false
