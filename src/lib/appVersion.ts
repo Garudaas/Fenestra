@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.23",
-  "timestamp": "23 Nov 2026, 10:38 PM IST",
-  "formatted": "V2.23, 23 Nov 2026, 10:38 PM IST",
+  "version": "V2.24",
+  "timestamp": "23 Nov 2026, 10:39 PM IST",
+  "formatted": "V2.24, 23 Nov 2026, 10:39 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Update SupportTab.tsx)",
+  "summary": "Minor general update (Chat and calling screen updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.24",
+      "timestamp": "23 Nov 2026, 10:39 PM IST",
+      "formatted": "V2.24, 23 Nov 2026, 10:39 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Chat and calling screen updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.23",
       "timestamp": "23 Nov 2026, 10:38 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.00, 23 Nov 2026, 04:42 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add newline at end of taskAuditService.ts)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.99",
-      "timestamp": "23 Nov 2026, 04:41 AM IST",
-      "formatted": "V1.99, 23 Nov 2026, 04:41 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor taskAuditService for clarity and type safety)",
       "requiresReinstall": false
     }
   ]
