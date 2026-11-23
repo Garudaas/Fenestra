@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { updateAppIconBadge } from '@/lib/offlineCache'
 import {
   fetchUserNotifications,
   clearChatNotifications,
@@ -21,7 +22,6 @@ export default function NotificationQuickBar() {
   const [unreadChatCount, setUnreadChatCount] = useState(0)
   const [unreadCallCount, setUnreadCallCount] = useState(0)
 
-  // Custom draggable position (x, y from top-left); null = default bottom-right
   const [customPos, setCustomPos] = useState<{ x: number; y: number } | null>(() => {
     try {
       const saved = localStorage.getItem(POS_STORAGE_KEY)
@@ -42,7 +42,15 @@ export default function NotificationQuickBar() {
   const refreshCounts = useCallback(async () => {
     if (!user || user.is_placeholder) return
 
-    const list = await fetchUserNotifications(user.id)
+    const [list, pendingTasksRes] = await Promise.all([
+      fetchUserNotifications(user.id),
+      supabase
+        .from('member_tasks')
+        .select('id', { count: 'exact', head: true })
+        .eq('assigned_to_user_id', user.id)
+        .eq('status', 'pending'),
+    ])
+
     const unread = list.filter(item => item.status === 'unread')
 
     let chatTotal = 0
@@ -59,9 +67,14 @@ export default function NotificationQuickBar() {
       }
     }
 
+    const totalAlertBadge = otherTotal + chatTotal + callTotal
     setUnreadChatCount(chatTotal)
     setUnreadCallCount(callTotal)
-    setUnreadAlertsCount(otherTotal + chatTotal + callTotal)
+    setUnreadAlertsCount(totalAlertBadge)
+
+    // Sync total unread alerts + pending tasks onto the phone/desktop app icon badge
+    const pendingTaskCount = pendingTasksRes.count || 0
+    updateAppIconBadge(Math.max(totalAlertBadge, pendingTaskCount))
 
     const now = Date.now()
     for (const item of unread) {
@@ -92,7 +105,10 @@ export default function NotificationQuickBar() {
   }, [user, location.pathname, navigate])
 
   useEffect(() => {
-    if (!user || user.is_placeholder) return
+    if (!user || user.is_placeholder) {
+      updateAppIconBadge(0)
+      return
+    }
     refreshCounts()
 
     const channel = supabase
@@ -115,6 +131,18 @@ export default function NotificationQuickBar() {
           event: 'INSERT',
           schema: 'public',
           table: 'notifications_archive',
+        },
+        () => {
+          refreshCounts()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'member_tasks',
+          filter: `assigned_to_user_id=eq.${user.id}`,
         },
         () => {
           refreshCounts()
@@ -222,7 +250,6 @@ export default function NotificationQuickBar() {
       style={positionStyle}
       className="fixed z-40 flex items-center gap-1.5 rounded-full border border-primary/40 bg-card/90 px-2.5 py-2 shadow-2xl backdrop-blur-md"
     >
-      {/* Drag Handle to move the floating bar anywhere on screen */}
       <button
         type="button"
         title="Drag to move floating bar"
