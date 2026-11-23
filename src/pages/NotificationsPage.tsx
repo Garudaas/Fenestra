@@ -104,7 +104,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true)
   const [actionBusy, setActionBusy] = useState(false)
 
-  // Expanded personal task accordions (collapsed by default!)
+  // Expanded personal task accordions (collapsed by default)
   const [expandedTaskIds, setExpandedTaskIds] = useState<Record<number, boolean>>({})
   const [personalTaskDetails, setPersonalTaskDetails] = useState<
     Record<number, ExpandedPersonalTaskState>
@@ -198,12 +198,6 @@ export default function NotificationsPage() {
     }
   }
 
-  /**
-   * Handles checking a checkbox against an individual task item:
-   * - Runs instant database audit if the task is verifiable/auditable.
-   * - If incomplete, blocks check and explains why + reminds about "Prefer not to complete".
-   * - If complete or non-auditable, acknowledges and persists checkbox state.
-   */
   const handleToggleSubTaskCheckbox = async (
     notif: UserNotificationItem,
     subItem: TaskSubItem,
@@ -264,9 +258,6 @@ export default function NotificationsPage() {
     setAuditFeedbackBanner({ type: 'success', text: ackText })
   }
 
-  /**
-   * Handles clicking "Prefer not to complete" on an auditable detail item.
-   */
   const handlePreferNotToComplete = async (
     notif: UserNotificationItem,
     subItem: TaskSubItem
@@ -309,12 +300,6 @@ export default function NotificationsPage() {
     })
   }
 
-  /**
-   * Finalizes the entire personal task list once all items are completed or opted out:
-   * - Marks member_tasks completed with completion analysis
-   * - Sends notification with completion analysis summary to the assigner
-   * - Closes/moves this personal task alert to Read
-   */
   const handleFinalizeAllTasksCompleted = async (notif: UserNotificationItem) => {
     if (!user) return
     const state = personalTaskDetails[notif.id]
@@ -348,6 +333,52 @@ export default function NotificationsPage() {
           completion_summary: summaryText,
         })
         .eq('id', state.taskRecord.id)
+    }
+
+    // Auto-regenerate next cycle if this is a Monthly or Quarterly recurring task
+    const recurRule = String(state.taskRecord?.recurrence_rule || 'none').toLowerCase()
+    if (state.taskRecord && (recurRule === 'monthly' || recurRule === 'quarterly')) {
+      const monthsToAdd = recurRule === 'quarterly' ? 3 : 1
+      const baseDate = state.taskRecord.due_date
+        ? new Date(`${state.taskRecord.due_date}T00:00:00`)
+        : new Date()
+      baseDate.setMonth(baseDate.getMonth() + monthsToAdd)
+      const nextDueIso = baseDate.toISOString().slice(0, 10)
+      const resetItems = state.subItems.map(si => ({
+        ...si,
+        completed: false,
+        optedOut: false,
+      }))
+
+      const { data: nextTask } = await supabase
+        .from('member_tasks')
+        .insert([
+          {
+            assigned_to_user_id: user.id,
+            assigned_by_user_id: state.taskRecord.assigned_by_user_id,
+            task_type: state.taskRecord.task_type,
+            field_key: state.taskRecord.field_key,
+            title: state.taskRecord.title,
+            description: state.taskRecord.description,
+            is_micromanaged: false,
+            status: 'pending',
+            due_date: nextDueIso,
+            recurrence_rule: recurRule,
+            is_private: Boolean(state.taskRecord.is_private),
+            sender_display_name: state.taskRecord.sender_display_name,
+            task_items_json: resetItems,
+          },
+        ])
+        .select('id')
+        .single()
+
+      await publishArchivedAlert({
+        category: 'personal_task',
+        shortTitle: `Next Recurring Task (${recurRule.toUpperCase()})`,
+        fullMessage: `${state.taskRecord.title} (Next cycle scheduled for ${nextDueIso})`,
+        targetUserId: user.id,
+        metadata: { task_id: nextTask?.id, is_micromanaged: false, audit_items: [] },
+      })
     }
 
     const assignerId = Number(state.taskRecord?.assigned_by_user_id || 0)
@@ -403,7 +434,7 @@ export default function NotificationsPage() {
     return () => window.removeEventListener('fenestrians-open-snoozed', handleSnoozeTrigger)
   }, [loadPersonalTaskChecklist])
 
-  // Pin personal_task items ALWAYS at the top of Unread!
+  // Pin personal_task items ALWAYS at the top of Unread
   const unreadRaw = items.filter(i => i.status === 'unread')
   const personalTaskUnread = unreadRaw.filter(i => i.category === 'personal_task')
   const otherUnread = unreadRaw.filter(i => i.category !== 'personal_task')
@@ -623,7 +654,6 @@ export default function NotificationsPage() {
                 ) : (
                   <div className="space-y-2.5">
                     {unreadList.map(item => {
-                      // PINNED COLLAPSIBLE PERSONAL TASK ALERT
                       if (item.category === 'personal_task') {
                         const isOpen = Boolean(expandedTaskIds[item.id])
                         const state = personalTaskDetails[item.id]
@@ -637,7 +667,6 @@ export default function NotificationsPage() {
                             key={item.id}
                             className="rounded-xl border-2 border-indigo-500/50 bg-indigo-500/10 overflow-hidden shadow-md"
                           >
-                            {/* Collapsed Header (Always first item, collapsed until clicked) */}
                             <button
                               type="button"
                               onClick={() => toggleExpandPersonalTask(item)}
@@ -670,7 +699,6 @@ export default function NotificationsPage() {
                               </span>
                             </button>
 
-                            {/* Expanded Interactive Task Checklist */}
                             {isOpen && (
                               <div className="border-t border-indigo-500/30 bg-card/90 p-4 space-y-3.5 text-xs">
                                 <p className="text-foreground/90 whitespace-pre-line leading-relaxed">
@@ -785,7 +813,6 @@ export default function NotificationsPage() {
                         )
                       }
 
-                      // STANDARD UNREAD NOTIFICATION
                       return (
                         <button
                           key={item.id}
@@ -910,7 +937,6 @@ export default function NotificationsPage() {
         </Card>
       </div>
 
-      {/* STANDARD NOTIFICATION POPUP */}
       {selectedItem && selectedItem.category !== 'personal_task' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <Card className="w-full max-w-md border-primary/40 bg-card shadow-2xl max-h-[90vh] overflow-y-auto">
