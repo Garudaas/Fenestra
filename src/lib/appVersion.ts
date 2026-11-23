@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.19",
-  "timestamp": "23 Nov 2026, 10:22 PM IST",
-  "formatted": "V2.19, 23 Nov 2026, 10:22 PM IST",
+  "version": "V2.20",
+  "timestamp": "23 Nov 2026, 10:27 PM IST",
+  "formatted": "V2.20, 23 Nov 2026, 10:27 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Add recurrence rule and export/print functionality)",
+  "summary": "Minor technical update (Remove unused import for formatISTDateTime)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.20",
+      "timestamp": "23 Nov 2026, 10:27 PM IST",
+      "formatted": "V2.20, 23 Nov 2026, 10:27 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Remove unused import for formatISTDateTime)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.19",
       "timestamp": "23 Nov 2026, 10:22 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.96, 23 Nov 2026, 04:35 AM IST",
       "type": "minor",
       "summary": "Minor general update (Implement admin role management for President and GenSec)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.95",
-      "timestamp": "23 Nov 2026, 04:34 AM IST",
-      "formatted": "V1.95, 23 Nov 2026, 04:34 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Add Tasks tab and update badge synchronization)",
       "requiresReinstall": false
     }
   ]
