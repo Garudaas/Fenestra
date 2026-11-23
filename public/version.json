@@ -1,11 +1,19 @@
 {
-  "version": "V2.02",
-  "timestamp": "23 Nov 2026, 04:47 AM IST",
-  "formatted": "V2.02, 23 Nov 2026, 04:47 AM IST",
+  "version": "V2.03",
+  "timestamp": "23 Nov 2026, 09:53 PM IST",
+  "formatted": "V2.03, 23 Nov 2026, 09:53 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor officerPrefixMap state initialization)",
+  "summary": "Minor general update (App icon appearance updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.03",
+      "timestamp": "23 Nov 2026, 09:53 PM IST",
+      "formatted": "V2.03, 23 Nov 2026, 09:53 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (App icon appearance updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.02",
       "timestamp": "23 Nov 2026, 04:47 AM IST",
@@ -196,14 +204,6 @@
       "formatted": "V1.79, 23 Nov 2026, 02:14 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor SettingsTab component and state management)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.78",
-      "timestamp": "23 Nov 2026, 02:13 AM IST",
-      "formatted": "V1.78, 23 Nov 2026, 02:13 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor phone number handling and date formatting)",
       "requiresReinstall": false
     }
   ]
