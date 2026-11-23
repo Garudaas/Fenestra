@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { formatBytes } from '@/lib/fenestriansCore'
-import { cleanPhoneNumber, formatFullDate } from '@/lib/formatters'
+import { cleanPhoneNumber, formatFullDate, formatISTDateTime } from '@/lib/formatters'
 import { resolveOfficerDisplayName, type TaskSubItem } from '@/lib/taskAuditService'
 import { publishArchivedAlert, type AuditActionItem } from '@/lib/notificationService'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,6 +21,7 @@ import {
   Send,
   Trash2,
   UserCheck,
+  ShieldAlert,
 } from 'lucide-react'
 
 interface StagedAuditTask {
@@ -39,6 +40,15 @@ interface MemberAuditGroup {
   items: StagedAuditTask[]
 }
 
+interface AdminAuditLogEntry {
+  id: number
+  actor_name: string
+  action_type: string
+  target_name: string | null
+  details: string
+  created_at: string
+}
+
 function inferPreferenceType(fieldKey: string): 'skip_missing_field' | 'retain_duplicate' {
   if (fieldKey === 'duplicate_phone_numbers' || fieldKey.startsWith('family_name_')) {
     return 'retain_duplicate'
@@ -53,6 +63,7 @@ export default function MaintenanceTab() {
   const [staleGroups, setStaleGroups] = useState<Array<{ room_id: string; last_active: string }>>([])
   const [unsentTasks, setUnsentTasks] = useState<StagedAuditTask[]>([])
   const [selectedTaskIds, setSelectedTaskIds] = useState<Record<number, boolean>>({})
+  const [auditLogs, setAuditLogs] = useState<AdminAuditLogEntry[]>([])
 
   const userIsAdmin = Boolean(isAdmin || user?.is_admin)
 
@@ -60,6 +71,7 @@ export default function MaintenanceTab() {
     if (userIsAdmin) {
       loadUnsentAuditTasks()
       scanStalePrivateGroups()
+      loadAdminAuditLogs()
     }
   }, [userIsAdmin])
 
@@ -69,6 +81,28 @@ export default function MaintenanceTab() {
         Access restricted to administrators only.
       </div>
     )
+  }
+
+  const recordGovernanceLog = async (actionType: string, targetName: string, details: string) => {
+    await supabase.from('admin_audit_logs').insert([
+      {
+        actor_id: user.id,
+        actor_name: user.full_name,
+        action_type: actionType,
+        target_name: targetName,
+        details,
+      },
+    ])
+    await loadAdminAuditLogs()
+  }
+
+  const loadAdminAuditLogs = async () => {
+    const { data } = await supabase
+      .from('admin_audit_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    if (data) setAuditLogs(data as AdminAuditLogEntry[])
   }
 
   const loadUnsentAuditTasks = async () => {
@@ -490,8 +524,10 @@ export default function MaintenanceTab() {
       await supabase.from('chat_archives').insert([{ archived_by: user.id, messages_json: allMsgs }])
       await supabase.from('chat_messages').delete().neq('id', 0)
     }
+    const count = allMsgs?.length ?? 0
+    await recordGovernanceLog('archive_chats', 'All Chat Rooms', `Archived & cleared ${count} chat message(s)`)
     setBusyAction(null)
-    setStatusMessage(`Archived ${allMsgs?.length ?? 0} chat message(s) and cleared all chat windows.`)
+    setStatusMessage(`Archived ${count} chat message(s) and cleared all chat windows.`)
   }
 
   const handleRemoveGeneralAutoAlerts = async () => {
@@ -508,8 +544,10 @@ export default function MaintenanceTab() {
         .delete()
         .in('id', autoRows.map(r => r.id))
     }
+    const count = autoRows?.length ?? 0
+    await recordGovernanceLog('clear_auto_alerts', 'Common Chat', `Removed ${count} system auto-alert message(s)`)
     setBusyAction(null)
-    setStatusMessage(`Removed ${autoRows?.length ?? 0} auto-alert message(s) from general chat.`)
+    setStatusMessage(`Removed ${count} auto-alert message(s) from general chat.`)
   }
 
   const handleDeleteStaleGroup = async (roomId: string) => {
@@ -517,6 +555,7 @@ export default function MaintenanceTab() {
     setBusyAction('tool3')
     await supabase.from('chat_messages').delete().eq('room_id', roomId)
     await scanStalePrivateGroups()
+    await recordGovernanceLog('delete_stale_group', roomId, `Deleted inactive private group "${roomId}"`)
     setBusyAction(null)
     setStatusMessage(`Deleted inactive private group "${roomId}".`)
   }
@@ -524,6 +563,7 @@ export default function MaintenanceTab() {
   const handleClearUnusedAVRooms = async () => {
     setBusyAction('tool4')
     await supabase.from('user_notifications').delete().in('category', ['group_call', 'video_call'])
+    await recordGovernanceLog('clear_av_rooms', 'Call Rooms', 'Cleared inactive audio/video call room alerts')
     setBusyAction(null)
     setStatusMessage('Cleared inactive and ended audio/video call room alerts.')
   }
@@ -538,8 +578,10 @@ export default function MaintenanceTab() {
         .remove(vids.map(v => v.storage_path).filter(Boolean))
       await supabase.from('meeting_recordings').delete().neq('id', 0)
     }
+    const count = vids?.length ?? 0
+    await recordGovernanceLog('clear_meeting_videos', 'Storage', `Deleted ${count} recorded meeting video(s)`)
     setBusyAction(null)
-    setStatusMessage(`Cleared ${vids?.length ?? 0} meeting video recording(s).`)
+    setStatusMessage(`Cleared ${count} meeting video recording(s).`)
   }
 
   const handleClearPrivateFolders = async () => {
@@ -577,6 +619,11 @@ export default function MaintenanceTab() {
       }
     }
 
+    await recordGovernanceLog(
+      'clear_folders',
+      'Member Folders',
+      `Deleted ${accessible.length} public folder file(s) and alerted ${alertedCount} member(s)`
+    )
     setBusyAction(null)
     setStatusMessage(
       `Deleted ${accessible.length} accessible folder file(s) and sent cleanup alerts to ${alertedCount} member(s).`
@@ -596,8 +643,10 @@ export default function MaintenanceTab() {
         .delete()
         .in('id', doneRows.map(r => r.id))
     }
+    const count = doneRows?.length ?? 0
+    await recordGovernanceLog('clear_achieved_support', 'Support Board', `Cleared ${count} achieved support request(s)`)
     setBusyAction(null)
-    setStatusMessage(`Cleared ${doneRows?.length ?? 0} achieved family support request(s).`)
+    setStatusMessage(`Cleared ${count} achieved family support request(s).`)
   }
 
   const handleClearCompletedTasks = async () => {
@@ -615,6 +664,7 @@ export default function MaintenanceTab() {
     }
 
     const totalCleared = (doneMemberTasks?.length ?? 0) + (doneCalTasks?.length ?? 0)
+    await recordGovernanceLog('clear_completed_tasks', 'Tasks', `Cleared ${totalCleared} completed task(s)`)
     setBusyAction(null)
     setStatusMessage(`Cleared ${totalCleared} completed task(s).`)
   }
@@ -632,7 +682,6 @@ export default function MaintenanceTab() {
             </CardTitle>
             <Button
               type="button"
-              title="Run Profile Audits for All Members"
               disabled={busyAction !== null}
               onClick={runProfileAudits}
               className="gold-gradient text-gold-foreground font-semibold gap-2"
@@ -654,6 +703,7 @@ export default function MaintenanceTab() {
         </CardContent>
       </Card>
 
+      {/* GROUPED UNSENT AUDIT TASKS */}
       <Card className="border-primary/30 bg-card/75">
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -738,7 +788,6 @@ export default function MaintenanceTab() {
                         type="button"
                         size="sm"
                         variant="ghost"
-                        title={`Delete all unsent audit items for ${group.memberName}`}
                         disabled={busyAction !== null}
                         onClick={() => deleteStagedItems(group.items)}
                         className="h-7 px-2 text-[11px] text-destructive hover:bg-destructive/10 gap-1"
@@ -774,7 +823,6 @@ export default function MaintenanceTab() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          title="Delete this audit item if it need not be sent"
                           disabled={busyAction !== null}
                           onClick={() => deleteStagedItems([item])}
                           className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0"
@@ -791,6 +839,7 @@ export default function MaintenanceTab() {
         </CardContent>
       </Card>
 
+      {/* SYSTEM CLEANUP TOOLS */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Button
           type="button"
@@ -902,6 +951,36 @@ export default function MaintenanceTab() {
                   <Trash2 className="h-3 w-3" />
                   Delete Group
                 </Button>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      {/* TAMPER-PROOF ADMIN ACTIVITY & AUDIT LOG */}
+      <Card className="border-amber-500/35 bg-amber-500/5">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-sm text-amber-300">
+            <ShieldAlert className="h-4 w-4" />
+            Tamper-Proof Admin Activity &amp; Governance Log ({auditLogs.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 max-h-72 overflow-y-auto">
+          {auditLogs.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No administrative governance logs recorded yet.</p>
+          ) : (
+            auditLogs.map(log => (
+              <div
+                key={log.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/30 bg-background/70 px-3 py-2 text-xs"
+              >
+                <div>
+                  <span className="font-bold text-primary">{log.actor_name}</span>:{' '}
+                  <span className="text-foreground/95">{log.details}</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground shrink-0">
+                  {formatISTDateTime(log.created_at)}
+                </span>
               </div>
             ))
           )}
