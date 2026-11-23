@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 import { checkIsPresidentOrGenSec } from '@/lib/taskAuditService'
+import { verifyBiometricPasskey } from '@/lib/biometricAuth'
 
 export interface AlumniUser {
   id: number
@@ -43,6 +44,7 @@ export interface AlumniUser {
 interface AuthContextType {
   user: AlumniUser | null
   login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>
+  loginWithBiometrics: () => Promise<{ success: boolean; error?: string }>
   adminLogin: (username: string, password: string) => Promise<{ success: boolean; error?: string }>
   register: (
     code: string,
@@ -154,37 +156,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   })
 
-  useEffect(() => {
-    const restoreOrRefreshSession = async () => {
-      const storedId = user?.id ?? getPersistentCookieUserId()
-      if (!storedId) return
+  const hydrateUserById = useCallback(async (targetId: number): Promise<AlumniUser | null> => {
+    const [{ data, error }, execInfo] = await Promise.all([
+      supabase
+        .from('alumni_directory_safe')
+        .select('*')
+        .eq('id', targetId)
+        .eq('is_placeholder', false)
+        .maybeSingle(),
+      checkIsPresidentOrGenSec(targetId),
+    ])
 
-      const [{ data, error }, execInfo] = await Promise.all([
-        supabase
-          .from('alumni_directory_safe')
-          .select('*')
-          .eq('id', storedId)
-          .eq('is_placeholder', false)
-          .maybeSingle(),
-        checkIsPresidentOrGenSec(storedId),
-      ])
-
-      if (data && !error) {
-        const effectiveAdmin = Boolean(data.is_admin || execInfo.hasExecutiveAdmin)
-        const hydrated = {
-          ...data,
-          custom_password: '',
-          is_admin: effectiveAdmin,
-          officer_title: execInfo.officeTitle,
-        } as AlumniUser
-        setUser(hydrated)
-        setIsAdmin(effectiveAdmin)
-        persistSession(hydrated)
-      }
+    if (data && !error) {
+      const effectiveAdmin = Boolean(data.is_admin || execInfo.hasExecutiveAdmin)
+      const hydrated = {
+        ...data,
+        custom_password: '',
+        is_admin: effectiveAdmin,
+        officer_title: execInfo.officeTitle,
+      } as AlumniUser
+      setUser(hydrated)
+      setIsAdmin(effectiveAdmin)
+      persistSession(hydrated)
+      return hydrated
     }
-
-    restoreOrRefreshSession()
+    return null
   }, [])
+
+  useEffect(() => {
+    const storedId = user?.id ?? getPersistentCookieUserId()
+    if (storedId) {
+      hydrateUserById(storedId)
+    }
+  }, [hydrateUserById])
 
   const login = useCallback(async (identifier: string, password: string) => {
     const cleanId = identifier.trim()
@@ -226,6 +230,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     persistSession(safeUser)
     return { success: true }
   }, [])
+
+  const loginWithBiometrics = useCallback(async () => {
+    const bioRes = await verifyBiometricPasskey()
+    if (!bioRes.success || !bioRes.userId) {
+      return { success: false, error: bioRes.error || 'Biometric login failed.' }
+    }
+
+    const loaded = await hydrateUserById(bioRes.userId)
+    if (!loaded) {
+      return { success: false, error: 'Could not load member profile. Please check your internet connection.' }
+    }
+    return { success: true }
+  }, [hydrateUserById])
 
   const adminLogin = useCallback(async (username: string, password: string) => {
     const cleanUser = username.trim()
@@ -343,7 +360,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, login, adminLogin, register, logout, isAdmin }}>
+    <AuthContext.Provider
+      value={{ user, login, loginWithBiometrics, adminLogin, register, logout, isAdmin }}
+    >
       {children}
     </AuthContext.Provider>
   )
