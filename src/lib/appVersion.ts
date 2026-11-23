@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.03",
-  "timestamp": "23 Nov 2026, 09:53 PM IST",
-  "formatted": "V2.03, 23 Nov 2026, 09:53 PM IST",
+  "version": "V2.04",
+  "timestamp": "23 Nov 2026, 09:54 PM IST",
+  "formatted": "V2.04, 23 Nov 2026, 09:54 PM IST",
   "type": "minor",
-  "summary": "Minor general update (App icon appearance updated)",
+  "summary": "Minor general update (Implement biometric authentication functions)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.04",
+      "timestamp": "23 Nov 2026, 09:54 PM IST",
+      "formatted": "V2.04, 23 Nov 2026, 09:54 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Implement biometric authentication functions)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.03",
       "timestamp": "23 Nov 2026, 09:53 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V1.80, 23 Nov 2026, 02:15 AM IST",
       "type": "minor",
       "summary": "Minor general update (Implement draggable position for NotificationQuickBar)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V1.79",
-      "timestamp": "23 Nov 2026, 02:14 AM IST",
-      "formatted": "V1.79, 23 Nov 2026, 02:14 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor SettingsTab component and state management)",
       "requiresReinstall": false
     }
   ]
