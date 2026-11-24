@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import {
@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
+import { Label } from '@/components/ui/checkbox'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import CameraModal from '@/components/shared/CameraModal'
@@ -56,6 +56,9 @@ import {
   FileText,
   ChevronRight,
   Award,
+  ExternalLink,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react'
 
 interface MyPendingTask {
@@ -76,6 +79,18 @@ type EditSectionKey =
   | 'about_me'
   | 'profile_picture'
   | 'privacy'
+
+const GOOGLE_MAPS_HELP_URL = 'https://support.google.com/maps/answer/144361'
+
+function extractMapQuery(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return 'Coimbatore, Tamil Nadu'
+  const qMatch = /[?&](?:q|query|ll|center)=([^&]+)/i.exec(trimmed)
+  if (qMatch?.[1]) return decodeURIComponent(qMatch[1])
+  const atMatch = /@(-?\d+\.\d+,-?\d+\.\d+)/.exec(trimmed)
+  if (atMatch?.[1]) return atMatch[1]
+  return trimmed
+}
 
 async function compressImageToJpegBlob(source: File | string, maxDimension = 800, quality = 0.82): Promise<Blob> {
   const objectUrl = typeof source === 'string' ? source : URL.createObjectURL(source)
@@ -169,11 +184,14 @@ export default function ProfileTab() {
   const [waSameAsContact, setWaSameAsContact] = useState(false)
   const [email, setEmail] = useState('')
 
-  // Addresses fields
+  // Addresses fields + interactive map picker
   const [permAddr, setPermAddr] = useState('')
   const [permGeo, setPermGeo] = useState('')
   const [currAddr, setCurrAddr] = useState('')
   const [currGeo, setCurrGeo] = useState('')
+  const [addrPickerTarget, setAddrPickerTarget] = useState<'permanent' | 'current'>('permanent')
+  const [addrMapSatellite, setAddrMapSatellite] = useState(true)
+  const [addrMapZoom, setAddrMapZoom] = useState(14)
 
   // Education & Career Status fields
   const [educationLevel, setEducationLevel] = useState('')
@@ -220,6 +238,18 @@ export default function ProfileTab() {
   const [famNeedsSupport, setFamNeedsSupport] = useState(false)
   const [famSupportDetails, setFamSupportDetails] = useState('')
   const [famIsPrivate, setFamIsPrivate] = useState(false)
+
+  const activeAddressQuery = useMemo(() => {
+    if (addrPickerTarget === 'permanent') {
+      return extractMapQuery(permGeo || permAddr)
+    }
+    return extractMapQuery(currGeo || currAddr)
+  }, [addrPickerTarget, permGeo, permAddr, currGeo, currAddr])
+
+  const addressMapEmbedSrc = useMemo(() => {
+    const typeFlag = addrMapSatellite ? '&t=k' : '&t=m'
+    return `https://maps.google.com/maps?q=${encodeURIComponent(activeAddressQuery)}&z=${addrMapZoom}${typeFlag}&output=embed`
+  }, [activeAddressQuery, addrMapZoom, addrMapSatellite])
 
   const showToast = (msg: string) => {
     setSaveBanner(msg)
@@ -388,7 +418,6 @@ export default function ProfileTab() {
     }
   }
 
-  // --- Section 1: Submit Credentials ---
   const handleSubmitCredentials = async () => {
     if (newPassword && newPassword !== confirmPassword) {
       alert('New passwords do not match. Please retype carefully.')
@@ -411,7 +440,6 @@ export default function ProfileTab() {
     clearCredentialFields()
   }
 
-  // --- Section 2: Submit Basic Details ---
   const handleSubmitBasicDetails = async () => {
     if (!user) return
     const payload = {
@@ -437,7 +465,6 @@ export default function ProfileTab() {
     }
   }
 
-  // --- Section 3: Submit Contact Info ---
   const handleSubmitContactInfo = async () => {
     if (!user) return
     const finalPh = cleanPhoneNumber(phoneNum, phoneCC)
@@ -455,7 +482,6 @@ export default function ProfileTab() {
     await savePartialAlumniUpdate(payload, 'Contact info updated successfully!')
   }
 
-  // --- Section 4: Submit Addresses ---
   const handleSubmitAddresses = async () => {
     const payload = {
       permanent_address: permAddr,
@@ -466,7 +492,6 @@ export default function ProfileTab() {
     await savePartialAlumniUpdate(payload, 'Addresses updated successfully!')
   }
 
-  // --- Section 5: Submit Education & Career Status ---
   const handleSubmitEducationCareer = async () => {
     const payload = {
       education_level: educationLevel,
@@ -475,7 +500,6 @@ export default function ProfileTab() {
     await savePartialAlumniUpdate(payload, 'Education & career status updated successfully!')
   }
 
-  // --- Section 6: Family Helpers & Submit ---
   const resetFamilyForm = () => {
     setEditingFamilyId(null)
     setPreviousFamBlood('')
@@ -635,12 +659,10 @@ export default function ProfileTab() {
     await loadFamily(user.id)
   }
 
-  // --- Section 7: Submit About Me ---
   const handleSubmitAboutMe = async () => {
     await savePartialAlumniUpdate({ diary_logs: diary }, 'About Me updated successfully!')
   }
 
-  // --- Section 8: Submit Profile Picture ---
   const processAndUploadProfileImage = async (source: File | string): Promise<string> => {
     if (!user) return ''
     const compressedBlob = await compressImageToJpegBlob(source, 800, 0.82)
@@ -758,7 +780,6 @@ export default function ProfileTab() {
     }
   }
 
-  // --- Section 9: Submit Profile Privacy Settings ---
   const handleSubmitPrivacy = async () => {
     await savePartialAlumniUpdate(
       {
@@ -853,7 +874,6 @@ export default function ProfileTab() {
         </div>
       )}
 
-      {/* My Assigned Audit & Admin Tasks */}
       {myTasks.length > 0 && (
         <Card className="border-amber-500/40 bg-amber-500/5 backdrop-blur-sm">
           <CardHeader className="pb-2">
@@ -887,7 +907,6 @@ export default function ProfileTab() {
         </Card>
       )}
 
-      {/* LEVEL 1: MY PROFILE VIEW */}
       {!isEditing ? (
         <Card className="border-border/40 bg-card/70 backdrop-blur-sm shadow-xl">
           <CardHeader className="pb-3">
@@ -948,7 +967,6 @@ export default function ProfileTab() {
                   )}
                 </div>
 
-                {/* Association Office / App Admin / Member of Association */}
                 <p className={`flex items-center justify-center sm:justify-start gap-1.5 text-xs font-bold pt-0.5 ${roleColorClass}`}>
                   <Award className="h-3.5 w-3.5 shrink-0" />
                   <span>{associationRole.label}</span>
@@ -1094,7 +1112,6 @@ export default function ProfileTab() {
           </CardContent>
         </Card>
       ) : activeSection === null ? (
-        /* LEVEL 2: PROFILE UPDATE HUB */
         <Card className="border-border/40 bg-card/75 backdrop-blur-sm shadow-xl">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2">
@@ -1148,7 +1165,6 @@ export default function ProfileTab() {
           </CardContent>
         </Card>
       ) : (
-        /* LEVEL 3: INDIVIDUAL EDIT TAB PAGE */
         <Card className="border-primary/30 bg-card/75 backdrop-blur-sm shadow-xl">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2">
@@ -1174,7 +1190,6 @@ export default function ProfileTab() {
           </CardHeader>
 
           <CardContent className="space-y-4 text-sm">
-            {/* TAB 1: CREDENTIALS */}
             {activeSection === 'credentials' && (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1303,7 +1318,6 @@ export default function ProfileTab() {
               </>
             )}
 
-            {/* TAB 2: BASIC DETAILS */}
             {activeSection === 'basic' && (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1409,7 +1423,6 @@ export default function ProfileTab() {
               </>
             )}
 
-            {/* TAB 3: CONTACT INFO */}
             {activeSection === 'contact' && (
               <>
                 <div className="space-y-3">
@@ -1488,7 +1501,7 @@ export default function ProfileTab() {
               </>
             )}
 
-            {/* TAB 4: ADDRESSES */}
+            {/* TAB 4: ADDRESSES + GOOGLE MAP / SATELLITE PICKER */}
             {activeSection === 'addresses' && (
               <>
                 <div className="space-y-3">
@@ -1500,12 +1513,16 @@ export default function ProfileTab() {
                     <Textarea value={permAddr} onChange={e => setPermAddr(e.target.value)} className="mt-1 h-16" />
                   </div>
                   <div>
-                    <Label>Permanent Google Map Link</Label>
+                    <Label>Permanent Google Map Link / Plus Code</Label>
                     <Input
                       value={permGeo}
-                      onChange={e => setPermGeo(e.target.value)}
+                      onChange={e => {
+                        setPermGeo(e.target.value)
+                        setAddrPickerTarget('permanent')
+                      }}
+                      onFocus={() => setAddrPickerTarget('permanent')}
                       className="mt-1"
-                      placeholder="https://maps.google.com/..."
+                      placeholder="https://maps.google.com/... or Plus Code (e.g., 7J4VXF22+22)"
                     />
                   </div>
 
@@ -1519,13 +1536,114 @@ export default function ProfileTab() {
                     <Textarea value={currAddr} onChange={e => setCurrAddr(e.target.value)} className="mt-1 h-16" />
                   </div>
                   <div>
-                    <Label>Current Google Map Link</Label>
+                    <Label>Current Google Map Link / Plus Code</Label>
                     <Input
                       value={currGeo}
-                      onChange={e => setCurrGeo(e.target.value)}
+                      onChange={e => {
+                        setCurrGeo(e.target.value)
+                        setAddrPickerTarget('current')
+                      }}
+                      onFocus={() => setAddrPickerTarget('current')}
                       className="mt-1"
-                      placeholder="https://maps.google.com/..."
+                      placeholder="https://maps.google.com/... or Plus Code (e.g., 7J4VXF22+22)"
                     />
+                  </div>
+
+                  {/* Interactive Google Map / Satellite View */}
+                  <div className="rounded-xl border border-primary/35 bg-primary/5 p-3 space-y-2.5 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setAddrPickerTarget('permanent')}
+                          className={`rounded-md px-2.5 py-1 text-[11px] font-semibold ${
+                            addrPickerTarget === 'permanent'
+                              ? 'gold-gradient text-gold-foreground'
+                              : 'bg-background/70 text-foreground'
+                          }`}
+                        >
+                          Preview Permanent
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAddrPickerTarget('current')}
+                          className={`rounded-md px-2.5 py-1 text-[11px] font-semibold ${
+                            addrPickerTarget === 'current'
+                              ? 'gold-gradient text-gold-foreground'
+                              : 'bg-background/70 text-foreground'
+                          }`}
+                        >
+                          Preview Current
+                        </button>
+                      </div>
+
+                      <a
+                        href={GOOGLE_MAPS_HELP_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-400 hover:underline"
+                      >
+                        Google Maps Help (Links / Coordinates / Plus Codes)
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={addrMapSatellite ? 'default' : 'outline'}
+                          onClick={() => setAddrMapSatellite(true)}
+                          className="h-7 text-[11px]"
+                        >
+                          Satellite
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={!addrMapSatellite ? 'default' : 'outline'}
+                          onClick={() => setAddrMapSatellite(false)}
+                          className="h-7 text-[11px]"
+                        >
+                          Map
+                        </Button>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          onClick={() => setAddrMapZoom(z => Math.max(4, z - 2))}
+                          className="h-7 w-7"
+                          title="Zoom Out"
+                        >
+                          <ZoomOut className="h-3.5 w-3.5" />
+                        </Button>
+                        <span className="px-1.5 text-[11px] font-mono">z:{addrMapZoom}</span>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          onClick={() => setAddrMapZoom(z => Math.min(20, z + 2))}
+                          className="h-7 w-7"
+                          title="Zoom In"
+                        >
+                          <ZoomIn className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="h-52 w-full overflow-auto rounded-lg border border-primary/40 bg-background">
+                      <iframe
+                        title="Profile Address Google Map"
+                        src={addressMapEmbedSrc}
+                        className="h-full w-full min-h-[200px] border-0"
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1541,7 +1659,6 @@ export default function ProfileTab() {
               </>
             )}
 
-            {/* TAB 5: EDUCATION AND CAREER STATUS */}
             {activeSection === 'education_career' && (
               <>
                 <div className="space-y-3">
@@ -1589,7 +1706,6 @@ export default function ProfileTab() {
               </>
             )}
 
-            {/* TAB 6: FAMILY */}
             {activeSection === 'family' && (
               <div className="space-y-4">
                 {familyMembers.length > 0 && (
@@ -1842,7 +1958,6 @@ export default function ProfileTab() {
               </div>
             )}
 
-            {/* TAB 7: ABOUT ME */}
             {activeSection === 'about_me' && (
               <>
                 <div>
@@ -1867,7 +1982,6 @@ export default function ProfileTab() {
               </>
             )}
 
-            {/* TAB 8: PROFILE PICTURE */}
             {activeSection === 'profile_picture' && (
               <>
                 <div className="space-y-3 rounded-xl border border-primary/25 bg-primary/5 p-4">
@@ -1930,7 +2044,6 @@ export default function ProfileTab() {
               </>
             )}
 
-            {/* TAB 9: PROFILE PRIVACY SETTINGS */}
             {activeSection === 'privacy' && (
               <>
                 <div className="space-y-3 rounded-xl border border-border/40 bg-muted/15 p-4">
