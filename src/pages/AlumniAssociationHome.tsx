@@ -96,16 +96,6 @@ interface PollVoteRecord {
   option_index: number
 }
 
-interface FundItem {
-  id: number
-  title: string
-  category: string
-  target_amount: number
-  description: string | null
-  status: string
-  created_at: string
-}
-
 interface MentorshipEntry {
   id: number
   alumni_id: number
@@ -138,7 +128,6 @@ export default function AlumniAssociationHome() {
 
   const userIsAdmin = Boolean(isAdmin || user?.is_admin)
 
-  // All tabs start collapsed by default (or restored when returning from another page)
   const [expandedTab, setExpandedTab] = useState<AssociationTab | null>(() =>
     (getPersistedExpandedTab(SCOPE_ASSOCIATION_TABS) as AssociationTab | null)
   )
@@ -148,7 +137,6 @@ export default function AlumniAssociationHome() {
   const [rsvpsByEvent, setRsvpsByEvent] = useState<RsvpByEventMap>({})
   const [polls, setPolls] = useState<PollItem[]>([])
   const [votesByPoll, setVotesByPoll] = useState<VotesByPollMap>({})
-  const [funds, setFunds] = useState<FundItem[]>([])
   const [mentorships, setMentorships] = useState<MentorshipEntry[]>([])
   const [canManageAdmins, setCanManageAdmins] = useState(userIsAdmin)
   const [loading, setLoading] = useState(true)
@@ -231,7 +219,6 @@ export default function AlumniAssociationHome() {
       rsvpRes,
       pollsRes,
       votesRes,
-      fundsRes,
       mentorRes,
       execCheck,
     ] = await Promise.all([
@@ -254,7 +241,6 @@ export default function AlumniAssociationHome() {
       supabase.from('event_rsvps').select('*'),
       supabase.from('association_polls').select('*').order('created_at', { ascending: false }),
       supabase.from('association_poll_votes').select('*'),
-      supabase.from('association_funds').select('*').order('created_at', { ascending: false }),
       supabase.from('mentorship_signups').select('*').order('created_at', { ascending: false }),
       checkIsPresidentOrGenSec(user.id),
     ])
@@ -278,7 +264,6 @@ export default function AlumniAssociationHome() {
     }
     setVotesByPoll(voteMap)
 
-    setFunds((fundsRes.data ?? []) as FundItem[])
     setMentorships((mentorRes.data ?? []) as MentorshipEntry[])
 
     const hasAdminAuthority = Boolean(userIsAdmin || execCheck.hasExecutiveAdmin)
