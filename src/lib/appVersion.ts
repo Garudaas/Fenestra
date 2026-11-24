@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.64",
-  "timestamp": "25 Nov 2026, 02:03 AM IST",
-  "formatted": "V2.64, 25 Nov 2026, 02:03 AM IST",
+  "version": "V2.65",
+  "timestamp": "25 Nov 2026, 02:05 AM IST",
+  "formatted": "V2.65, 25 Nov 2026, 02:05 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Chat and calling screen updated)",
+  "summary": "Minor technical update (Refactor DirectoryTab component and update props)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.65",
+      "timestamp": "25 Nov 2026, 02:05 AM IST",
+      "formatted": "V2.65, 25 Nov 2026, 02:05 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor DirectoryTab component and update props)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.64",
       "timestamp": "25 Nov 2026, 02:03 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.41, 24 Nov 2026, 11:02 PM IST",
       "type": "minor",
       "summary": "Minor general update (Add committee roles mapping and display logic)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.40",
-      "timestamp": "24 Nov 2026, 11:01 PM IST",
-      "formatted": "V2.40, 24 Nov 2026, 11:01 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Add CommitteeRolesMap and AssociationRoleBadgeInfo types)",
       "requiresReinstall": false
     }
   ]
