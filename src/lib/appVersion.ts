@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.62",
-  "timestamp": "25 Nov 2026, 01:59 AM IST",
-  "formatted": "V2.62, 25 Nov 2026, 01:59 AM IST",
+  "version": "V2.63",
+  "timestamp": "25 Nov 2026, 02:01 AM IST",
+  "formatted": "V2.63, 25 Nov 2026, 02:01 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Update src/pages/CalendarTab.tsx (Remove \"Post Class Event\" and \"Assign Task\" from Calendar))",
+  "summary": "Minor general update (Add mode prop to SupportTab for dynamic section handling)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.63",
+      "timestamp": "25 Nov 2026, 02:01 AM IST",
+      "formatted": "V2.63, 25 Nov 2026, 02:01 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Add mode prop to SupportTab for dynamic section handling)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.62",
       "timestamp": "25 Nov 2026, 01:59 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.39, 24 Nov 2026, 09:59 PM IST",
       "type": "minor",
       "summary": "Minor general update (Button appearance or behavior updated)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.38",
-      "timestamp": "24 Nov 2026, 04:45 PM IST",
-      "formatted": "V2.38, 24 Nov 2026, 04:45 PM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Enhance index.html with meta tags for social sharing)",
       "requiresReinstall": false
     }
   ]
