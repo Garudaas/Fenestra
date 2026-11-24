@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.57",
-  "timestamp": "25 Nov 2026, 12:43 AM IST",
-  "formatted": "V2.57, 25 Nov 2026, 12:43 AM IST",
+  "version": "V2.58",
+  "timestamp": "25 Nov 2026, 12:45 AM IST",
+  "formatted": "V2.58, 25 Nov 2026, 12:45 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Chat and calling screen updated)",
+  "summary": "Minor general update (Notification alerts updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.58",
+      "timestamp": "25 Nov 2026, 12:45 AM IST",
+      "formatted": "V2.58, 25 Nov 2026, 12:45 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Notification alerts updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.57",
       "timestamp": "25 Nov 2026, 12:43 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.34, 24 Nov 2026, 04:24 PM IST",
       "type": "minor",
       "summary": "Minor general update (Enhance TreasuryPage with receipt handling and refactoring)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.33",
-      "timestamp": "24 Nov 2026, 04:21 PM IST",
-      "formatted": "V2.33, 24 Nov 2026, 04:21 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Implement receipt PDF generation and download functions)",
       "requiresReinstall": false
     }
   ]
