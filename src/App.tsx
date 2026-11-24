@@ -6,6 +6,7 @@ import LandingPage, { MemberLoginPage, AdminLoginPage, RegisterPage } from '@/pa
 import MemberDashboard from '@/pages/MemberDashboard'
 import AdminDashboard from '@/pages/AdminDashboard'
 import AlumniAssociationHome from '@/pages/AlumniAssociationHome'
+import TreasuryPage from '@/pages/TreasuryPage'
 import InvitePage from '@/pages/InvitePage'
 import InstallAppPage from '@/pages/InstallAppPage'
 import NotificationsPage from '@/pages/NotificationsPage'
@@ -87,6 +88,7 @@ export function App() {
           <Route path="/dashboard" element={<MemberDashboard />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/alumni-association" element={<AlumniAssociationHome />} />
+          <Route path="/treasury" element={<TreasuryPage />} />
         </Routes>
         <NotificationQuickBar />
       </BrowserRouter>
