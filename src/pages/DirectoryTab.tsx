@@ -26,21 +26,23 @@ import {
   Briefcase,
   RotateCcw,
   ChevronRight,
-  HandHeart,
   Phone,
   WifiOff,
   FileSpreadsheet,
   Printer,
   Siren,
   Plane,
-  Building,
-  ExternalLink,
   Send,
   Trash2,
   Award,
+  SlidersHorizontal,
+  Navigation,
+  X,
+  CheckCircle2,
 } from 'lucide-react'
 
 interface DirectoryTabProps {
+  mode?: 'directory' | 'sos' | 'city_travel'
   onStartDM: (id: number, name: string) => void
   onStartVideoCall: (roomName: string) => void
   onOpenSupportRequests?: () => void
@@ -56,29 +58,80 @@ interface TravelAlertItem {
   note: string | null
 }
 
+interface MissingLocationPrompt {
+  targetMember: any
+  locationType: 'permanent' | 'current'
+}
+
+const PLUS_CODE_REGEX = /\b[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}\b/i
+
+function resolveMapTarget(
+  geoValue: string | null | undefined,
+  fallbackAddress: string | null | undefined
+): string | null {
+  const geo = String(geoValue || '').trim()
+  if (geo) {
+    if (geo.startsWith('http://') || geo.startsWith('https://')) {
+      return geo
+    }
+    const plusMatch = PLUS_CODE_REGEX.exec(geo)
+    if (plusMatch) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(geo)}`
+    }
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(geo)}`
+  }
+  const addr = String(fallbackAddress || '').trim()
+  if (addr) {
+    const plusMatch = PLUS_CODE_REGEX.exec(addr)
+    if (plusMatch) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`
+    }
+  }
+  return null
+}
+
+function isReadableLocationInput(raw: string): { ok: boolean; normalizedQuery: string; error?: string } {
+  const trimmed = raw.trim()
+  if (!trimmed) {
+    return { ok: false, normalizedQuery: '', error: 'Please choose a spot on the map or enter a Google Maps link or Plus Code.' }
+  }
+  const isHttp = trimmed.startsWith('http://') || trimmed.startsWith('https://')
+  const isMapUrl = isHttp && (trimmed.includes('google.com/maps') || trimmed.includes('goo.gl') || trimmed.includes('maps.app.goo.gl') || trimmed.includes('openstreetmap.org'))
+  const hasPlusCode = PLUS_CODE_REGEX.test(trimmed)
+  const hasCoords = /^-?\d{1,2}\.\d+\s*,\s*-?\d{1,3}\.\d+$/.test(trimmed)
+  const hasPlaceText = trimmed.length >= 6 && /[a-zA-Z]/.test(trimmed)
+
+  if (isMapUrl || isHttp || hasPlusCode || hasCoords || hasPlaceText) {
+    return { ok: true, normalizedQuery: trimmed }
+  }
+
+  return {
+    ok: false,
+    normalizedQuery: '',
+    error: 'The provided link, Plus Code, or coordinates could not be read. Please paste a valid Google Maps link, full Plus Code (e.g., 7J4VXF22+22), or pick a point on the map.',
+  }
+}
+
 export default function DirectoryTab({
+  mode = 'directory',
   onStartDM,
   onStartVideoCall,
-  onOpenSupportRequests,
 }: DirectoryTabProps) {
   const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [members, setMembers] = useState<any[]>([])
   const [committeeRolesMap, setCommitteeRolesMap] = useState<CommitteeRolesMap>(() => new Map())
-  const [openSupportCount, setOpenSupportCount] = useState(0)
   const [offlineInfo, setOfflineInfo] = useState<{ isOffline: boolean; syncedAt: string | null }>({
     isOffline: false,
     syncedAt: null,
   })
 
   const [searchQuery, setSearchQuery] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
   const [bloodFilter, setBloodFilter] = useState('')
   const [cityFilter, setCityFilter] = useState('')
   const [professionFilter, setProfessionFilter] = useState('')
   const [bloodOptions, setBloodOptions] = useState<string[]>([])
-
-  // Panels: 'none' | 'sos' | 'city_travel'
-  const [activePanel, setActivePanel] = useState<'none' | 'sos' | 'city_travel'>('none')
 
   // Emergency Blood Donor SOS states
   const [sosBloodGroup, setSosBloodGroup] = useState('')
@@ -95,28 +148,35 @@ export default function DirectoryTab({
   const [travelNote, setTravelNote] = useState('')
   const [savingTravel, setSavingTravel] = useState(false)
 
+  // Location Missing & Suggestion Workflow states
+  const [missingPrompt, setMissingPrompt] = useState<MissingLocationPrompt | null>(null)
+  const [provideLocationOpen, setProvideLocationOpen] = useState(false)
+  const [locationLinkOrPlusCode, setLocationLinkOrPlusCode] = useState('')
+  const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [locationError, setLocationError] = useState('')
+  const [submittingLocation, setSubmittingLocation] = useState(false)
+  const [locationFeedback, setLocationFeedback] = useState('')
+
   const userIsAdmin = Boolean(isAdmin || user?.is_admin)
 
   useEffect(() => {
     loadDirectory()
-    loadTravelAlerts()
-  }, [])
+    if (mode === 'city_travel') {
+      loadTravelAlerts()
+    }
+  }, [mode])
 
   const loadDirectory = async () => {
     try {
-      const [usersRes, bgs, supportRes, rolesMap] = await Promise.all([
+      const [usersRes, bgs, rolesMap] = await Promise.all([
         supabase
-          .from('alumni_directory_safe')
+          .from('alumni')
           .select('*')
           .eq('is_placeholder', false)
           .eq('hide_from_peers', false)
           .neq('full_name', 'System Administrator')
           .order('full_name', { ascending: true }),
         fetchAllBloodGroups(),
-        supabase
-          .from('family_support_requests')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'open'),
         fetchCommitteeRolesMap(),
       ])
 
@@ -137,7 +197,6 @@ export default function DirectoryTab({
         setMembers(enrichedMembers)
         setCommitteeRolesMap(rolesMap)
         setBloodOptions(bgs)
-        setOpenSupportCount(supportRes.count || 0)
         setOfflineInfo({ isOffline: false, syncedAt: new Date().toISOString() })
         await saveOfflineDirectory(enrichedMembers)
         return
@@ -232,7 +291,6 @@ export default function DirectoryTab({
     })
   }, [members, searchQuery, bloodFilter, cityFilter, professionFilter, committeeRolesMap])
 
-  // Matching Donors for Emergency Blood SOS
   const matchingSosDonors = useMemo(() => {
     if (!sosBloodGroup) return []
     const bgLower = sosBloodGroup.trim().toLowerCase()
@@ -248,38 +306,6 @@ export default function DirectoryTab({
       return true
     })
   }, [members, sosBloodGroup, sosCity, user?.id])
-
-  // City Clusters for Interactive Member City Map
-  const cityClusters = useMemo(() => {
-    const map = new Map<string, Array<{ id: number; name: string; address: string; mapUrl: string }>>()
-    for (const m of members) {
-      const addr = String(m.current_address || m.permanent_address || '').trim()
-      if (!addr) continue
-      const segments = addr
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean)
-      const rawCity =
-        segments.length >= 2
-          ? segments[segments.length - 2].replace(/\d+/g, '').trim()
-          : segments[0].replace(/\d+/g, '').trim()
-      const cityLabel = rawCity || 'Other Location'
-
-      const mapUrl =
-        m.current_geo_location && String(m.current_geo_location).startsWith('http')
-          ? m.current_geo_location
-          : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`
-
-      if (!map.has(cityLabel)) map.set(cityLabel, [])
-      map.get(cityLabel)!.push({
-        id: m.id,
-        name: m.full_name,
-        address: addr,
-        mapUrl,
-      })
-    }
-    return Array.from(map.entries()).sort((a, b) => b[1].length - a[1].length)
-  }, [members])
 
   const handleDispatchBloodSos = async () => {
     if (!user || !sosBloodGroup) {
@@ -389,6 +415,146 @@ export default function DirectoryTab({
     await loadTravelAlerts()
   }
 
+  const handleOpenMemberLocation = (member: any, locationType: 'permanent' | 'current') => {
+    const geoVal =
+      locationType === 'permanent' ? member.permanent_geo_location : member.current_geo_location
+    const addrVal =
+      locationType === 'permanent' ? member.permanent_address : member.current_address
+
+    const resolvedUrl = resolveMapTarget(geoVal, addrVal)
+    if (resolvedUrl) {
+      window.open(resolvedUrl, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    setMissingPrompt({ targetMember: member, locationType })
+    setProvideLocationOpen(false)
+    setLocationLinkOrPlusCode('')
+    setPickedCoords(null)
+    setLocationError('')
+  }
+
+  const handleAskMemberForLocation = async () => {
+    if (!user || !missingPrompt) return
+    const { targetMember, locationType } = missingPrompt
+    const locLabel = locationType === 'permanent' ? 'Permanent Location' : 'Current Location'
+    const askText = `Hi ${targetMember.full_name}, ${user.full_name} asked if you can share your ${locLabel} (Google Maps link or Plus Code) for the Fenestrians directory.`
+
+    await supabase.from('member_tasks').insert([
+      {
+        assigned_to_user_id: targetMember.id,
+        assigned_by_user_id: user.id,
+        task_type: 'member_assigned_task',
+        field_key: locationType === 'permanent' ? 'permanent_geo_location' : 'current_geo_location',
+        title: `Provide ${locLabel}`,
+        description: `${askText}\n\nOpen My Profile -> Location to add your Google Maps link or Plus Code.`,
+        status: 'pending',
+        sender_display_name: user.full_name,
+      },
+    ])
+
+    await publishArchivedAlert({
+      category: 'personal_task',
+      shortTitle: `${locLabel} Requested`,
+      fullMessage: askText,
+      targetUserId: targetMember.id,
+    })
+
+    const waDigits = cleanPhoneNumber(targetMember.whatsapp_number || targetMember.contact_number).replace(/\D/g, '')
+    if (waDigits) {
+      window.open(
+        `https://wa.me/${waDigits}?text=${encodeURIComponent(askText)}`,
+        '_blank',
+        'noopener,noreferrer'
+      )
+    }
+
+    setLocationFeedback(`Sent WhatsApp request and created a task for ${targetMember.full_name} to share their ${locLabel}.`)
+    setMissingPrompt(null)
+    setProvideLocationOpen(false)
+  }
+
+  const handleSubmitProvidedLocation = async () => {
+    if (!user || !missingPrompt) return
+    const { targetMember, locationType } = missingPrompt
+    const locLabel = locationType === 'permanent' ? 'Permanent Location' : 'Current Location'
+
+    const rawCandidate =
+      locationLinkOrPlusCode.trim() ||
+      (pickedCoords ? `${pickedCoords.lat.toFixed(6)},${pickedCoords.lng.toFixed(6)}` : '')
+
+    const check = isReadableLocationInput(rawCandidate)
+    if (!check.ok) {
+      setLocationError(check.error || 'Unreadable location input.')
+      return
+    }
+
+    const mapLink =
+      check.normalizedQuery.startsWith('http://') || check.normalizedQuery.startsWith('https://')
+        ? check.normalizedQuery
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(check.normalizedQuery)}`
+
+    const proposalPayload = JSON.stringify({
+      type: 'location_suggestion',
+      location_type: locationType,
+      suggested_value: check.normalizedQuery,
+      map_link: mapLink,
+      suggested_by_id: user.id,
+      suggested_by_name: user.full_name,
+    })
+
+    const guidanceText =
+      `${user.full_name} has provided your ${locLabel} (${check.normalizedQuery}) to be updated in the app. Shall this be accepted?\n` +
+      `Map Link: ${mapLink}\n\n` +
+      `How to review: Open Notifications or Tasks in the app (or tap the link above) to check the location. ` +
+      `To ACCEPT, update your ${locLabel} in My Profile with this location; to CORRECT, enter your preferred link/Plus Code in My Profile; to DECLINE, dismiss/complete the task without updating.`
+
+    setSubmittingLocation(true)
+    await supabase.from('member_tasks').insert([
+      {
+        assigned_to_user_id: targetMember.id,
+        assigned_by_user_id: user.id,
+        task_type: 'member_assigned_task',
+        field_key: locationType === 'permanent' ? 'permanent_geo_location' : 'current_geo_location',
+        title: `Review ${locLabel} Suggested by ${user.full_name}`,
+        description: `${guidanceText}\n\n[SUGGESTION_DATA]: ${proposalPayload}`,
+        status: 'pending',
+        sender_display_name: user.full_name,
+      },
+    ])
+
+    await publishArchivedAlert({
+      category: 'personal_task',
+      shortTitle: `${locLabel} Suggested by ${user.full_name}`,
+      fullMessage: guidanceText,
+      targetUserId: targetMember.id,
+    })
+
+    const waDigits = cleanPhoneNumber(targetMember.whatsapp_number || targetMember.contact_number).replace(/\D/g, '')
+    const waMessage =
+      `Hi ${targetMember.full_name}, ${user.full_name} has provided your ${locLabel} (${check.normalizedQuery}) to be updated in the app. Shall this be accepted?\n` +
+      `Review Link: ${mapLink}\n` +
+      `App Notifications: https://fenestrians.salmaali.in/notifications\n` +
+      `Please review in the app's Notification or Task page to accept, correct, or decline.`
+
+    if (waDigits) {
+      window.open(
+        `https://wa.me/${waDigits}?text=${encodeURIComponent(waMessage)}`,
+        '_blank',
+        'noopener,noreferrer'
+      )
+    }
+
+    setSubmittingLocation(false)
+    setLocationFeedback(
+      `Location sent via app alert and WhatsApp to ${targetMember.full_name} for review (${locLabel}).`
+    )
+    setMissingPrompt(null)
+    setProvideLocationOpen(false)
+    setLocationLinkOrPlusCode('')
+    setPickedCoords(null)
+  }
+
   const hasActiveFilters = Boolean(searchQuery || bloodFilter || cityFilter || professionFilter)
 
   const clearFilters = () => {
@@ -445,64 +611,10 @@ export default function DirectoryTab({
 
   if (!user) return null
 
-  return (
-    <div className="mx-auto max-w-5xl space-y-3">
-      {offlineInfo.isOffline && (
-        <div className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/15 px-3.5 py-2.5 text-xs text-amber-200">
-          <WifiOff className="h-4 w-4 shrink-0 text-amber-400" />
-          <span>
-            <strong>Offline Emergency Mode:</strong> Showing cached directory contacts
-            {offlineInfo.syncedAt ? ` (Last synced: ${formatFullDateTime(offlineInfo.syncedAt)})` : ''}.
-          </span>
-        </div>
-      )}
-
-      {/* Quick Action Bar */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <Button
-          type="button"
-          variant={activePanel === 'sos' ? 'default' : 'outline'}
-          onClick={() => {
-            setSosSentCount(null)
-            setActivePanel(prev => (prev === 'sos' ? 'none' : 'sos'))
-          }}
-          className={
-            activePanel === 'sos'
-              ? 'bg-red-600 hover:bg-red-500 text-white font-bold gap-1.5 text-xs'
-              : 'border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20 font-semibold gap-1.5 text-xs'
-          }
-        >
-          <Siren className="h-4 w-4" />
-          Emergency Blood Donor SOS
-        </Button>
-
-        <Button
-          type="button"
-          variant={activePanel === 'city_travel' ? 'default' : 'outline'}
-          onClick={() => setActivePanel(prev => (prev === 'city_travel' ? 'none' : 'city_travel'))}
-          className={
-            activePanel === 'city_travel'
-              ? 'gold-gradient text-gold-foreground font-bold gap-1.5 text-xs'
-              : 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 font-semibold gap-1.5 text-xs'
-          }
-        >
-          <Plane className="h-4 w-4" />
-          City Map &amp; “I’m In Town” ({travelAlerts.length})
-        </Button>
-
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => navigate('/dashboard?tab=support&view=opportunities')}
-          className="border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 font-semibold gap-1.5 text-xs"
-        >
-          <Briefcase className="h-4 w-4" />
-          Batch Jobs &amp; Referrals
-        </Button>
-      </div>
-
-      {/* PANEL 1: ONE-TAP EMERGENCY BLOOD DONOR SOS */}
-      {activePanel === 'sos' && (
+  // EMERGENCY BLOOD DONOR SOS MODE
+  if (mode === 'sos') {
+    return (
+      <div className="mx-auto max-w-5xl space-y-3">
         <Card className="border-red-500/50 bg-red-950/20 backdrop-blur-sm">
           <CardContent className="p-4 space-y-3 text-xs">
             <div className="flex items-center justify-between">
@@ -628,12 +740,29 @@ export default function DirectoryTab({
             )}
           </CardContent>
         </Card>
-      )}
+      </div>
+    )
+  }
 
-      {/* PANEL 2: INTERACTIVE MEMBER CITY MAP & "I'M IN TOWN" TRAVEL ALERTS */}
-      {activePanel === 'city_travel' && (
+  // I AM IN TOWN / CITY MAP MODE
+  if (mode === 'city_travel') {
+    return (
+      <div className="mx-auto max-w-5xl space-y-4">
+        {locationFeedback && (
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-4 py-3 text-xs font-semibold text-emerald-300">
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              {locationFeedback}
+            </span>
+            <button type="button" onClick={() => setLocationFeedback('')}>
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
         <Card className="border-primary/40 bg-card/85 backdrop-blur-sm">
           <CardContent className="p-4 space-y-4 text-xs">
+            {/* Broadcast "I'm In Town" Travel Alert */}
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2.5">
               <p className="flex items-center gap-1.5 font-bold text-primary text-sm">
                 <Plane className="h-4 w-4" />
@@ -710,40 +839,42 @@ export default function DirectoryTab({
               )}
             </div>
 
+            {/* Member Names with Permanent Location & Current Location Buttons */}
             <div className="space-y-2">
-              <p className="flex items-center gap-1.5 font-bold text-primary text-sm">
-                <Building className="h-4 w-4" />
-                Batch Locations &amp; City Map ({cityClusters.length} Cities)
+              <p className="font-bold text-primary text-sm">
+                Member Locations ({members.length})
               </p>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {cityClusters.map(([cityName, residents]) => (
+
+              <div className="space-y-2">
+                {members.map(m => (
                   <div
-                    key={cityName}
-                    className="rounded-xl border border-border/40 bg-muted/15 p-3 space-y-1.5"
+                    key={m.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/40 bg-muted/15 px-3.5 py-2.5"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-foreground truncate">{cityName}</span>
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cityName)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 rounded bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary hover:bg-primary/25 shrink-0"
+                    <span className="text-xs font-bold text-foreground">{m.full_name}</span>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleOpenMemberLocation(m, 'permanent')}
+                        className="h-7 text-[11px] gap-1 border-primary/40 text-primary hover:bg-primary/10"
                       >
-                        Map ({residents.length})
-                        <ExternalLink className="h-2.5 w-2.5" />
-                      </a>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {residents.map(r => (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => navigate(`/member/${r.id}`)}
-                          className="rounded bg-background/80 px-2 py-0.5 text-[11px] text-foreground/90 hover:text-primary hover:underline"
-                        >
-                          {r.name}
-                        </button>
-                      ))}
+                        <MapPin className="h-3 w-3" />
+                        Permanent Location
+                      </Button>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleOpenMemberLocation(m, 'current')}
+                        className="h-7 text-[11px] gap-1 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
+                      >
+                        <Navigation className="h-3 w-3" />
+                        Current Location
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -751,9 +882,161 @@ export default function DirectoryTab({
             </div>
           </CardContent>
         </Card>
+
+        {/* Missing Location Prompt & Provide Location Modal */}
+        {missingPrompt && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+            <Card className="w-full max-w-lg border-primary/40 bg-card shadow-2xl max-h-[90vh] overflow-y-auto">
+              <CardContent className="p-4 space-y-3.5 text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-bold text-primary">
+                    Location Not Provided
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMissingPrompt(null)
+                      setProvideLocationOpen(false)
+                    }}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <p className="text-foreground leading-relaxed">
+                  <strong>{missingPrompt.targetMember.full_name}</strong> has not provided this detail (
+                  {missingPrompt.locationType === 'permanent' ? 'Permanent Location' : 'Current Location'}).
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAskMemberForLocation}
+                    className="gold-gradient text-gold-foreground font-semibold text-xs"
+                  >
+                    Ask for location
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setProvideLocationOpen(prev => !prev)}
+                    className="border-primary/40 text-primary font-semibold text-xs"
+                  >
+                    I can provide the location
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setMissingPrompt(null)
+                      setProvideLocationOpen(false)
+                    }}
+                    className="text-xs"
+                  >
+                    Close
+                  </Button>
+                </div>
+
+                {provideLocationOpen && (
+                  <div className="rounded-xl border border-primary/35 bg-primary/5 p-3 space-y-3">
+                    <p className="font-semibold text-primary">
+                      Select a point on the map or paste a Google Maps link / Plus Code:
+                    </p>
+
+                    {/* Interactive Map Picker on Screen */}
+                    <div
+                      onClick={e => {
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        const relX = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+                        const relY = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height))
+                        // Map click across Tamil Nadu / India coordinate bounds
+                        const lat = 8.0883 + (1 - relY) * (28.6139 - 8.0883)
+                        const lng = 76.9558 + relX * (88.3639 - 76.9558)
+                        setPickedCoords({ lat, lng })
+                        setLocationLinkOrPlusCode(`${lat.toFixed(6)},${lng.toFixed(6)}`)
+                        setLocationError('')
+                      }}
+                      className="relative h-44 w-full cursor-crosshair rounded-lg border border-primary/40 bg-gradient-to-br from-emerald-950/60 via-slate-900 to-sky-950/60 overflow-hidden select-none"
+                      title="Click anywhere on the map to choose a location"
+                    >
+                      <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#94a3b8_1px,transparent_1px),linear-gradient(to_bottom,#94a3b8_1px,transparent_1px)] bg-[size:28px_28px]" />
+                      <span className="absolute left-2 top-2 rounded bg-background/80 px-2 py-0.5 text-[10px] text-muted-foreground">
+                        Tap on map to pick coordinates
+                      </span>
+                      {pickedCoords && (
+                        <div
+                          style={{
+                            left: `${Math.min(
+                              95,
+                              Math.max(5, ((pickedCoords.lng - 76.9558) / (88.3639 - 76.9558)) * 100)
+                            )}%`,
+                            top: `${Math.min(
+                              92,
+                              Math.max(8, (1 - (pickedCoords.lat - 8.0883) / (28.6139 - 8.0883)) * 100)
+                            )}%`,
+                          }}
+                          className="absolute -translate-x-1/2 -translate-y-full flex flex-col items-center"
+                        >
+                          <MapPin className="h-6 w-6 text-red-500 drop-shadow" />
+                          <span className="rounded bg-black/80 px-1.5 py-0.5 text-[9px] font-mono text-white">
+                            {pickedCoords.lat.toFixed(4)}, {pickedCoords.lng.toFixed(4)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <Input
+                      value={locationLinkOrPlusCode}
+                      onChange={e => {
+                        setLocationLinkOrPlusCode(e.target.value)
+                        setLocationError('')
+                      }}
+                      placeholder="Paste Google Maps link or complete Plus Code (e.g., 7J4VXF22+22)..."
+                      className="text-xs"
+                    />
+
+                    {locationError && (
+                      <p className="text-[11px] font-semibold text-red-400">{locationError}</p>
+                    )}
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={submittingLocation}
+                      onClick={handleSubmitProvidedLocation}
+                      className="w-full gold-gradient text-gold-foreground font-bold text-xs"
+                    >
+                      {submittingLocation ? 'Verifying & Sending...' : 'Submit Location for Review'}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // DEFAULT MEMBER DIRECTORY MODE (Filters hidden behind clickable "filters" link)
+  return (
+    <div className="mx-auto max-w-5xl space-y-3">
+      {offlineInfo.isOffline && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/15 px-3.5 py-2.5 text-xs text-amber-200">
+          <WifiOff className="h-4 w-4 shrink-0 text-amber-400" />
+          <span>
+            <strong>Offline Emergency Mode:</strong> Showing cached directory contacts
+            {offlineInfo.syncedAt ? ` (Last synced: ${formatFullDateTime(offlineInfo.syncedAt)})` : ''}.
+          </span>
+        </div>
       )}
 
-      {/* Search Bar & Filters */}
       <Card className="border-primary/30 bg-card/75 backdrop-blur-sm">
         <CardContent className="p-3 space-y-2.5">
           <div className="relative">
@@ -766,50 +1049,17 @@ export default function DirectoryTab({
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
-            <div className="relative flex items-center">
-              <Droplets className="absolute left-2.5 h-3.5 w-3.5 text-red-400 pointer-events-none" />
-              <select
-                value={bloodFilter}
-                onChange={e => setBloodFilter(e.target.value)}
-                className="w-full h-8 rounded-md border border-border/50 bg-background/80 pl-8 pr-2 text-xs"
-              >
-                <option value="">All Blood Groups</option>
-                {bloodOptions.map(bg => (
-                  <option key={bg} value={bg}>
-                    Blood: {bg}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setShowFilters(prev => !prev)}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
+            >
+              <SlidersHorizontal className="h-3 w-3" />
+              filters
+            </button>
 
-            <div className="relative flex items-center">
-              <MapPin className="absolute left-2.5 h-3.5 w-3.5 text-primary pointer-events-none" />
-              <Input
-                value={cityFilter}
-                onChange={e => setCityFilter(e.target.value)}
-                placeholder="Filter by Current City..."
-                className="h-8 pl-8 bg-background/80 border-border/50 text-xs"
-              />
-            </div>
-
-            <div className="relative flex items-center">
-              <Briefcase className="absolute left-2.5 h-3.5 w-3.5 text-emerald-400 pointer-events-none" />
-              <select
-                value={professionFilter}
-                onChange={e => setProfessionFilter(e.target.value)}
-                className="w-full h-8 rounded-md border border-border/50 bg-background/80 pl-8 pr-2 text-xs"
-              >
-                <option value="">All Professions</option>
-                {professionOptions.map(prof => (
-                  <option key={prof} value={prof}>
-                    {prof}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center justify-between sm:justify-end gap-2">
+            <div className="flex items-center gap-2">
               <span className="text-[11px] font-medium text-muted-foreground">
                 Showing <span className="font-bold text-primary">{filteredMembers.length}</span> of {members.length}
               </span>
@@ -819,7 +1069,7 @@ export default function DirectoryTab({
                   variant="ghost"
                   size="sm"
                   onClick={clearFilters}
-                  className="h-8 px-2 text-xs text-primary hover:bg-primary/10 gap-1"
+                  className="h-7 px-2 text-xs text-primary hover:bg-primary/10 gap-1"
                 >
                   <RotateCcw className="h-3 w-3" />
                   Reset
@@ -827,6 +1077,52 @@ export default function DirectoryTab({
               )}
             </div>
           </div>
+
+          {showFilters && (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 pt-1 border-t border-border/30">
+              <div className="relative flex items-center">
+                <Droplets className="absolute left-2.5 h-3.5 w-3.5 text-red-400 pointer-events-none" />
+                <select
+                  value={bloodFilter}
+                  onChange={e => setBloodFilter(e.target.value)}
+                  className="w-full h-8 rounded-md border border-border/50 bg-background/80 pl-8 pr-2 text-xs"
+                >
+                  <option value="">All Blood Groups</option>
+                  {bloodOptions.map(bg => (
+                    <option key={bg} value={bg}>
+                      Blood: {bg}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative flex items-center">
+                <MapPin className="absolute left-2.5 h-3.5 w-3.5 text-primary pointer-events-none" />
+                <Input
+                  value={cityFilter}
+                  onChange={e => setCityFilter(e.target.value)}
+                  placeholder="Filter by Current City..."
+                  className="h-8 pl-8 bg-background/80 border-border/50 text-xs"
+                />
+              </div>
+
+              <div className="relative flex items-center">
+                <Briefcase className="absolute left-2.5 h-3.5 w-3.5 text-emerald-400 pointer-events-none" />
+                <select
+                  value={professionFilter}
+                  onChange={e => setProfessionFilter(e.target.value)}
+                  className="w-full h-8 rounded-md border border-border/50 bg-background/80 pl-8 pr-2 text-xs"
+                >
+                  <option value="">All Professions</option>
+                  {professionOptions.map(prof => (
+                    <option key={prof} value={prof}>
+                      {prof}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           {(userIsAdmin || filteredMembers.length > 0) && (
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/25 pt-2">
@@ -892,7 +1188,6 @@ export default function DirectoryTab({
                   )}
 
                   <div className="flex-1 min-w-0">
-                    {/* Line 1: Full Name & Blood Group */}
                     <div className="flex items-center gap-1.5">
                       <h3 className="truncate text-sm font-bold text-foreground leading-tight">{m.full_name}</h3>
                       {m.blood_group && (
@@ -902,14 +1197,12 @@ export default function DirectoryTab({
                       )}
                     </div>
 
-                    {/* Line 2: Nickname & Career Status */}
                     <p className="truncate text-[11px] text-muted-foreground leading-tight mt-0.5">
                       {m.class_nickname && <span className="text-primary font-medium">{m.class_nickname}</span>}
                       {m.class_nickname && ' · '}
                       {m.current_status || 'Member'}
                     </p>
 
-                    {/* Line 3: Association Office / App Admin / Member of Association */}
                     <p className={`flex items-center gap-1 truncate text-[10px] font-semibold leading-tight mt-0.5 ${roleTextColor}`}>
                       <Award className="h-3 w-3 shrink-0" />
                       <span className="truncate">{roleInfo.label}</span>
@@ -973,27 +1266,6 @@ export default function DirectoryTab({
           })}
         </div>
       )}
-
-      <div className="pt-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() =>
-            onOpenSupportRequests
-              ? onOpenSupportRequests()
-              : navigate('/dashboard?tab=support')
-          }
-          className="w-full border-primary/40 bg-card/80 text-primary hover:bg-primary/10 font-semibold gap-2 py-5"
-        >
-          <HandHeart className="h-4 w-4" />
-          Display Family Support Requests Page
-          {openSupportCount > 0 && (
-            <span className="rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-bold text-white">
-              {openSupportCount} Open
-            </span>
-          )}
-        </Button>
-      </div>
     </div>
   )
 }
