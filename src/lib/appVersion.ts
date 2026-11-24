@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.37",
-  "timestamp": "24 Nov 2026, 04:41 PM IST",
-  "formatted": "V2.37, 24 Nov 2026, 04:41 PM IST",
+  "version": "V2.38",
+  "timestamp": "24 Nov 2026, 04:45 PM IST",
+  "formatted": "V2.38, 24 Nov 2026, 04:45 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Fix missing newline at end of taskAuditService.ts)",
+  "summary": "Minor technical update (Enhance index.html with meta tags for social sharing)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.38",
+      "timestamp": "24 Nov 2026, 04:45 PM IST",
+      "formatted": "V2.38, 24 Nov 2026, 04:45 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Enhance index.html with meta tags for social sharing)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.37",
       "timestamp": "24 Nov 2026, 04:41 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.14, 23 Nov 2026, 10:06 PM IST",
       "type": "minor",
       "summary": "Minor general update (Update manifest.json with new network details)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.13",
-      "timestamp": "23 Nov 2026, 10:04 PM IST",
-      "formatted": "V2.13, 23 Nov 2026, 10:04 PM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add ShareTargetPage route to App component)",
       "requiresReinstall": false
     }
   ]
