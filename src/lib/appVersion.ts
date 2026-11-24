@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.26",
-  "timestamp": "24 Nov 2026, 03:50 PM IST",
-  "formatted": "V2.26, 24 Nov 2026, 03:50 PM IST",
+  "version": "V2.27",
+  "timestamp": "24 Nov 2026, 03:52 PM IST",
+  "formatted": "V2.27, 24 Nov 2026, 03:52 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement checkCanManageTreasury function)",
+  "summary": "Minor general update (Treasurer Account Management + Read-Only View for All Members)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.27",
+      "timestamp": "24 Nov 2026, 03:52 PM IST",
+      "formatted": "V2.27, 24 Nov 2026, 03:52 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Treasurer Account Management + Read-Only View for All Members)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.26",
       "timestamp": "24 Nov 2026, 03:50 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.03, 23 Nov 2026, 09:53 PM IST",
       "type": "minor",
       "summary": "Minor general update (App icon appearance updated)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.02",
-      "timestamp": "23 Nov 2026, 04:47 AM IST",
-      "formatted": "V2.02, 23 Nov 2026, 04:47 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor officerPrefixMap state initialization)",
       "requiresReinstall": false
     }
   ]
