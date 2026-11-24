@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.42",
-  "timestamp": "24 Nov 2026, 11:04 PM IST",
-  "formatted": "V2.42, 24 Nov 2026, 11:04 PM IST",
+  "version": "V2.43",
+  "timestamp": "24 Nov 2026, 11:05 PM IST",
+  "formatted": "V2.43, 24 Nov 2026, 11:05 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance MemberProfilePage with association role feature)",
+  "summary": "Minor general update (Implement contact method handling in MemberProfilePage)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.43",
+      "timestamp": "24 Nov 2026, 11:05 PM IST",
+      "formatted": "V2.43, 24 Nov 2026, 11:05 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Implement contact method handling in MemberProfilePage)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.42",
       "timestamp": "24 Nov 2026, 11:04 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.19, 23 Nov 2026, 10:22 PM IST",
       "type": "minor",
       "summary": "Minor technical update (Add recurrence rule and export/print functionality)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.18",
-      "timestamp": "23 Nov 2026, 10:19 PM IST",
-      "formatted": "V2.18, 23 Nov 2026, 10:19 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Enhance CallsTab with scheduling and attendance features)",
       "requiresReinstall": false
     }
   ]
