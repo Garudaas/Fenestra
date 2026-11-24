@@ -18,6 +18,12 @@ export interface InstantAuditOutcome {
 }
 
 export type OfficerPrefixMap = Map<number, string>
+export type CommitteeRolesMap = Map<number, string[]>
+
+export interface AssociationRoleBadgeInfo {
+  label: string
+  kind: 'office' | 'admin' | 'member'
+}
 
 export async function resolveOfficerDisplayName(
   userId: number,
@@ -60,6 +66,108 @@ export async function fetchOfficerNamePrefixMap(): Promise<OfficerPrefixMap> {
     }
   }
   return prefixMap
+}
+
+/**
+ * Fetches all Executive Committee role titles grouped by alumni_id.
+ */
+export async function fetchCommitteeRolesMap(): Promise<CommitteeRolesMap> {
+  const { data } = await supabase
+    .from('alumni_committee')
+    .select('alumni_id, role_title')
+    .not('alumni_id', 'is', null)
+    .order('display_order', { ascending: true })
+    .order('id', { ascending: true })
+
+  const map: CommitteeRolesMap = new Map()
+  for (const row of data ?? []) {
+    const uid = Number(row.alumni_id)
+    const title = String(row.role_title || '').trim()
+    if (!uid || !title) continue
+    const existing = map.get(uid) ?? []
+    if (!existing.some(t => t.toLowerCase() === title.toLowerCase())) {
+      existing.push(title)
+    }
+    map.set(uid, existing)
+  }
+  return map
+}
+
+/**
+ * Resolves a member's Association Role label:
+ * 1. Office held in association (e.g., President, General Secretary, Treasurer)
+ * 2. App Admin (if is_admin = true)
+ * 3. Member of Association (default for all other members)
+ */
+export function resolveMemberAssociationRole(params: {
+  userId: number
+  isAdmin?: boolean | null
+  committeeRolesMap?: CommitteeRolesMap
+}): AssociationRoleBadgeInfo {
+  const offices = params.committeeRolesMap?.get(Number(params.userId)) ?? []
+  const isAdminFlag = Boolean(params.isAdmin)
+
+  if (offices.length > 0) {
+    const officeText = offices.join(', ')
+    const hasTopExecTitle = offices.some(o => {
+      const low = o.toLowerCase()
+      return low === 'president' || low === 'general secretary'
+    })
+    return {
+      label: isAdminFlag && !hasTopExecTitle ? `${officeText} · App Admin` : officeText,
+      kind: 'office',
+    }
+  }
+
+  if (isAdminFlag) {
+    return {
+      label: 'App Admin',
+      kind: 'admin',
+    }
+  }
+
+  return {
+    label: 'Member of Association',
+    kind: 'member',
+  }
+}
+
+/**
+ * Single-member async lookup for Profile pages.
+ */
+export async function fetchSingleMemberAssociationRole(
+  userId: number,
+  isAdmin?: boolean | null
+): Promise<AssociationRoleBadgeInfo> {
+  const [{ data: commRows }, { data: alumRow }] = await Promise.all([
+    supabase
+      .from('alumni_committee')
+      .select('role_title')
+      .eq('alumni_id', userId)
+      .order('display_order', { ascending: true }),
+    typeof isAdmin === 'boolean'
+      ? Promise.resolve({ data: { is_admin: isAdmin } })
+      : supabase.from('alumni').select('is_admin').eq('id', userId).maybeSingle(),
+  ])
+
+  const offices: string[] = []
+  for (const r of commRows ?? []) {
+    const t = String(r.role_title || '').trim()
+    if (t && !offices.some(x => x.toLowerCase() === t.toLowerCase())) {
+      offices.push(t)
+    }
+  }
+
+  const map: CommitteeRolesMap = new Map()
+  if (offices.length > 0) {
+    map.set(Number(userId), offices)
+  }
+
+  return resolveMemberAssociationRole({
+    userId,
+    isAdmin: Boolean(alumRow?.is_admin),
+    committeeRolesMap: map,
+  })
 }
 
 export async function checkIsPresidentOrGenSec(userId: number): Promise<{
