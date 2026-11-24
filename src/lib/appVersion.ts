@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.50",
-  "timestamp": "24 Nov 2026, 11:55 PM IST",
-  "formatted": "V2.50, 24 Nov 2026, 11:55 PM IST",
+  "version": "V2.51",
+  "timestamp": "24 Nov 2026, 11:56 PM IST",
+  "formatted": "V2.51, 24 Nov 2026, 11:56 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
+  "summary": "Minor technical update (Update src/pages/AlumniAssociationHome.tsx for Tabs behaviour)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.51",
+      "timestamp": "24 Nov 2026, 11:56 PM IST",
+      "formatted": "V2.51, 24 Nov 2026, 11:56 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Update src/pages/AlumniAssociationHome.tsx for Tabs behaviour)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.50",
       "timestamp": "24 Nov 2026, 11:55 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.27, 24 Nov 2026, 03:52 PM IST",
       "type": "minor",
       "summary": "Minor general update (Treasurer Account Management + Read-Only View for All Members)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.26",
-      "timestamp": "24 Nov 2026, 03:50 PM IST",
-      "formatted": "V2.26, 24 Nov 2026, 03:50 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Implement checkCanManageTreasury function)",
       "requiresReinstall": false
     }
   ]
