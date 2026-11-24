@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { saveAuditPreference } from '@/lib/fenestriansCore'
 import { formatISTDateTime } from '@/lib/formatters'
+import { consumePreviousRoute, recordPreviousRoute } from '@/lib/navigationState'
 import {
   auditSingleTaskField,
   buildSubItemsForTask,
@@ -104,7 +105,6 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true)
   const [actionBusy, setActionBusy] = useState(false)
 
-  // Expanded personal task accordions (collapsed by default)
   const [expandedTaskIds, setExpandedTaskIds] = useState<Record<number, boolean>>({})
   const [personalTaskDetails, setPersonalTaskDetails] = useState<
     Record<number, ExpandedPersonalTaskState>
@@ -114,7 +114,6 @@ export default function NotificationsPage() {
     text: string
   } | null>(null)
 
-  // Modal state for standard (non-personal-task) Unread notifications
   const [selectedItem, setSelectedItem] = useState<UserNotificationItem | null>(null)
   const [snoozeValue, setSnoozeValue] = useState<number>(10)
   const [snoozeUnit, setSnoozeUnit] = useState<'minutes' | 'hours'>('minutes')
@@ -335,7 +334,6 @@ export default function NotificationsPage() {
         .eq('id', state.taskRecord.id)
     }
 
-    // Auto-regenerate next cycle if this is a Monthly or Quarterly recurring task
     const recurRule = String(state.taskRecord?.recurrence_rule || 'none').toLowerCase()
     if (state.taskRecord && (recurRule === 'monthly' || recurRule === 'quarterly')) {
       const monthsToAdd = recurRule === 'quarterly' ? 3 : 1
@@ -434,7 +432,6 @@ export default function NotificationsPage() {
     return () => window.removeEventListener('fenestrians-open-snoozed', handleSnoozeTrigger)
   }, [loadPersonalTaskChecklist])
 
-  // Pin personal_task items ALWAYS at the top of Unread
   const unreadRaw = items.filter(i => i.status === 'unread')
   const personalTaskUnread = unreadRaw.filter(i => i.category === 'personal_task')
   const otherUnread = unreadRaw.filter(i => i.category !== 'personal_task')
@@ -447,12 +444,18 @@ export default function NotificationsPage() {
     0
   )
 
+  const handleCloseNotificationsPage = () => {
+    const prev = consumePreviousRoute('/dashboard')
+    navigate(prev)
+  }
+
   const handleStandardItemClick = async (item: UserNotificationItem) => {
     if (!user) return
 
     if (isChatNotification(item.category)) {
       await clearChatNotifications(user.id)
       window.dispatchEvent(new Event('fenestrians-notifications-updated'))
+      recordPreviousRoute('/notifications')
       navigate('/dashboard?tab=chat')
       return
     }
@@ -460,6 +463,7 @@ export default function NotificationsPage() {
     if (isCallNotification(item.category)) {
       await clearCallNotification(user.id, item.id)
       window.dispatchEvent(new Event('fenestrians-notifications-updated'))
+      recordPreviousRoute('/notifications')
       navigate('/dashboard?tab=calls')
       return
     }
@@ -532,18 +536,21 @@ export default function NotificationsPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate('/dashboard')}
+            onClick={handleCloseNotificationsPage}
             className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
+            Back
           </Button>
 
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => navigate('/dashboard?tab=tasks')}
+            onClick={() => {
+              recordPreviousRoute('/notifications')
+              navigate('/tasks')
+            }}
             className="gap-1.5 text-xs border-primary/40 text-primary hover:bg-primary/10"
           >
             <ListTodo className="h-3.5 w-3.5" />
@@ -783,7 +790,10 @@ export default function NotificationsPage() {
                                     type="button"
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => navigate('/dashboard?tab=profile')}
+                                    onClick={() => {
+                                      recordPreviousRoute('/notifications')
+                                      navigate('/dashboard?tab=profile')
+                                    }}
                                     className="gap-1.5 text-xs"
                                   >
                                     <UserCog className="h-3.5 w-3.5" />
