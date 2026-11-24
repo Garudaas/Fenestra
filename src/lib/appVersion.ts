@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.44",
-  "timestamp": "24 Nov 2026, 11:08 PM IST",
-  "formatted": "V2.44, 24 Nov 2026, 11:08 PM IST",
+  "version": "V2.45",
+  "timestamp": "24 Nov 2026, 11:16 PM IST",
+  "formatted": "V2.45, 24 Nov 2026, 11:16 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance ProfileTab with association role feature)",
+  "summary": "Minor general update (Association page)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.45",
+      "timestamp": "24 Nov 2026, 11:16 PM IST",
+      "formatted": "V2.45, 24 Nov 2026, 11:16 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Association page)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.44",
       "timestamp": "24 Nov 2026, 11:08 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.21, 23 Nov 2026, 10:28 PM IST",
       "type": "minor",
       "summary": "Minor technical update (Clean up comments in NotificationsPage component)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.20",
-      "timestamp": "23 Nov 2026, 10:27 PM IST",
-      "formatted": "V2.20, 23 Nov 2026, 10:27 PM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Remove unused import for formatISTDateTime)",
       "requiresReinstall": false
     }
   ]
