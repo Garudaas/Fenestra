@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.29",
-  "timestamp": "24 Nov 2026, 03:57 PM IST",
-  "formatted": "V2.29, 24 Nov 2026, 03:57 PM IST",
+  "version": "V2.30",
+  "timestamp": "24 Nov 2026, 03:58 PM IST",
+  "formatted": "V2.30, 24 Nov 2026, 03:58 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Add TreasuryPage route to App component)",
+  "summary": "Minor general update (Add treasury tab to MemberDashboard)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.30",
+      "timestamp": "24 Nov 2026, 03:58 PM IST",
+      "formatted": "V2.30, 24 Nov 2026, 03:58 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Add treasury tab to MemberDashboard)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.29",
       "timestamp": "24 Nov 2026, 03:57 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.06, 23 Nov 2026, 09:56 PM IST",
       "type": "minor",
       "summary": "Minor technical update (Add ShareTargetPage component for sharing content)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.05",
-      "timestamp": "23 Nov 2026, 09:55 PM IST",
-      "formatted": "V2.05, 23 Nov 2026, 09:55 PM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add report exporter with CSV and HTML export functions)",
       "requiresReinstall": false
     }
   ]
