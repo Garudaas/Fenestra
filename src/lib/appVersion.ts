@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.58",
-  "timestamp": "25 Nov 2026, 12:45 AM IST",
-  "formatted": "V2.58, 25 Nov 2026, 12:45 AM IST",
+  "version": "V2.59",
+  "timestamp": "25 Nov 2026, 12:48 AM IST",
+  "formatted": "V2.59, 25 Nov 2026, 12:48 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Notification alerts updated)",
+  "summary": "Minor general update (Enhance task management with sub-item updates)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.59",
+      "timestamp": "25 Nov 2026, 12:48 AM IST",
+      "formatted": "V2.59, 25 Nov 2026, 12:48 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Enhance task management with sub-item updates)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.58",
       "timestamp": "25 Nov 2026, 12:45 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.35, 24 Nov 2026, 04:25 PM IST",
       "type": "minor",
       "summary": "Minor general update (Implement checkIsOfficeBearer function)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.34",
-      "timestamp": "24 Nov 2026, 04:24 PM IST",
-      "formatted": "V2.34, 24 Nov 2026, 04:24 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Enhance TreasuryPage with receipt handling and refactoring)",
       "requiresReinstall": false
     }
   ]
