@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.32",
-  "timestamp": "24 Nov 2026, 04:02 PM IST",
-  "formatted": "V2.32, 24 Nov 2026, 04:02 PM IST",
+  "version": "V2.33",
+  "timestamp": "24 Nov 2026, 04:21 PM IST",
+  "formatted": "V2.33, 24 Nov 2026, 04:21 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Link the Treasury Tab in src/pages/AlumniAssociationHome.tsx to /treasury)",
+  "summary": "Minor general update (Implement receipt PDF generation and download functions)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.33",
+      "timestamp": "24 Nov 2026, 04:21 PM IST",
+      "formatted": "V2.33, 24 Nov 2026, 04:21 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Implement receipt PDF generation and download functions)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.32",
       "timestamp": "24 Nov 2026, 04:02 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.09, 23 Nov 2026, 10:00 PM IST",
       "type": "minor",
       "summary": "Minor general update (Enhance NotificationQuickBar with pending tasks count)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.08",
-      "timestamp": "23 Nov 2026, 10:00 PM IST",
-      "formatted": "V2.08, 23 Nov 2026, 10:00 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Login and registration screen updated)",
       "requiresReinstall": false
     }
   ]
