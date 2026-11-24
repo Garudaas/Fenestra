@@ -8,6 +8,10 @@ import {
   getDefaultSpouseGender,
   EDUCATION_LEVELS,
 } from '@/lib/fenestriansCore'
+import {
+  fetchSingleMemberAssociationRole,
+  type AssociationRoleBadgeInfo,
+} from '@/lib/taskAuditService'
 import { publishArchivedAlert } from '@/lib/notificationService'
 import {
   formatFullDate,
@@ -51,6 +55,7 @@ import {
   Users,
   FileText,
   ChevronRight,
+  Award,
 } from 'lucide-react'
 
 interface MyPendingTask {
@@ -128,10 +133,6 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 export default function ProfileTab() {
   const { user } = useAuth()
 
-  // Navigation states:
-  // isEditing === false -> My Profile View
-  // isEditing === true && activeSection === null -> Profile Update Hub (9 tabs)
-  // isEditing === true && activeSection !== null -> Individual Edit Tab Page
   const [isEditing, setIsEditing] = useState(false)
   const [activeSection, setActiveSection] = useState<EditSectionKey | null>(null)
   const [saving, setSaving] = useState(false)
@@ -139,6 +140,10 @@ export default function ProfileTab() {
   const [saveBanner, setSaveBanner] = useState('')
 
   const [profileData, setProfileData] = useState<any>(null)
+  const [associationRole, setAssociationRole] = useState<AssociationRoleBadgeInfo>({
+    label: 'Member of Association',
+    kind: 'member',
+  })
   const [familyMembers, setFamilyMembers] = useState<any[]>([])
   const [myTasks, setMyTasks] = useState<MyPendingTask[]>([])
 
@@ -186,7 +191,7 @@ export default function ProfileTab() {
   const [hidePeers, setHidePeers] = useState(false)
   const [hideAdmin, setHideAdmin] = useState(false)
 
-  // Credentials states (kept blank on open)
+  // Credentials states
   const [currentUsername, setCurrentUsername] = useState('')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newUsername, setNewUsername] = useState('')
@@ -248,6 +253,11 @@ export default function ProfileTab() {
 
     setBloodOptions(bgs)
     await Promise.all([loadMyPendingTasks(user.id), loadFamily(user.id)])
+
+    const effectiveAdminFlag =
+      profileRes.data && !profileRes.error ? Boolean(profileRes.data.is_admin) : Boolean(user.is_admin)
+    const roleInfo = await fetchSingleMemberAssociationRole(user.id, effectiveAdminFlag)
+    setAssociationRole(roleInfo)
 
     if (profileRes.data && !profileRes.error) {
       const merged = { ...user, ...profileRes.data }
@@ -765,6 +775,13 @@ export default function ProfileTab() {
   const displayContact = cleanPhoneNumber(activeProfile.contact_number)
   const displayWhatsApp = cleanPhoneNumber(activeProfile.whatsapp_number)
 
+  const roleColorClass =
+    associationRole.kind === 'office'
+      ? 'text-amber-400'
+      : associationRole.kind === 'admin'
+      ? 'text-sky-400'
+      : 'text-emerald-400'
+
   const editSections: Array<{
     key: EditSectionKey
     title: string
@@ -930,6 +947,13 @@ export default function ProfileTab() {
                     </span>
                   )}
                 </div>
+
+                {/* Association Office / App Admin / Member of Association */}
+                <p className={`flex items-center justify-center sm:justify-start gap-1.5 text-xs font-bold pt-0.5 ${roleColorClass}`}>
+                  <Award className="h-3.5 w-3.5 shrink-0" />
+                  <span>{associationRole.label}</span>
+                </p>
+
                 <p className="text-xs text-muted-foreground pt-0.5">
                   Username: <span className="font-semibold text-foreground">{activeProfile.custom_username || '-'}</span>
                 </p>
@@ -1070,7 +1094,7 @@ export default function ProfileTab() {
           </CardContent>
         </Card>
       ) : activeSection === null ? (
-        /* LEVEL 2: PROFILE UPDATE HUB (9 Dedicated Tabs) */
+        /* LEVEL 2: PROFILE UPDATE HUB */
         <Card className="border-border/40 bg-card/75 backdrop-blur-sm shadow-xl">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2">
@@ -1124,7 +1148,7 @@ export default function ProfileTab() {
           </CardContent>
         </Card>
       ) : (
-        /* LEVEL 3: INDIVIDUAL EDIT TAB PAGE (Each has its own Submit button returning to Profile Update Hub) */
+        /* LEVEL 3: INDIVIDUAL EDIT TAB PAGE */
         <Card className="border-primary/30 bg-card/75 backdrop-blur-sm shadow-xl">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2">
