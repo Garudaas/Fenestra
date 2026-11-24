@@ -24,6 +24,7 @@ import {
   Crown,
   Building2,
   ListTodo,
+  Wallet,
 } from 'lucide-react'
 import DirectoryTab from '@/pages/DirectoryTab'
 import ProfileTab from '@/pages/ProfileTab'
@@ -244,6 +245,10 @@ export default function MemberDashboard() {
       navigate('/alumni-association')
       return
     }
+    if (tabId === 'treasury') {
+      navigate('/treasury')
+      return
+    }
     setActiveTab(tabId as TabName)
 
     if (!user) return
@@ -281,6 +286,7 @@ export default function MemberDashboard() {
     { id: 'profile', label: 'Profile', tooltip: 'My Profile & Family', icon: User },
     { id: 'settings', label: 'Settings', tooltip: 'User Settings & Privacy', icon: Settings },
     { id: 'alumni', label: 'Alumni', tooltip: 'Alumni Association Home', icon: Building2 },
+    { id: 'treasury', label: 'Treasury', tooltip: 'Association Treasury & Accounts', icon: Wallet },
     ...(userIsAdmin
       ? [{ id: 'maintenance', label: 'Maintenance', tooltip: 'Admin Maintenance & Audits', icon: Wrench }]
       : []),
