@@ -1,11 +1,19 @@
 {
-  "version": "V2.60",
-  "timestamp": "25 Nov 2026, 12:50 AM IST",
-  "formatted": "V2.60, 25 Nov 2026, 12:50 AM IST",
+  "version": "V2.61",
+  "timestamp": "25 Nov 2026, 12:56 AM IST",
+  "formatted": "V2.61, 25 Nov 2026, 12:56 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement previous route tracking on NotificationsPage)",
+  "summary": "Minor general update (Track previous routes on navigation actions)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.61",
+      "timestamp": "25 Nov 2026, 12:56 AM IST",
+      "formatted": "V2.61, 25 Nov 2026, 12:56 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Track previous routes on navigation actions)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.60",
       "timestamp": "25 Nov 2026, 12:50 AM IST",
@@ -196,14 +204,6 @@
       "formatted": "V2.37, 24 Nov 2026, 04:41 PM IST",
       "type": "minor",
       "summary": "Minor technical update (Fix missing newline at end of taskAuditService.ts)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.36",
-      "timestamp": "24 Nov 2026, 04:36 PM IST",
-      "formatted": "V2.36, 24 Nov 2026, 04:36 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Implement copy functionality for Smart App Launcher link)",
       "requiresReinstall": false
     }
   ]
