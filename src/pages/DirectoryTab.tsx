@@ -7,6 +7,11 @@ import { cleanPhoneNumber, formatFullDateTime, formatFullDate } from '@/lib/form
 import { saveOfflineDirectory, loadOfflineDirectory } from '@/lib/offlineCache'
 import { exportRowsToCSV, openPrintableReport } from '@/lib/reportExporter'
 import { publishArchivedAlert, sendDevicePushNotification } from '@/lib/notificationService'
+import {
+  fetchCommitteeRolesMap,
+  resolveMemberAssociationRole,
+  type CommitteeRolesMap,
+} from '@/lib/taskAuditService'
 import SmartDateInput from '@/components/shared/SmartDateInput'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -32,6 +37,7 @@ import {
   ExternalLink,
   Send,
   Trash2,
+  Award,
 } from 'lucide-react'
 
 interface DirectoryTabProps {
@@ -58,6 +64,7 @@ export default function DirectoryTab({
   const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [members, setMembers] = useState<any[]>([])
+  const [committeeRolesMap, setCommitteeRolesMap] = useState<CommitteeRolesMap>(() => new Map())
   const [openSupportCount, setOpenSupportCount] = useState(0)
   const [offlineInfo, setOfflineInfo] = useState<{ isOffline: boolean; syncedAt: string | null }>({
     isOffline: false,
@@ -97,7 +104,7 @@ export default function DirectoryTab({
 
   const loadDirectory = async () => {
     try {
-      const [usersRes, bgs, supportRes] = await Promise.all([
+      const [usersRes, bgs, supportRes, rolesMap] = await Promise.all([
         supabase
           .from('alumni_directory_safe')
           .select('*')
@@ -110,14 +117,29 @@ export default function DirectoryTab({
           .from('family_support_requests')
           .select('id', { count: 'exact', head: true })
           .eq('status', 'open'),
+        fetchCommitteeRolesMap(),
       ])
 
       if (usersRes.data && usersRes.data.length > 0) {
-        setMembers(usersRes.data)
+        const enrichedMembers = usersRes.data.map((m: any) => {
+          const badge = resolveMemberAssociationRole({
+            userId: m.id,
+            isAdmin: m.is_admin,
+            committeeRolesMap: rolesMap,
+          })
+          return {
+            ...m,
+            _associationRoleLabel: badge.label,
+            _associationRoleKind: badge.kind,
+          }
+        })
+
+        setMembers(enrichedMembers)
+        setCommitteeRolesMap(rolesMap)
         setBloodOptions(bgs)
         setOpenSupportCount(supportRes.count || 0)
         setOfflineInfo({ isOffline: false, syncedAt: new Date().toISOString() })
-        await saveOfflineDirectory(usersRes.data)
+        await saveOfflineDirectory(enrichedMembers)
         return
       }
     } catch {
@@ -143,6 +165,20 @@ export default function DirectoryTab({
       .gte('arrival_date', todayIso)
       .order('arrival_date', { ascending: true })
     if (data) setTravelAlerts(data as TravelAlertItem[])
+  }
+
+  const getRoleDisplay = (m: any): { label: string; kind: 'office' | 'admin' | 'member' } => {
+    if (committeeRolesMap.size > 0 || !m._associationRoleLabel) {
+      return resolveMemberAssociationRole({
+        userId: m.id,
+        isAdmin: m.is_admin,
+        committeeRolesMap,
+      })
+    }
+    return {
+      label: m._associationRoleLabel,
+      kind: m._associationRoleKind || 'member',
+    }
   }
 
   const professionOptions = useMemo(() => {
@@ -174,11 +210,13 @@ export default function DirectoryTab({
         if (!addrBlob.includes(cityQ)) return false
       }
       if (q) {
+        const roleInfo = getRoleDisplay(m)
         const haystack = [
           m.full_name,
           m.class_nickname,
           m.blood_group,
           m.current_status,
+          roleInfo.label,
           m.current_address,
           m.permanent_address,
           cleanPhoneNumber(m.contact_number),
@@ -192,7 +230,7 @@ export default function DirectoryTab({
       }
       return true
     })
-  }, [members, searchQuery, bloodFilter, cityFilter, professionFilter])
+  }, [members, searchQuery, bloodFilter, cityFilter, professionFilter, committeeRolesMap])
 
   // Matching Donors for Emergency Blood SOS
   const matchingSosDonors = useMemo(() => {
@@ -363,6 +401,7 @@ export default function DirectoryTab({
   const buildReportRows = () => {
     const headers = [
       'Full Name',
+      'Association Role',
       'Nickname',
       'Blood Group',
       'Contact Number',
@@ -373,6 +412,7 @@ export default function DirectoryTab({
     ]
     const rows = filteredMembers.map(m => [
       m.full_name,
+      getRoleDisplay(m).label,
       m.class_nickname || '-',
       m.blood_group || '-',
       cleanPhoneNumber(m.contact_number) || '-',
@@ -417,7 +457,7 @@ export default function DirectoryTab({
         </div>
       )}
 
-      {/* Quick Action Bar: Emergency Blood SOS | City Map & "I'm In Town" | Job & Referral Board */}
+      {/* Quick Action Bar */}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <Button
           type="button"
@@ -594,7 +634,6 @@ export default function DirectoryTab({
       {activePanel === 'city_travel' && (
         <Card className="border-primary/40 bg-card/85 backdrop-blur-sm">
           <CardContent className="p-4 space-y-4 text-xs">
-            {/* Broadcast "I'm In Town" Travel Alert */}
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2.5">
               <p className="flex items-center gap-1.5 font-bold text-primary text-sm">
                 <Plane className="h-4 w-4" />
@@ -671,7 +710,6 @@ export default function DirectoryTab({
               )}
             </div>
 
-            {/* Interactive Member City Map Clusters */}
             <div className="space-y-2">
               <p className="flex items-center gap-1.5 font-bold text-primary text-sm">
                 <Building className="h-4 w-4" />
@@ -715,7 +753,7 @@ export default function DirectoryTab({
         </Card>
       )}
 
-      {/* Search Bar & Emergency Donor / Location / Profession Filters */}
+      {/* Search Bar & Filters */}
       <Card className="border-primary/30 bg-card/75 backdrop-blur-sm">
         <CardContent className="p-3 space-y-2.5">
           <div className="relative">
@@ -723,7 +761,7 @@ export default function DirectoryTab({
             <Input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search members by name, nickname, phone, city, or status..."
+              placeholder="Search members by name, office/role, nickname, phone, city, or status..."
               className="pl-9 bg-background/60 border-border/50 text-xs h-9"
             />
           </div>
@@ -826,26 +864,35 @@ export default function DirectoryTab({
         <div className="grid gap-2 md:grid-cols-2">
           {filteredMembers.map(m => {
             const cleanDial = cleanPhoneNumber(m.contact_number)
+            const roleInfo = getRoleDisplay(m)
+            const roleTextColor =
+              roleInfo.kind === 'office'
+                ? 'text-amber-400'
+                : roleInfo.kind === 'admin'
+                ? 'text-sky-400'
+                : 'text-emerald-400/90'
+
             return (
               <Card
                 key={m.id}
                 onClick={() => navigate(`/member/${m.id}`)}
                 className="cursor-pointer overflow-hidden border-border/40 bg-card/60 backdrop-blur-sm transition-all duration-300 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm hover:shadow-primary/5"
               >
-                <div className="flex items-center gap-2.5 p-2">
+                <div className="flex items-center gap-2.5 p-2.5">
                   {m.profile_picture_url ? (
                     <img
                       src={m.profile_picture_url}
-                      className="h-10 w-10 shrink-0 rounded-full border border-primary/30 object-cover shadow-sm"
+                      className="h-11 w-11 shrink-0 rounded-full border border-primary/30 object-cover shadow-sm"
                       alt={m.full_name}
                     />
                   ) : (
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-gradient-to-br from-primary/20 to-accent text-sm font-bold text-primary shadow-sm">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-gradient-to-br from-primary/20 to-accent text-sm font-bold text-primary shadow-sm">
                       {m.full_name?.[0] || '?'}
                     </div>
                   )}
 
                   <div className="flex-1 min-w-0">
+                    {/* Line 1: Full Name & Blood Group */}
                     <div className="flex items-center gap-1.5">
                       <h3 className="truncate text-sm font-bold text-foreground leading-tight">{m.full_name}</h3>
                       {m.blood_group && (
@@ -854,10 +901,18 @@ export default function DirectoryTab({
                         </span>
                       )}
                     </div>
+
+                    {/* Line 2: Nickname & Career Status */}
                     <p className="truncate text-[11px] text-muted-foreground leading-tight mt-0.5">
                       {m.class_nickname && <span className="text-primary font-medium">{m.class_nickname}</span>}
                       {m.class_nickname && ' · '}
                       {m.current_status || 'Member'}
+                    </p>
+
+                    {/* Line 3: Association Office / App Admin / Member of Association */}
+                    <p className={`flex items-center gap-1 truncate text-[10px] font-semibold leading-tight mt-0.5 ${roleTextColor}`}>
+                      <Award className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{roleInfo.label}</span>
                     </p>
                   </div>
 
