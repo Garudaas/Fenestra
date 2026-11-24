@@ -81,6 +81,29 @@ export async function checkIsPresidentOrGenSec(userId: number): Promise<{
   return { hasExecutiveAdmin: false, officeTitle: null }
 }
 
+/**
+ * Checks whether a member holds the office of Treasurer (or Joint/Assistant Treasurer)
+ * in the Executive Committee so they can maintain the Association Treasury accounts.
+ */
+export async function checkCanManageTreasury(userId: number): Promise<{
+  canManageTreasury: boolean
+  treasurerTitle: string | null
+}> {
+  const { data } = await supabase
+    .from('alumni_committee')
+    .select('role_title')
+    .eq('alumni_id', userId)
+
+  for (const row of data ?? []) {
+    const role = String(row.role_title || '').trim()
+    const lower = role.toLowerCase()
+    if (lower.includes('treasurer')) {
+      return { canManageTreasury: true, treasurerTitle: role }
+    }
+  }
+  return { canManageTreasury: false, treasurerTitle: null }
+}
+
 export async function auditSingleTaskField(
   userId: number,
   fieldKey: string
