@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.72",
-  "timestamp": "25 Nov 2026, 04:53 AM IST",
-  "formatted": "V2.72, 25 Nov 2026, 04:53 AM IST",
+  "version": "V2.73",
+  "timestamp": "25 Nov 2026, 04:56 AM IST",
+  "formatted": "V2.73, 25 Nov 2026, 04:56 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance support request functionality and descriptions)",
+  "summary": "Minor general update (Enhance DirectoryTab with location handling and guidance)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.73",
+      "timestamp": "25 Nov 2026, 04:56 AM IST",
+      "formatted": "V2.73, 25 Nov 2026, 04:56 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Enhance DirectoryTab with location handling and guidance)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.72",
       "timestamp": "25 Nov 2026, 04:53 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.49, 24 Nov 2026, 11:52 PM IST",
       "type": "minor",
       "summary": "Minor general update (Remove unused constant SCOPE_DASHBOARD_HUB)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.48",
-      "timestamp": "24 Nov 2026, 11:49 PM IST",
-      "formatted": "V2.48, 24 Nov 2026, 11:49 PM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Update src/pages/MemberDashboard.tsx)",
       "requiresReinstall": false
     }
   ]
