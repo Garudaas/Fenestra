@@ -52,8 +52,8 @@ export function App() {
   useEffect(() => {
     const initOneSignal = async () => {
       await OneSignal.init({
-        appId: "b7497f89-baee-4453-aed3-94e7380e7007",
-        allowLocalhostAsSecureOrigin: true
+        appId: 'b7497f89-baee-4453-aed3-94e7380e7007',
+        allowLocalhostAsSecureOrigin: true,
       })
       OneSignal.Slidedown.promptPush()
     }
@@ -86,6 +86,11 @@ export function App() {
           <Route path="/member/:id" element={<MemberProfilePage />} />
           <Route path="/admin" element={<AdminLoginPage />} />
           <Route path="/dashboard" element={<MemberDashboard />} />
+          <Route path="/roster" element={<MemberDashboard />} />
+          <Route path="/emergency" element={<MemberDashboard />} />
+          <Route path="/activities" element={<MemberDashboard />} />
+          <Route path="/drive" element={<MemberDashboard />} />
+          <Route path="/settings-maintenance" element={<MemberDashboard />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/alumni-association" element={<AlumniAssociationHome />} />
           <Route path="/treasury" element={<TreasuryPage />} />
