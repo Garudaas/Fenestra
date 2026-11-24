@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.27",
-  "timestamp": "24 Nov 2026, 03:52 PM IST",
-  "formatted": "V2.27, 24 Nov 2026, 03:52 PM IST",
+  "version": "V2.28",
+  "timestamp": "24 Nov 2026, 03:55 PM IST",
+  "formatted": "V2.28, 24 Nov 2026, 03:55 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Treasurer Account Management + Read-Only View for All Members)",
+  "summary": "Minor general update (Create Treasury Page)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.28",
+      "timestamp": "24 Nov 2026, 03:55 PM IST",
+      "formatted": "V2.28, 24 Nov 2026, 03:55 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Create Treasury Page)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.27",
       "timestamp": "24 Nov 2026, 03:52 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.04, 23 Nov 2026, 09:54 PM IST",
       "type": "minor",
       "summary": "Minor general update (Implement biometric authentication functions)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.03",
-      "timestamp": "23 Nov 2026, 09:53 PM IST",
-      "formatted": "V2.03, 23 Nov 2026, 09:53 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (App icon appearance updated)",
       "requiresReinstall": false
     }
   ]
