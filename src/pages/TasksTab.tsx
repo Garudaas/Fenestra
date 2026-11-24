@@ -86,6 +86,7 @@ export default function TasksTab() {
 
   const [inspectedTask, setInspectedTask] = useState<TaskRow | null>(null)
   const [inspectedPublicGroup, setInspectedPublicGroup] = useState<CombinedPublicTask | null>(null)
+  const [updatingSubItem, setUpdatingSubItem] = useState(false)
 
   const [taskTitle, setTaskTitle] = useState('')
   const [taskBulletsText, setTaskBulletsText] = useState('')
@@ -129,9 +130,11 @@ export default function TasksTab() {
       fetchOfficerNamePrefixMap(),
     ])
 
-    setTasks((tasksRes.data ?? []) as TaskRow[])
+    const rows = (tasksRes.data ?? []) as TaskRow[]
+    setTasks(rows)
     setMembers((membersRes.data ?? []) as Array<{ id: number; full_name: string }>)
     setOfficerPrefixMap(prefixMap)
+    setInspectedTask(prev => (prev ? rows.find(r => r.id === prev.id) || null : null))
     setLoading(false)
   }
 
@@ -227,6 +230,62 @@ export default function TasksTab() {
 
     return Array.from(groups.values())
   }, [tasks, members, officerPrefixMap])
+
+  const handleToggleSubItemCompleted = async (task: TaskRow, subItemId: string) => {
+    if (!user || task.assigned_to_user_id !== user.id || updatingSubItem) return
+    setUpdatingSubItem(true)
+    try {
+      const currentItems = buildSubItemsForTask(task)
+      const nextItems = currentItems.map(item =>
+        item.id === subItemId
+          ? { ...item, completed: !item.completed, optedOut: false }
+          : item
+      )
+
+      const allDone =
+        nextItems.length > 0 && nextItems.every(item => item.completed || item.optedOut)
+      const nowIso = new Date().toISOString()
+
+      await supabase
+        .from('member_tasks')
+        .update({
+          task_items_json: nextItems,
+          status: allDone ? 'completed' : 'pending',
+          completed_at: allDone ? nowIso : null,
+        })
+        .eq('id', task.id)
+
+      await loadTasksAndMembers()
+      window.dispatchEvent(new Event('fenestrians-notifications-updated'))
+    } finally {
+      setUpdatingSubItem(false)
+    }
+  }
+
+  const handleMarkWholeTaskCompleted = async (task: TaskRow) => {
+    if (!user || task.assigned_to_user_id !== user.id || updatingSubItem) return
+    setUpdatingSubItem(true)
+    try {
+      const currentItems = buildSubItemsForTask(task).map(item => ({
+        ...item,
+        completed: true,
+        optedOut: false,
+      }))
+      await supabase
+        .from('member_tasks')
+        .update({
+          task_items_json: currentItems,
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', task.id)
+
+      await loadTasksAndMembers()
+      window.dispatchEvent(new Event('fenestrians-notifications-updated'))
+    } finally {
+      setUpdatingSubItem(false)
+    }
+  }
 
   const handleDeleteCompletedTask = async (task: TaskRow, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -338,7 +397,12 @@ export default function TasksTab() {
       'Due Date',
       'Completed Date & Time (IST)',
     ]
-    const visibleTasks = tasks.filter(t => !t.is_private || t.assigned_by_user_id === user?.id || t.assigned_to_user_id === user?.id)
+    const visibleTasks = tasks.filter(
+      t =>
+        !t.is_private ||
+        t.assigned_by_user_id === user?.id ||
+        t.assigned_to_user_id === user?.id
+    )
     const rows = visibleTasks.map(t => [
       t.title,
       getSenderLabel(t),
@@ -836,26 +900,66 @@ export default function TasksTab() {
 
               <div className="rounded-xl border border-border/40 bg-background/60 p-3 space-y-1.5">
                 <p className="font-bold text-primary">Task Details &amp; Checklist</p>
-                {buildSubItemsForTask(inspectedTask).map(si => (
-                  <div key={si.id} className="flex items-center justify-between gap-2 py-0.5">
-                    <span className="text-foreground/90">• {si.label}</span>
-                    <span
-                      className={`text-[10px] font-bold ${
-                        si.completed
-                          ? 'text-emerald-400'
-                          : si.optedOut
-                          ? 'text-amber-300'
-                          : 'text-muted-foreground'
-                      }`}
+                {buildSubItemsForTask(inspectedTask).map(si => {
+                  const canToggle =
+                    inspectedTask.assigned_to_user_id === user.id &&
+                    inspectedTask.status !== 'completed'
+
+                  return (
+                    <div
+                      key={si.id}
+                      className="flex items-center justify-between gap-2 py-1 border-b border-border/20 last:border-b-0"
                     >
-                      {si.completed
-                        ? 'Completed'
-                        : si.optedOut
-                        ? 'Preferred Not to Complete'
-                        : 'Pending'}
-                    </span>
-                  </div>
-                ))}
+                      <label className="flex items-center gap-2 text-foreground/90 cursor-pointer min-w-0">
+                        {canToggle ? (
+                          <input
+                            type="checkbox"
+                            checked={si.completed}
+                            disabled={updatingSubItem}
+                            onChange={() => handleToggleSubItemCompleted(inspectedTask, si.id)}
+                            className="h-3.5 w-3.5 accent-emerald-500 shrink-0"
+                          />
+                        ) : (
+                          <span>•</span>
+                        )}
+                        <span className={si.completed ? 'line-through text-muted-foreground' : ''}>
+                          {si.label}
+                        </span>
+                      </label>
+                      <span
+                        className={`text-[10px] font-bold shrink-0 ${
+                          si.completed
+                            ? 'text-emerald-400'
+                            : si.optedOut
+                            ? 'text-amber-300'
+                            : 'text-muted-foreground'
+                        }`}
+                      >
+                        {si.completed
+                          ? 'Completed'
+                          : si.optedOut
+                          ? 'Preferred Not to Complete'
+                          : 'Pending'}
+                      </span>
+                    </div>
+                  )
+                })}
+
+                {inspectedTask.assigned_to_user_id === user.id &&
+                  inspectedTask.status !== 'completed' && (
+                    <div className="pt-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={updatingSubItem}
+                        onClick={() => handleMarkWholeTaskCompleted(inspectedTask)}
+                        className="w-full h-8 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs gap-1.5"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {updatingSubItem ? 'Updating...' : 'Mark Entire Task Completed'}
+                      </Button>
+                    </div>
+                  )}
               </div>
 
               {inspectedTask.completion_summary && (
