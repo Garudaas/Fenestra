@@ -67,7 +67,6 @@ type ActivitySubTab = 'calendar' | 'city_town' | 'tasks' | 'opportunities' | 'co
 type CommSubTab = 'chat' | 'video' | 'voice'
 type DriveSubTab = 'gallery' | 'folders'
 
-const SCOPE_DASHBOARD_HUB = 'dashboard_hub'
 const SCOPE_ROSTER = 'sub_roster'
 const SCOPE_EMERGENCY = 'sub_emergency'
 const SCOPE_ACTIVITIES = 'sub_activities'
