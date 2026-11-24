@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.36",
-  "timestamp": "24 Nov 2026, 04:36 PM IST",
-  "formatted": "V2.36, 24 Nov 2026, 04:36 PM IST",
+  "version": "V2.37",
+  "timestamp": "24 Nov 2026, 04:41 PM IST",
+  "formatted": "V2.37, 24 Nov 2026, 04:41 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement copy functionality for Smart App Launcher link)",
+  "summary": "Minor technical update (Fix missing newline at end of taskAuditService.ts)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.37",
+      "timestamp": "24 Nov 2026, 04:41 PM IST",
+      "formatted": "V2.37, 24 Nov 2026, 04:41 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Fix missing newline at end of taskAuditService.ts)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.36",
       "timestamp": "24 Nov 2026, 04:36 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.13, 23 Nov 2026, 10:04 PM IST",
       "type": "minor",
       "summary": "Minor technical update (Add ShareTargetPage route to App component)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.12",
-      "timestamp": "23 Nov 2026, 10:03 PM IST",
-      "formatted": "V2.12, 23 Nov 2026, 10:03 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Enhance DirectoryTab with offline capabilities)",
       "requiresReinstall": false
     }
   ]
