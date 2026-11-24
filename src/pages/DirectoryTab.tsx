@@ -39,6 +39,9 @@ import {
   Navigation,
   X,
   CheckCircle2,
+  ExternalLink,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react'
 
 interface DirectoryTabProps {
@@ -64,6 +67,10 @@ interface MissingLocationPrompt {
 }
 
 const PLUS_CODE_REGEX = /\b[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}\b/i
+const WA_GROUPS_STORAGE_KEY = 'fenestrians_whatsapp_groups_v1'
+const GOOGLE_MAPS_HELP_URL = 'https://support.google.com/maps/answer/144361'
+const APP_PROFILE_URL = 'https://fenestrians.salmaali.in/dashboard?tab=profile'
+const APP_INSTALL_URL = 'https://fenestrians.salmaali.in/dashboard'
 
 function resolveMapTarget(
   geoValue: string | null | undefined,
@@ -74,41 +81,52 @@ function resolveMapTarget(
     if (geo.startsWith('http://') || geo.startsWith('https://')) {
       return geo
     }
-    const plusMatch = PLUS_CODE_REGEX.exec(geo)
-    if (plusMatch) {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(geo)}`
-    }
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(geo)}`
   }
   const addr = String(fallbackAddress || '').trim()
-  if (addr) {
-    const plusMatch = PLUS_CODE_REGEX.exec(addr)
-    if (plusMatch) {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`
-    }
+  if (addr && PLUS_CODE_REGEX.test(addr)) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`
   }
   return null
+}
+
+function extractMapQueryFromInput(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return '11.0168,76.9558'
+  const qMatch = /[?&](?:q|query|ll|center)=([^&]+)/i.exec(trimmed)
+  if (qMatch?.[1]) {
+    return decodeURIComponent(qMatch[1])
+  }
+  const atMatch = /@(-?\d+\.\d+,-?\d+\.\d+)/.exec(trimmed)
+  if (atMatch?.[1]) {
+    return atMatch[1]
+  }
+  return trimmed
 }
 
 function isReadableLocationInput(raw: string): { ok: boolean; normalizedQuery: string; error?: string } {
   const trimmed = raw.trim()
   if (!trimmed) {
-    return { ok: false, normalizedQuery: '', error: 'Please choose a spot on the map or enter a Google Maps link or Plus Code.' }
+    return {
+      ok: false,
+      normalizedQuery: '',
+      error: 'Please choose a spot on the map or enter a Google Maps link, coordinates, or Plus Code.',
+    }
   }
   const isHttp = trimmed.startsWith('http://') || trimmed.startsWith('https://')
-  const isMapUrl = isHttp && (trimmed.includes('google.com/maps') || trimmed.includes('goo.gl') || trimmed.includes('maps.app.goo.gl') || trimmed.includes('openstreetmap.org'))
   const hasPlusCode = PLUS_CODE_REGEX.test(trimmed)
   const hasCoords = /^-?\d{1,2}\.\d+\s*,\s*-?\d{1,3}\.\d+$/.test(trimmed)
   const hasPlaceText = trimmed.length >= 6 && /[a-zA-Z]/.test(trimmed)
 
-  if (isMapUrl || isHttp || hasPlusCode || hasCoords || hasPlaceText) {
+  if (isHttp || hasPlusCode || hasCoords || hasPlaceText) {
     return { ok: true, normalizedQuery: trimmed }
   }
 
   return {
     ok: false,
     normalizedQuery: '',
-    error: 'The provided link, Plus Code, or coordinates could not be read. Please paste a valid Google Maps link, full Plus Code (e.g., 7J4VXF22+22), or pick a point on the map.',
+    error:
+      'Could not read the link, coordinates, or Plus Code. Paste a Google Maps link, LAT/LONG, full Plus Code, or pick a location on the map.',
   }
 }
 
@@ -153,6 +171,8 @@ export default function DirectoryTab({
   const [provideLocationOpen, setProvideLocationOpen] = useState(false)
   const [locationLinkOrPlusCode, setLocationLinkOrPlusCode] = useState('')
   const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [mapZoom, setMapZoom] = useState<number>(14)
+  const [mapSatellite, setMapSatellite] = useState<boolean>(true)
   const [locationError, setLocationError] = useState('')
   const [submittingLocation, setSubmittingLocation] = useState(false)
   const [locationFeedback, setLocationFeedback] = useState('')
@@ -395,6 +415,21 @@ export default function DirectoryTab({
           fullMessage: alertText,
         })
       }
+
+      try {
+        await navigator.clipboard.writeText(alertText)
+      } catch {
+        // Ignore
+      }
+      try {
+        const waRaw = localStorage.getItem(WA_GROUPS_STORAGE_KEY)
+        const waObj = waRaw ? JSON.parse(waRaw) : null
+        if (waObj?.mainGroupUrlOrId && String(waObj.mainGroupUrlOrId).startsWith('http')) {
+          window.open(waObj.mainGroupUrlOrId, '_blank', 'noopener,noreferrer')
+        }
+      } catch {
+        // Ignore
+      }
     }
 
     setSavingTravel(false)
@@ -431,6 +466,8 @@ export default function DirectoryTab({
     setProvideLocationOpen(false)
     setLocationLinkOrPlusCode('')
     setPickedCoords(null)
+    setMapZoom(14)
+    setMapSatellite(true)
     setLocationError('')
   }
 
@@ -438,7 +475,25 @@ export default function DirectoryTab({
     if (!user || !missingPrompt) return
     const { targetMember, locationType } = missingPrompt
     const locLabel = locationType === 'permanent' ? 'Permanent Location' : 'Current Location'
-    const askText = `Hi ${targetMember.full_name}, ${user.full_name} asked if you can share your ${locLabel} (Google Maps link or Plus Code) for the Fenestrians directory.`
+
+    const isInstalledPwa =
+      window.matchMedia?.('(display-mode: standalone)')?.matches ||
+      Boolean((window.navigator as any)?.standalone)
+
+    const guidanceLines = [
+      `Hi ${targetMember.full_name}, ${user.full_name} requested your ${locLabel} (Google Maps link or Plus Code) for the Fenestrians directory.`,
+      '',
+      `Direct App Link: ${APP_PROFILE_URL}`,
+      'How to submit in the app:',
+      '1. Open the link above (opens directly in the Fenestrians app if installed, or in your browser).',
+      '2. Go to My Profile -> Edit Profile -> Addresses.',
+      `3. Paste your ${locLabel} link/Plus Code or pick on the map and tap Submit Addresses.`,
+      !isInstalledPwa
+        ? `App not installed yet? Open ${APP_INSTALL_URL} in your browser and tap "Install App / Add to Home Screen" to install the webapp.`
+        : '',
+    ]
+      .filter(Boolean)
+      .join('\n')
 
     await supabase.from('member_tasks').insert([
       {
@@ -447,7 +502,7 @@ export default function DirectoryTab({
         task_type: 'member_assigned_task',
         field_key: locationType === 'permanent' ? 'permanent_geo_location' : 'current_geo_location',
         title: `Provide ${locLabel}`,
-        description: `${askText}\n\nOpen My Profile -> Location to add your Google Maps link or Plus Code.`,
+        description: guidanceLines,
         status: 'pending',
         sender_display_name: user.full_name,
       },
@@ -456,20 +511,22 @@ export default function DirectoryTab({
     await publishArchivedAlert({
       category: 'personal_task',
       shortTitle: `${locLabel} Requested`,
-      fullMessage: askText,
+      fullMessage: guidanceLines,
       targetUserId: targetMember.id,
     })
 
     const waDigits = cleanPhoneNumber(targetMember.whatsapp_number || targetMember.contact_number).replace(/\D/g, '')
     if (waDigits) {
       window.open(
-        `https://wa.me/${waDigits}?text=${encodeURIComponent(askText)}`,
+        `https://wa.me/${waDigits}?text=${encodeURIComponent(guidanceLines)}`,
         '_blank',
         'noopener,noreferrer'
       )
     }
 
-    setLocationFeedback(`Sent WhatsApp request and created a task for ${targetMember.full_name} to share their ${locLabel}.`)
+    setLocationFeedback(
+      `Sent WhatsApp guidance & created a task for ${targetMember.full_name} to share their ${locLabel}.`
+    )
     setMissingPrompt(null)
     setProvideLocationOpen(false)
   }
@@ -503,11 +560,22 @@ export default function DirectoryTab({
       suggested_by_name: user.full_name,
     })
 
+    const isInstalledPwa =
+      window.matchMedia?.('(display-mode: standalone)')?.matches ||
+      Boolean((window.navigator as any)?.standalone)
+
     const guidanceText =
       `${user.full_name} has provided your ${locLabel} (${check.normalizedQuery}) to be updated in the app. Shall this be accepted?\n` +
-      `Map Link: ${mapLink}\n\n` +
-      `How to review: Open Notifications or Tasks in the app (or tap the link above) to check the location. ` +
-      `To ACCEPT, update your ${locLabel} in My Profile with this location; to CORRECT, enter your preferred link/Plus Code in My Profile; to DECLINE, dismiss/complete the task without updating.`
+      `Map Link: ${mapLink}\n` +
+      `App Link: https://fenestrians.salmaali.in/notifications\n\n` +
+      `How to review:\n` +
+      `1. Open Notifications or Tasks in the Fenestrians app (or tap the Map Link above to verify).\n` +
+      `2. To ACCEPT: open My Profile -> Addresses and save ${check.normalizedQuery}.\n` +
+      `3. To CORRECT: enter your preferred link/Plus Code in My Profile -> Addresses.\n` +
+      `4. To DECLINE: mark the task completed without updating your address.\n` +
+      (!isInstalledPwa
+        ? `If the app is not installed on your device, open ${APP_INSTALL_URL} in your browser and install the webapp.`
+        : '')
 
     setSubmittingLocation(true)
     await supabase.from('member_tasks').insert([
@@ -533,9 +601,10 @@ export default function DirectoryTab({
     const waDigits = cleanPhoneNumber(targetMember.whatsapp_number || targetMember.contact_number).replace(/\D/g, '')
     const waMessage =
       `Hi ${targetMember.full_name}, ${user.full_name} has provided your ${locLabel} (${check.normalizedQuery}) to be updated in the app. Shall this be accepted?\n` +
-      `Review Link: ${mapLink}\n` +
-      `App Notifications: https://fenestrians.salmaali.in/notifications\n` +
-      `Please review in the app's Notification or Task page to accept, correct, or decline.`
+      `Review Map Link: ${mapLink}\n` +
+      `Open App Notifications: https://fenestrians.salmaali.in/notifications\n` +
+      `Steps: Open the app's Notification or Task page -> verify the pin -> Accept by saving in My Profile -> Addresses, Correct with your own link/Plus Code, or Decline.\n` +
+      (!isInstalledPwa ? `Install WebApp: ${APP_INSTALL_URL}` : '')
 
     if (waDigits) {
       window.open(
@@ -554,6 +623,21 @@ export default function DirectoryTab({
     setLocationLinkOrPlusCode('')
     setPickedCoords(null)
   }
+
+  const activeMapQuery = useMemo(() => {
+    if (locationLinkOrPlusCode.trim()) {
+      return extractMapQueryFromInput(locationLinkOrPlusCode)
+    }
+    if (pickedCoords) {
+      return `${pickedCoords.lat.toFixed(6)},${pickedCoords.lng.toFixed(6)}`
+    }
+    return 'Coimbatore, Tamil Nadu'
+  }, [locationLinkOrPlusCode, pickedCoords])
+
+  const googleEmbedSrc = useMemo(() => {
+    const mapTypeParam = mapSatellite ? '&t=k' : '&t=m'
+    return `https://maps.google.com/maps?q=${encodeURIComponent(activeMapQuery)}&z=${mapZoom}${mapTypeParam}&output=embed`
+  }, [activeMapQuery, mapZoom, mapSatellite])
 
   const hasActiveFilters = Boolean(searchQuery || bloodFilter || cityFilter || professionFilter)
 
@@ -611,7 +695,6 @@ export default function DirectoryTab({
 
   if (!user) return null
 
-  // EMERGENCY BLOOD DONOR SOS MODE
   if (mode === 'sos') {
     return (
       <div className="mx-auto max-w-5xl space-y-3">
@@ -744,7 +827,6 @@ export default function DirectoryTab({
     )
   }
 
-  // I AM IN TOWN / CITY MAP MODE
   if (mode === 'city_travel') {
     return (
       <div className="mx-auto max-w-5xl space-y-4">
@@ -762,7 +844,6 @@ export default function DirectoryTab({
 
         <Card className="border-primary/40 bg-card/85 backdrop-blur-sm">
           <CardContent className="p-4 space-y-4 text-xs">
-            {/* Broadcast "I'm In Town" Travel Alert */}
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2.5">
               <p className="flex items-center gap-1.5 font-bold text-primary text-sm">
                 <Plane className="h-4 w-4" />
@@ -801,7 +882,7 @@ export default function DirectoryTab({
                   className="gold-gradient text-gold-foreground font-semibold gap-1.5"
                 >
                   <Send className="h-3.5 w-3.5" />
-                  {savingTravel ? 'Alerting...' : 'Alert Batchmates in City'}
+                  {savingTravel ? 'Alerting...' : 'Alert classmates in city'}
                 </Button>
               </div>
 
@@ -839,7 +920,6 @@ export default function DirectoryTab({
               )}
             </div>
 
-            {/* Member Names with Permanent Location & Current Location Buttons */}
             <div className="space-y-2">
               <p className="font-bold text-primary text-sm">
                 Member Locations ({members.length})
@@ -883,10 +963,9 @@ export default function DirectoryTab({
           </CardContent>
         </Card>
 
-        {/* Missing Location Prompt & Provide Location Modal */}
         {missingPrompt && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-            <Card className="w-full max-w-lg border-primary/40 bg-card shadow-2xl max-h-[90vh] overflow-y-auto">
+            <Card className="w-full max-w-xl border-primary/40 bg-card shadow-2xl max-h-[90vh] overflow-y-auto">
               <CardContent className="p-4 space-y-3.5 text-xs">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-bold text-primary">
@@ -945,50 +1024,92 @@ export default function DirectoryTab({
 
                 {provideLocationOpen && (
                   <div className="rounded-xl border border-primary/35 bg-primary/5 p-3 space-y-3">
-                    <p className="font-semibold text-primary">
-                      Select a point on the map or paste a Google Maps link / Plus Code:
-                    </p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-semibold text-primary">
+                        Browse Google Map / Satellite &amp; paste link, coordinates, or Plus Code:
+                      </p>
+                      <a
+                        href={GOOGLE_MAPS_HELP_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-400 hover:underline"
+                      >
+                        Google Maps Help (Coordinates / Links / Plus Codes)
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
 
-                    {/* Interactive Map Picker on Screen */}
-                    <div
-                      onClick={e => {
-                        const rect = e.currentTarget.getBoundingClientRect()
-                        const relX = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
-                        const relY = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height))
-                        // Map click across Tamil Nadu / India coordinate bounds
-                        const lat = 8.0883 + (1 - relY) * (28.6139 - 8.0883)
-                        const lng = 76.9558 + relX * (88.3639 - 76.9558)
-                        setPickedCoords({ lat, lng })
-                        setLocationLinkOrPlusCode(`${lat.toFixed(6)},${lng.toFixed(6)}`)
-                        setLocationError('')
-                      }}
-                      className="relative h-44 w-full cursor-crosshair rounded-lg border border-primary/40 bg-gradient-to-br from-emerald-950/60 via-slate-900 to-sky-950/60 overflow-hidden select-none"
-                      title="Click anywhere on the map to choose a location"
-                    >
-                      <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#94a3b8_1px,transparent_1px),linear-gradient(to_bottom,#94a3b8_1px,transparent_1px)] bg-[size:28px_28px]" />
-                      <span className="absolute left-2 top-2 rounded bg-background/80 px-2 py-0.5 text-[10px] text-muted-foreground">
-                        Tap on map to pick coordinates
-                      </span>
-                      {pickedCoords && (
-                        <div
-                          style={{
-                            left: `${Math.min(
-                              95,
-                              Math.max(5, ((pickedCoords.lng - 76.9558) / (88.3639 - 76.9558)) * 100)
-                            )}%`,
-                            top: `${Math.min(
-                              92,
-                              Math.max(8, (1 - (pickedCoords.lat - 8.0883) / (28.6139 - 8.0883)) * 100)
-                            )}%`,
-                          }}
-                          className="absolute -translate-x-1/2 -translate-y-full flex flex-col items-center"
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={mapSatellite ? 'default' : 'outline'}
+                          onClick={() => setMapSatellite(true)}
+                          className="h-7 text-[11px]"
                         >
-                          <MapPin className="h-6 w-6 text-red-500 drop-shadow" />
-                          <span className="rounded bg-black/80 px-1.5 py-0.5 text-[9px] font-mono text-white">
-                            {pickedCoords.lat.toFixed(4)}, {pickedCoords.lng.toFixed(4)}
-                          </span>
-                        </div>
-                      )}
+                          Satellite
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={!mapSatellite ? 'default' : 'outline'}
+                          onClick={() => setMapSatellite(false)}
+                          className="h-7 text-[11px]"
+                        >
+                          Map
+                        </Button>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          onClick={() => setMapZoom(z => Math.max(4, z - 2))}
+                          className="h-7 w-7"
+                          title="Zoom Out"
+                        >
+                          <ZoomOut className="h-3.5 w-3.5" />
+                        </Button>
+                        <span className="px-1.5 text-[11px] font-mono">z:{mapZoom}</span>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          onClick={() => setMapZoom(z => Math.min(20, z + 2))}
+                          className="h-7 w-7"
+                          title="Zoom In"
+                        >
+                          <ZoomIn className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Zoomable & Scrollable Google Map / Satellite View */}
+                    <div className="relative h-56 w-full overflow-auto rounded-lg border border-primary/40 bg-background">
+                      <iframe
+                        title="Google Map Location Preview"
+                        src={googleEmbedSrc}
+                        className="h-full w-full min-h-[220px] border-0"
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                      <span>Preview Query: <strong className="text-foreground">{activeMapQuery}</strong></span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPickedCoords({ lat: 11.0168, lng: 76.9558 })
+                          setLocationLinkOrPlusCode('11.016800,76.955800')
+                          setLocationError('')
+                        }}
+                        className="text-primary hover:underline"
+                      >
+                        Use Coimbatore Pin (11.0168, 76.9558)
+                      </button>
                     </div>
 
                     <Input
@@ -997,7 +1118,7 @@ export default function DirectoryTab({
                         setLocationLinkOrPlusCode(e.target.value)
                         setLocationError('')
                       }}
-                      placeholder="Paste Google Maps link or complete Plus Code (e.g., 7J4VXF22+22)..."
+                      placeholder="Paste Google Maps link, LAT/LONG, or complete Plus Code (e.g., 7J4VXF22+22)..."
                       className="text-xs"
                     />
 
@@ -1024,7 +1145,7 @@ export default function DirectoryTab({
     )
   }
 
-  // DEFAULT MEMBER DIRECTORY MODE (Filters hidden behind clickable "filters" link)
+  // DEFAULT MEMBER DIRECTORY MODE
   return (
     <div className="mx-auto max-w-5xl space-y-3">
       {offlineInfo.isOffline && (
