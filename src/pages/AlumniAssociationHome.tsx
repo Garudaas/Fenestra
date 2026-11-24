@@ -46,7 +46,11 @@ import {
   ChevronUp,
   ChevronRight,
   X,
+  Gavel,
 } from 'lucide-react'
+
+const ADMIN_TREASURY_GRANTS_KEY = 'fenestrians_admin_treasury_grants_v1'
+const WA_GROUPS_STORAGE_KEY = 'fenestrians_whatsapp_groups_v1'
 
 interface CommitteeMember {
   id: number
@@ -106,9 +110,15 @@ interface MentorshipEntry {
   created_at: string
 }
 
+interface AdminTreasuryGrant {
+  budgets: boolean
+  accounts: boolean
+  entries: boolean
+}
+
 type RsvpByEventMap = Record<string, RsvpRecord[]>
 type VotesByPollMap = Record<number, PollVoteRecord[]>
-type AssociationTab = 'meetings' | 'polls' | 'treasury' | 'committee' | 'mentorship'
+type AssociationTab = 'meetings' | 'polls' | 'treasury' | 'committee' | 'elections' | 'mentorship'
 
 const SCOPE_ASSOCIATION_TABS = 'alumni_association_tabs'
 
@@ -139,8 +149,20 @@ export default function AlumniAssociationHome() {
   const [votesByPoll, setVotesByPoll] = useState<VotesByPollMap>({})
   const [mentorships, setMentorships] = useState<MentorshipEntry[]>([])
   const [canManageAdmins, setCanManageAdmins] = useState(userIsAdmin)
+  const [isPresidentOrTreasurer, setIsPresidentOrTreasurer] = useState(false)
+  const [canEditElections, setCanEditElections] = useState(userIsAdmin)
   const [loading, setLoading] = useState(true)
   const [statusBanner, setStatusBanner] = useState('')
+
+  // Admin Treasury Privileges granted by President or Treasurer
+  const [treasuryGrants, setTreasuryGrants] = useState<Record<string, AdminTreasuryGrant>>(() => {
+    try {
+      const saved = localStorage.getItem(ADMIN_TREASURY_GRANTS_KEY)
+      return saved ? JSON.parse(saved) : {}
+    } catch {
+      return {}
+    }
+  })
 
   // Committee Form state
   const [showAddCommittee, setShowAddCommittee] = useState(false)
@@ -181,6 +203,10 @@ export default function AlumniAssociationHome() {
   const [savingMentorship, setSavingMentorship] = useState(false)
   const [mentorshipFilter, setMentorshipFilter] = useState<'all' | 'mentor' | 'mentee'>('all')
 
+  // Election Page state (viewable by all; editable by President, Secretary, Joint Secretary & Admins)
+  const [electionNotice, setElectionNotice] = useState('Coming soon')
+  const [editingElectionNotice, setEditingElectionNotice] = useState(false)
+
   useEffect(() => {
     if (!user) {
       navigate('/')
@@ -206,7 +232,7 @@ export default function AlumniAssociationHome() {
 
   const showToastBanner = (msg: string) => {
     setStatusBanner(msg)
-    setTimeout(() => setStatusBanner(''), 4000)
+    setTimeout(() => setStatusBanner(''), 4500)
   }
 
   const loadAssociationData = async () => {
@@ -245,8 +271,9 @@ export default function AlumniAssociationHome() {
       checkIsPresidentOrGenSec(user.id),
     ])
 
+    const commRows = (commRes.data ?? []) as CommitteeMember[]
     setMembersDirectory(membersRes.data ?? [])
-    setCommittee((commRes.data ?? []) as CommitteeMember[])
+    setCommittee(commRows)
     setAnnouncements((annRes.data ?? []) as AnnouncementItem[])
 
     const rsvpMap: RsvpByEventMap = {}
@@ -266,12 +293,43 @@ export default function AlumniAssociationHome() {
 
     setMentorships((mentorRes.data ?? []) as MentorshipEntry[])
 
-    const hasAdminAuthority = Boolean(userIsAdmin || execCheck.hasExecutiveAdmin)
-    setCanManageAdmins(hasAdminAuthority)
+    const myRoles = commRows
+      .filter(c => Number(c.alumni_id) === Number(user.id))
+      .map(c => String(c.role_title || '').toLowerCase())
+
+    const presOrTreas = myRoles.some(r => r.includes('president') || r.includes('treasurer'))
+    const presSecOrJointSec = myRoles.some(
+      r =>
+        r.includes('president') ||
+        r.includes('secretary') ||
+        r.includes('joint secretary')
+    )
+
+    setIsPresidentOrTreasurer(presOrTreas)
+    setCanManageAdmins(Boolean(userIsAdmin || execCheck.hasExecutiveAdmin || presOrTreas))
+    setCanEditElections(Boolean(userIsAdmin || presSecOrJointSec))
     setLoading(false)
   }
 
-  // --- ADMIN PRIVILEGES ---
+  const toggleAdminTreasuryPrivilege = (
+    adminId: number,
+    scope: keyof AdminTreasuryGrant
+  ) => {
+    if (!isPresidentOrTreasurer && !userIsAdmin) return
+    setTreasuryGrants(prev => {
+      const key = String(adminId)
+      const current = prev[key] || { budgets: false, accounts: false, entries: false }
+      const nextGrant: AdminTreasuryGrant = { ...current, [scope]: !current[scope] }
+      const updated = { ...prev, [key]: nextGrant }
+      try {
+        localStorage.setItem(ADMIN_TREASURY_GRANTS_KEY, JSON.stringify(updated))
+      } catch {
+        // Ignore
+      }
+      return updated
+    })
+  }
+
   const handleToggleMemberAdmin = async (targetUserId: number, makeAdmin: boolean) => {
     if (!user || !canManageAdmins) return
     const target = membersDirectory.find(m => m.id === targetUserId)
@@ -298,7 +356,6 @@ export default function AlumniAssociationHome() {
     await loadAssociationData()
   }
 
-  // --- COMMITTEE ---
   const handleAddCommitteeMember = async () => {
     if (!canManageAdmins) return
     const matchedMember = membersDirectory.find(m => String(m.id) === selectedAlumniId)
@@ -307,6 +364,20 @@ export default function AlumniAssociationHome() {
     if (!finalName || !roleTitle.trim()) {
       alert('Please select or enter a member name and specify their Role Title.')
       return
+    }
+
+    const isAssigningPresident = roleTitle.trim().toLowerCase() === 'president'
+    const existingPresident = committee.find(
+      c => (c.role_title || '').trim().toLowerCase() === 'president'
+    )
+
+    // Admins cannot remove a President, only change/replace the President
+    if (isAssigningPresident && existingPresident) {
+      const confirmChange = window.confirm(
+        `Current President is ${existingPresident.member_name}. Changing the President will replace the office with ${finalName} and immediately send an alert to all members and the WhatsApp group. Proceed?`
+      )
+      if (!confirmChange) return
+      await supabase.from('alumni_committee').delete().eq('id', existingPresident.id)
     }
 
     setSavingCommittee(true)
@@ -325,6 +396,32 @@ export default function AlumniAssociationHome() {
       await supabase.from('alumni').update({ is_admin: true }).eq('id', matchedMember.id)
     }
 
+    if (!error && isAssigningPresident) {
+      const alertText = `IMPORTANT GOVERNANCE UPDATE: ${finalName} is now the President of Fenestrians Alumni Association${
+        existingPresident ? ` (succeeding ${existingPresident.member_name})` : ''
+      }.`
+      await publishArchivedAlert({
+        category: 'event',
+        shortTitle: 'President Change Alert',
+        fullMessage: alertText,
+      })
+
+      try {
+        await navigator.clipboard.writeText(alertText)
+      } catch {
+        // Ignore
+      }
+      try {
+        const waRaw = localStorage.getItem(WA_GROUPS_STORAGE_KEY)
+        const waObj = waRaw ? JSON.parse(waRaw) : null
+        if (waObj?.mainGroupUrlOrId && String(waObj.mainGroupUrlOrId).startsWith('http')) {
+          window.open(waObj.mainGroupUrlOrId, '_blank', 'noopener,noreferrer')
+        }
+      } catch {
+        // Ignore
+      }
+    }
+
     setSavingCommittee(false)
 
     if (error) {
@@ -338,17 +435,28 @@ export default function AlumniAssociationHome() {
     setBioNote('')
     setDisplayOrder(String(committee.length + 2))
     setShowAddCommittee(false)
-    showToastBanner(`${finalName} added to the Executive Committee!`)
+    showToastBanner(
+      isAssigningPresident
+        ? `President changed to ${finalName}! Alert sent to all members & WhatsApp group.`
+        : `${finalName} added to the Executive Committee!`
+    )
     await loadAssociationData()
   }
 
-  const handleDeleteCommitteeMember = async (id: number) => {
-    if (!canManageAdmins || !window.confirm('Remove this member from the Executive Committee?')) return
-    await supabase.from('alumni_committee').delete().eq('id', id)
+  const handleDeleteCommitteeMember = async (cm: CommitteeMember) => {
+    if (!canManageAdmins) return
+    const isPresident = (cm.role_title || '').trim().toLowerCase() === 'president'
+    if (isPresident) {
+      alert(
+        'An admin cannot remove a President. To change the President, assign a new member to the President role.'
+      )
+      return
+    }
+    if (!window.confirm(`Remove ${cm.member_name} from the Executive Committee?`)) return
+    await supabase.from('alumni_committee').delete().eq('id', cm.id)
     await loadAssociationData()
   }
 
-  // --- ANNOUNCEMENTS, RSVPs & MINUTES PDF ---
   const handlePostAnnouncement = async () => {
     if (!user || !canManageAdmins) return
     if (!annTitle.trim() || !annDetails.trim()) {
@@ -442,7 +550,6 @@ export default function AlumniAssociationHome() {
     await loadAssociationData()
   }
 
-  // --- POLLS & VOTING ---
   const handleCreatePoll = async () => {
     if (!user || !canManageAdmins) return
     const opts = pollOptionsText
@@ -516,7 +623,6 @@ export default function AlumniAssociationHome() {
     await loadAssociationData()
   }
 
-  // --- MENTORSHIP ---
   const handleMentorshipSignup = async () => {
     if (!user) return
     const finalDomain = domainArea === 'Other' ? customDomain.trim() : domainArea
@@ -676,7 +782,6 @@ export default function AlumniAssociationHome() {
           </div>
         )}
 
-        {/* LANDING HERO CARD: TITLE, SUBTITLE, OFFICE BEARERS & ADMINS */}
         <Card className="border-primary/40 bg-card/80 backdrop-blur-md shadow-xl overflow-hidden">
           <CardHeader className="text-center space-y-2 py-5">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/40 bg-primary/10 text-primary shadow-md">
@@ -686,12 +791,11 @@ export default function AlumniAssociationHome() {
               Fenestrians Alumni Association
             </CardTitle>
             <CardDescription className="mx-auto max-w-2xl text-xs text-muted-foreground">
-              Governance, Meetings &amp; RSVPs, Batch Polls, Treasury Ledger &amp; Student Mentorship
+              Governance, Meetings &amp; RSVPs, Batch Polls, Treasury Ledger, Elections &amp; Student Mentorship
             </CardDescription>
           </CardHeader>
 
           <CardContent className="pt-0 pb-4 space-y-4">
-            {/* 1. OFFICE BEARERS LIST */}
             <div className="rounded-xl border border-primary/25 bg-primary/5 p-3.5 space-y-2.5">
               <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
                 <Award className="h-4 w-4" />
@@ -749,7 +853,6 @@ export default function AlumniAssociationHome() {
               )}
             </div>
 
-            {/* 2. APP ADMINS LIST */}
             <div className="rounded-xl border border-sky-500/25 bg-sky-500/5 p-3.5 space-y-2">
               <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sky-400">
                 <ShieldCheck className="h-4 w-4" />
@@ -793,9 +896,7 @@ export default function AlumniAssociationHome() {
           </CardContent>
         </Card>
 
-        {/* COLLAPSIBLE TABS (ALL COLLAPSED BY DEFAULT; OPENING ONE COLLAPSES OTHERS) */}
         <div className="space-y-3">
-          {/* TAB 1: MEETINGS & RSVPs */}
           {renderCollapsibleSectionHeader(
             'meetings',
             `Meetings, Announcements & Minutes (${announcements.length})`,
@@ -1089,7 +1190,6 @@ export default function AlumniAssociationHome() {
             </Card>
           )}
 
-          {/* TAB 2: BATCH POLLS & RESOLUTIONS VOTING */}
           {renderCollapsibleSectionHeader(
             'polls',
             `Batch Polls & Resolutions Voting (${polls.length})`,
@@ -1249,7 +1349,6 @@ export default function AlumniAssociationHome() {
             </Card>
           )}
 
-          {/* SUB-TAB 3: FENESTRIANS TREASURY & ACCOUNTS (Opens Dedicated Treasury Page) */}
           <button
             type="button"
             onClick={() => handleTabClick('treasury')}
@@ -1264,18 +1363,17 @@ export default function AlumniAssociationHome() {
                   Fenestrians Treasury &amp; Accounts
                 </p>
                 <p className="text-[11px] text-muted-foreground truncate">
-                  Official bank/UPI details, category funds, budgets, receipts &amp; ledger
+                  Official bank/UPI details, QR code, category funds, budgets, receipts &amp; ledger
                 </p>
               </div>
             </div>
             <ChevronRight className="h-4 w-4 text-primary shrink-0" />
           </button>
 
-          {/* TAB 4: EXECUTIVE COMMITTEE & ADMIN PRIVILEGES */}
           {renderCollapsibleSectionHeader(
             'committee',
             `Executive Committee & Admin Roles (${committee.length})`,
-            'Manage committee office bearers and App Admin privileges',
+            'Manage committee office bearers, President changes & Treasury/Admin privileges',
             <Award className="h-4 w-4" />
           )}
           {expandedTab === 'committee' && (
@@ -1285,7 +1383,7 @@ export default function AlumniAssociationHome() {
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center gap-2 text-sm text-amber-300">
                       <ShieldCheck className="h-4 w-4" />
-                      Admin Privileges Management (President &amp; General Secretary Authority)
+                      Admin Privileges &amp; Treasury Access Control
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 text-xs">
@@ -1317,25 +1415,70 @@ export default function AlumniAssociationHome() {
                     </div>
 
                     {currentAdmins.length > 0 && (
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        {currentAdmins.map(adm => (
-                          <span
-                            key={adm.id}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary"
-                          >
-                            {adm.full_name} (Admin)
-                            {adm.id !== user.id && (
-                              <button
-                                type="button"
-                                title="Revoke Admin"
-                                onClick={() => handleToggleMemberAdmin(adm.id, false)}
-                                className="ml-1 text-destructive hover:underline"
-                              >
-                                ×
-                              </button>
-                            )}
-                          </span>
-                        ))}
+                      <div className="space-y-2 pt-1">
+                        <p className="text-[11px] text-muted-foreground">
+                          Treasury editing/logging is off for admins by default. President or Treasurer can grant specific treasury rights below:
+                        </p>
+                        {currentAdmins.map(adm => {
+                          const g = treasuryGrants[String(adm.id)] || {
+                            budgets: false,
+                            accounts: false,
+                            entries: false,
+                          }
+                          return (
+                            <div
+                              key={adm.id}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/40 bg-background/70 px-3 py-2"
+                            >
+                              <span className="font-bold text-foreground">{adm.full_name}</span>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {(isPresidentOrTreasurer || userIsAdmin) && (
+                                  <>
+                                    <label className="flex items-center gap-1 text-[11px] cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={g.budgets}
+                                        onChange={() =>
+                                          toggleAdminTreasuryPrivilege(adm.id, 'budgets')
+                                        }
+                                      />
+                                      <span>Budgets</span>
+                                    </label>
+                                    <label className="flex items-center gap-1 text-[11px] cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={g.accounts}
+                                        onChange={() =>
+                                          toggleAdminTreasuryPrivilege(adm.id, 'accounts')
+                                        }
+                                      />
+                                      <span>Bank/QR</span>
+                                    </label>
+                                    <label className="flex items-center gap-1 text-[11px] cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={g.entries}
+                                        onChange={() =>
+                                          toggleAdminTreasuryPrivilege(adm.id, 'entries')
+                                        }
+                                      />
+                                      <span>Receipts/Expenses</span>
+                                    </label>
+                                  </>
+                                )}
+                                {adm.id !== user.id && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleMemberAdmin(adm.id, false)}
+                                    className="text-[11px] text-destructive hover:underline"
+                                  >
+                                    Revoke Admin
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                   </CardContent>
@@ -1358,7 +1501,7 @@ export default function AlumniAssociationHome() {
                         className="gold-gradient text-gold-foreground font-semibold gap-1.5 text-xs"
                       >
                         <Plus className="h-3.5 w-3.5" />
-                        {showAddCommittee ? 'Close Form' : 'Add Committee Member'}
+                        {showAddCommittee ? 'Close Form' : 'Add / Change Office Bearer'}
                       </Button>
                     )}
                   </div>
@@ -1401,7 +1544,7 @@ export default function AlumniAssociationHome() {
                           <Input
                             value={roleTitle}
                             onChange={e => setRoleTitle(e.target.value)}
-                            placeholder="e.g., President, General Secretary, Treasurer"
+                            placeholder="e.g., President, Secretary, Joint Secretary, Treasurer"
                             className="mt-1 text-xs"
                           />
                         </div>
@@ -1435,7 +1578,7 @@ export default function AlumniAssociationHome() {
                         className="gold-gradient text-gold-foreground font-semibold gap-1.5 text-xs"
                       >
                         <Plus className="h-3.5 w-3.5" />
-                        {savingCommittee ? 'Saving...' : 'Save Committee Member'}
+                        {savingCommittee ? 'Saving...' : 'Save Office Bearer'}
                       </Button>
                     </div>
                   )}
@@ -1448,6 +1591,7 @@ export default function AlumniAssociationHome() {
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {committee.map(cm => {
                         const linked = membersDirectory.find(m => m.id === cm.alumni_id)
+                        const isPres = (cm.role_title || '').trim().toLowerCase() === 'president'
                         return (
                           <div
                             key={cm.id}
@@ -1485,14 +1629,14 @@ export default function AlumniAssociationHome() {
                               )}
                             </div>
 
-                            {canManageAdmins && (
+                            {canManageAdmins && !isPres && (
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
                                 onClick={e => {
                                   e.stopPropagation()
-                                  handleDeleteCommitteeMember(cm.id)
+                                  handleDeleteCommitteeMember(cm)
                                 }}
                                 className="absolute right-2 top-2 h-7 w-7 text-destructive hover:bg-destructive/10"
                               >
@@ -1509,7 +1653,71 @@ export default function AlumniAssociationHome() {
             </div>
           )}
 
-          {/* TAB 5: STUDENT & PEER MENTORSHIP */}
+          {/* ASSOCIATION EXECUTIVE COMMITTEE ELECTION PAGE (VIEWABLE BY ALL; EDITABLE BY PRESIDENT, SECRETARY, JOINT SECRETARY & ADMINS) */}
+          {renderCollapsibleSectionHeader(
+            'elections',
+            'Association Executive Committee Election',
+            'Election status & parliamentary procedure (Toastmasters / Robert’s Rules)',
+            <Gavel className="h-4 w-4" />
+          )}
+          {expandedTab === 'elections' && (
+            <Card className="border-border/40 bg-card/70 backdrop-blur-sm">
+              <CardHeader className="pb-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <CardTitle className="flex items-center gap-2 text-base text-primary">
+                    <Gavel className="h-5 w-5" />
+                    Association Executive Committee Election
+                  </CardTitle>
+                  {canEditElections && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditingElectionNotice(prev => !prev)}
+                      className="h-7 text-xs border-primary/40 text-primary"
+                    >
+                      {editingElectionNotice ? 'Done Editing' : 'Edit Election Status'}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+
+              <CardContent className="space-y-4 text-xs">
+                {canEditElections && editingElectionNotice ? (
+                  <div className="rounded-xl border border-primary/35 bg-primary/5 p-3 space-y-2">
+                    <Label className="text-xs font-bold text-primary">
+                      Election Status / Notice (Editable by President, Secretary, Joint Secretary &amp; Admins)
+                    </Label>
+                    <Textarea
+                      value={electionNotice}
+                      onChange={e => setElectionNotice(e.target.value)}
+                      className="h-20 text-xs"
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-primary/35 bg-primary/5 p-4 text-center">
+                    <p className="text-sm font-bold text-primary">{electionNotice}</p>
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-border/40 bg-muted/15 p-4 space-y-2">
+                  <p className="text-sm font-bold text-primary">
+                    Parliamentary Procedure Execution Plan (Toastmasters &amp; Robert’s Rules of Order)
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1.5 text-foreground/90 leading-relaxed">
+                    <li><strong>1. Assign Nomination Committee:</strong> Appoint an impartial Nomination Committee with dedicated access to review eligibility and oversee fairness.</li>
+                    <li><strong>2. Structure Offices &amp; Duties:</strong> Create new offices or retire existing ones, and draft clear, public duty descriptions for every office so all members understand responsibilities before standing or voting.</li>
+                    <li><strong>3. Open Nominations:</strong> Invite members to submit nominations for each office within a defined nomination window.</li>
+                    <li><strong>4. Nomination Committee Review &amp; Slate:</strong> The Nomination Committee verifies eligibility, contacts nominees for consent, and prepares/edits the official Nomination Slate.</li>
+                    <li><strong>5. Election Procedure (Open to All):</strong> Publish the election rules and schedule so every member can read, download, share, or print them in advance.</li>
+                    <li><strong>6. Nominations from the Floor:</strong> During the election meeting under Robert’s Rules, allow seconded floor nominations for eligible candidates after the slate is presented.</li>
+                    <li><strong>7. Voting &amp; Swearing-In:</strong> Conduct voting, announce results, and hold the formal swearing-in / installation of elected officers.</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {renderCollapsibleSectionHeader(
             'mentorship',
             `Student & Peer Mentorship (${mentorships.length})`,
