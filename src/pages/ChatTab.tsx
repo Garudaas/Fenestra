@@ -1,90 +1,107 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { uploadMemberArchiveFile } from '@/lib/fenestriansCore'
+import { publishArchivedAlert } from '@/lib/notificationService'
 import { formatISTDateTime } from '@/lib/formatters'
-import { recordIncomingChatNotification, clearChatNotifications } from '@/lib/notificationService'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import {
   MessageCircle,
   Send,
-  Mic,
-  Square,
-  Paperclip,
-  Pin,
-  PinOff,
-  Users,
-  Plus,
-  Trash2,
-  FileText,
-  Download,
-  Languages,
+  Copy,
+  Check,
+  Reply,
+  Forward,
+  BarChart2,
   X,
+  Plus,
+  Users,
 } from 'lucide-react'
 
-interface ChatMessageItem {
+interface ChatMember {
+  id: number
+  full_name: string
+  class_nickname?: string | null
+}
+
+interface PollPayload {
+  question: string
+  options: string[]
+  votes: Record<string, number[]>
+}
+
+interface ChatMessageRow {
   id: number
   room_id: string
   sender_id: number
   sender_name: string
   message_text: string
-  audio_url?: string | null
-  attachment_url?: string | null
-  attachment_name?: string | null
-  attachment_type?: string | null
-  reactions_json?: Record<string, number[]> | null
-  is_pinned?: boolean
   created_at: string
 }
 
-const REACTION_EMOJIS = ['👍', '❤️', '🙏', '🎉', '😂']
+const POLL_PREFIX = '[[POLL]]'
+
+function parsePollMessage(text: string): PollPayload | null {
+  if (!text.startsWith(POLL_PREFIX)) return null
+  try {
+    const raw = text.slice(POLL_PREFIX.length)
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed.question === 'string' && Array.isArray(parsed.options)) {
+      return {
+        question: parsed.question,
+        options: parsed.options,
+        votes: parsed.votes && typeof parsed.votes === 'object' ? parsed.votes : {},
+      }
+    }
+  } catch {
+    return null
+  }
+  return null
+}
 
 export default function ChatTab() {
-  const { user, isAdmin } = useAuth()
-  const userIsAdmin = Boolean(isAdmin || user?.is_admin)
+  const { user } = useAuth()
 
-  const [roomId, setRoomId] = useState('global')
-  const [roomLabel, setRoomLabel] = useState('Common Batch Chat')
-  const [messages, setMessages] = useState<ChatMessageItem[]>([])
-  const [members, setMembers] = useState<Array<{ id: number; full_name: string }>>([])
-  const [customGroups, setCustomGroups] = useState<string[]>([])
-  const [newGroupName, setNewGroupName] = useState('')
-  const [showNewGroupBox, setShowNewGroupBox] = useState(false)
-
-  const [text, setText] = useState('')
+  const [members, setMembers] = useState<ChatMember[]>([])
+  const [roomId, setRoomId] = useState<string>('global')
+  const [activeDmPartner, setActiveDmPartner] = useState<ChatMember | null>(null)
+  const [messages, setMessages] = useState<ChatMessageRow[]>([])
+  const [messageInput, setMessageInput] = useState('')
   const [sending, setSending] = useState(false)
-  const [translatedMap, setTranslatedMap] = useState<Record<number, string>>({})
-  const [translatingId, setTranslatingId] = useState<number | null>(null)
+  const [copiedId, setCopiedId] = useState<number | null>(null)
 
-  // Voice Note Recording states
-  const [isRecording, setIsRecording] = useState(false)
-  const [recordingSeconds, setRecordingSeconds] = useState(0)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const audioChunksRef = useRef<Blob[]>([])
-  const timerRef = useRef<number | null>(null)
+  const [replyTarget, setReplyTarget] = useState<ChatMessageRow | null>(null)
+  const [forwardTarget, setForwardTarget] = useState<ChatMessageRow | null>(null)
+  const [forwardRoomId, setForwardRoomId] = useState<string>('global')
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [showPollCreator, setShowPollCreator] = useState(false)
+  const [pollQuestion, setPollQuestion] = useState('')
+  const [pollOptions, setPollOptions] = useState<string[]>(['', ''])
+  const [creatingPoll, setCreatingPoll] = useState(false)
+
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement | null>(null)
   const bottomRef = useRef<HTMLDivElement | null>(null)
+
+  const buildDmRoom = (a: number, b: number) => `DM-${Math.min(a, b)}-${Math.max(a, b)}`
 
   useEffect(() => {
     if (!user) return
-    clearChatNotifications(user.id)
-    loadMembersAndGroups()
+    loadMembers()
+  }, [user])
 
-    const dmHandler = (e: any) => {
-      if (e.detail?.id && e.detail?.name && user) {
-        const dmRoom = `DM-${Math.min(user.id, Number(e.detail.id))}-${Math.max(
-          user.id,
-          Number(e.detail.id)
-        )}`
-        setRoomId(dmRoom)
-        setRoomLabel(`Private Chat with ${e.detail.name}`)
-      }
+  useEffect(() => {
+    const handleOpenDm = (ev: Event) => {
+      const custom = ev as CustomEvent<{ id: number; name: string }>
+      if (!user || !custom.detail?.id) return
+      const partner: ChatMember = { id: custom.detail.id, full_name: custom.detail.name }
+      setActiveDmPartner(partner)
+      setRoomId(buildDmRoom(user.id, partner.id))
     }
-    window.addEventListener('open-dm', dmHandler)
-    return () => window.removeEventListener('open-dm', dmHandler)
+    window.addEventListener('open-dm', handleOpenDm)
+    return () => window.removeEventListener('open-dm', handleOpenDm)
   }, [user])
 
   useEffect(() => {
@@ -101,18 +118,8 @@ export default function ChatTab() {
           table: 'chat_messages',
           filter: `room_id=eq.${roomId}`,
         },
-        payload => {
+        () => {
           loadMessages(roomId)
-          if (payload.eventType === 'INSERT') {
-            const msg = payload.new as ChatMessageItem
-            if (
-              msg.sender_id !== user.id &&
-              localStorage.getItem('fenestrians_mention_tone') !== 'off' &&
-              msg.message_text?.toLowerCase().includes(`@${user.full_name.toLowerCase()}`)
-            ) {
-              new Audio('/alert-sound.mp3').play().catch(() => {})
-            }
-          }
         }
       )
       .subscribe()
@@ -120,640 +127,584 @@ export default function ChatTab() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [roomId, user])
+  }, [user, roomId])
 
-  const loadMembersAndGroups = async () => {
-    const [memRes, roomsRes] = await Promise.all([
-      supabase
-        .from('alumni')
-        .select('id, full_name')
-        .eq('is_placeholder', false)
-        .neq('full_name', 'System Administrator')
-        .order('full_name', { ascending: true }),
-      supabase.from('chat_messages').select('room_id').neq('room_id', 'global'),
-    ])
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.length, roomId])
 
-    setMembers((memRes.data ?? []) as Array<{ id: number; full_name: string }>)
-    const distinctRooms = Array.from(
-      new Set(
-        (roomsRes.data ?? [])
-          .map(r => String(r.room_id))
-          .filter(r => r && !r.startsWith('DM-'))
-      )
-    )
-    setCustomGroups(distinctRooms)
+  const loadMembers = async () => {
+    const { data } = await supabase
+      .from('alumni')
+      .select('id, full_name, class_nickname')
+      .eq('is_placeholder', false)
+      .neq('full_name', 'System Administrator')
+      .order('full_name', { ascending: true })
+    if (data) setMembers(data as ChatMember[])
   }
 
-  const loadMessages = async (activeRoom: string) => {
+  const loadMessages = async (targetRoom: string) => {
     const { data } = await supabase
       .from('chat_messages')
       .select('*')
-      .eq('room_id', activeRoom)
+      .eq('room_id', targetRoom)
       .order('created_at', { ascending: true })
-      .limit(200)
-
-    if (data) {
-      setMessages(data as ChatMessageItem[])
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 80)
-    }
+      .limit(150)
+    if (data) setMessages(data as ChatMessageRow[])
   }
 
-  const notifyRoomParticipants = async (preview: string) => {
-    if (!user) return
-    if (roomId.startsWith('DM-')) {
-      const parts = roomId.split('-')
-      const idA = Number(parts[1])
-      const idB = Number(parts[2])
-      const targetId = idA === user.id ? idB : idA
-      if (targetId && targetId !== user.id) {
-        await recordIncomingChatNotification({
-          recipientUserId: targetId,
-          chatType: 'private_chat',
-          senderName: user.full_name,
-          previewText: preview,
-        })
-      }
+  const mentionCandidates = useMemo(() => {
+    if (mentionQuery === null) return []
+    const q = mentionQuery.toLowerCase()
+    return members
+      .filter(m => {
+        const name = (m.full_name || '').toLowerCase()
+        const nick = (m.class_nickname || '').toLowerCase()
+        return name.includes(q) || nick.includes(q)
+      })
+      .slice(0, 6)
+  }, [members, mentionQuery])
+
+  const handleInputChange = (val: string) => {
+    setMessageInput(val)
+    const atIndex = val.lastIndexOf('@')
+    if (atIndex === -1) {
+      setMentionQuery(null)
       return
     }
+    const textAfterAt = val.slice(atIndex + 1)
+    if (textAfterAt.includes('\n')) {
+      setMentionQuery(null)
+      return
+    }
+    setMentionQuery(textAfterAt)
+  }
 
-    const chatType = roomId === 'global' ? 'common_chat' : 'group_chat'
+  const handleSelectMention = (member: ChatMember) => {
+    const atIndex = messageInput.lastIndexOf('@')
+    if (atIndex === -1) return
+    const prefix = messageInput.slice(0, atIndex)
+    const insertText = `@${member.full_name} `
+    setMessageInput(`${prefix}${insertText}`)
+    setMentionQuery(null)
+    inputRef.current?.focus()
+  }
+
+  const notifyMentionedMembers = async (text: string, targetRoom: string) => {
+    if (!user) return
+    const lower = text.toLowerCase()
     for (const m of members) {
       if (m.id === user.id) continue
-      await recordIncomingChatNotification({
-        recipientUserId: m.id,
-        chatType,
-        senderName: user.full_name,
-        previewText: preview,
-      })
+      if (lower.includes(`@${m.full_name.toLowerCase()}`)) {
+        await publishArchivedAlert({
+          category: 'chat_mention',
+          shortTitle: `Mentioned by ${user.full_name}`,
+          fullMessage: `${user.full_name} mentioned you in ${
+            targetRoom === 'global' ? 'Batch Chat' : 'Direct Chat'
+          }: "${text}"`,
+          targetUserId: m.id,
+        })
+      }
     }
   }
 
   const handleSendMessage = async () => {
-    if (!user || !text.trim()) return
-    const outgoing = text.trim()
-    setText('')
-    setSending(true)
-
-    await supabase.from('chat_messages').insert([
-      {
-        room_id: roomId,
-        sender_id: user.id,
-        sender_name: user.full_name,
-        message_text: outgoing,
-      },
-    ])
-
-    await notifyRoomParticipants(outgoing)
-    setSending(false)
-    await loadMessages(roomId)
-  }
-
-  // --- VOICE NOTE RECORDING ---
-  const startVoiceRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
-      audioChunksRef.current = []
-
-      recorder.ondataavailable = e => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data)
-      }
-
-      recorder.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop())
-        if (timerRef.current) window.clearInterval(timerRef.current)
-        setRecordingSeconds(0)
-
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-        if (audioBlob.size < 500 || !user) return
-
-        setSending(true)
-        const fileName = `voice_note_${user.id}_${Date.now()}.webm`
-        const storagePath = `chat_voice/${fileName}`
-        const { error: upErr } = await supabase.storage
-          .from('fenestrians-media')
-          .upload(storagePath, audioBlob, { contentType: 'audio/webm', upsert: true })
-
-        if (!upErr) {
-          const { data: pubData } = supabase.storage
-            .from('fenestrians-media')
-            .getPublicUrl(storagePath)
-
-          if (pubData?.publicUrl) {
-            await supabase.from('chat_messages').insert([
-              {
-                room_id: roomId,
-                sender_id: user.id,
-                sender_name: user.full_name,
-                message_text: '🎤 Voice Note',
-                audio_url: pubData.publicUrl,
-              },
-            ])
-            await notifyRoomParticipants('🎤 Sent a voice note')
-            await loadMessages(roomId)
-          }
-        }
-        setSending(false)
-      }
-
-      mediaRecorderRef.current = recorder
-      recorder.start()
-      setIsRecording(true)
-      setRecordingSeconds(0)
-      timerRef.current = window.setInterval(() => {
-        setRecordingSeconds(s => s + 1)
-      }, 1000)
-    } catch {
-      alert('Microphone permission is required to record voice notes.')
-    }
-  }
-
-  const stopVoiceRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop()
-      setIsRecording(false)
-    }
-  }
-
-  // --- INLINE FILE / MEDIA ATTACHMENT ---
-  const handleFileAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file || !user) return
-
-    setSending(true)
-    const uploadRes = await uploadMemberArchiveFile({
-      ownerId: user.id,
-      ownerName: user.full_name,
-      folderCategory: file.type.startsWith('image/') ? 'gallery' : 'folder',
-      file,
-      isPrivate: false,
-      isProfilePicture: false,
-    })
-
-    if (!uploadRes.success || !uploadRes.publicUrl) {
-      setSending(false)
-      alert(uploadRes.error || 'Could not share file.')
-      return
-    }
-
-    await supabase.from('chat_messages').insert([
-      {
-        room_id: roomId,
-        sender_id: user.id,
-        sender_name: user.full_name,
-        message_text: `📎 Shared ${file.name}`,
-        attachment_url: uploadRes.publicUrl,
-        attachment_name: file.name,
-        attachment_type: file.type || 'application/octet-stream',
-      },
-    ])
-
-    await notifyRoomParticipants(`📎 Shared ${file.name}`)
-    setSending(false)
-    await loadMessages(roomId)
-  }
-
-  // --- EMOJI REACTIONS ---
-  const handleToggleReaction = async (msg: ChatMessageItem, emoji: string) => {
     if (!user) return
-    const current = { ...(msg.reactions_json || {}) }
-    const usersList = Array.isArray(current[emoji]) ? [...current[emoji]] : []
-    const idx = usersList.indexOf(user.id)
-    if (idx >= 0) {
-      usersList.splice(idx, 1)
-    } else {
-      usersList.push(user.id)
+    const trimmed = messageInput.trim()
+    if (!trimmed) return
+
+    setSending(true)
+    const composedText = replyTarget
+      ? `↩ Replying to ${replyTarget.sender_name}: "${replyTarget.message_text.slice(0, 90)}"\n${trimmed}`
+      : trimmed
+
+    const { error } = await supabase.from('chat_messages').insert([
+      {
+        room_id: roomId,
+        sender_id: user.id,
+        sender_name: user.full_name,
+        message_text: composedText,
+      },
+    ])
+
+    if (!error) {
+      if (activeDmPartner && roomId.startsWith('DM-')) {
+        await publishArchivedAlert({
+          category: 'direct_message',
+          shortTitle: `New DM from ${user.full_name}`,
+          fullMessage: `${user.full_name}: ${trimmed}`,
+          targetUserId: activeDmPartner.id,
+        })
+      }
+      await notifyMentionedMembers(trimmed, roomId)
+      setMessageInput('')
+      setReplyTarget(null)
+      setMentionQuery(null)
+      await loadMessages(roomId)
     }
-
-    if (usersList.length === 0) {
-      delete current[emoji]
-    } else {
-      current[emoji] = usersList
-    }
-
-    await supabase
-      .from('chat_messages')
-      .update({ reactions_json: current })
-      .eq('id', msg.id)
-
-    await loadMessages(roomId)
+    setSending(false)
   }
 
-  // --- PIN / UNPIN ANNOUNCEMENT ---
-  const handleTogglePin = async (msg: ChatMessageItem) => {
-    await supabase
-      .from('chat_messages')
-      .update({ is_pinned: !msg.is_pinned })
-      .eq('id', msg.id)
-    await loadMessages(roomId)
+  const handleCopyMessage = async (msg: ChatMessageRow) => {
+    const parsedPoll = parsePollMessage(msg.message_text)
+    const textToCopy = parsedPoll
+      ? `Poll: ${parsedPoll.question}\n${parsedPoll.options.map((o, i) => `${i + 1}. ${o}`).join('\n')}`
+      : msg.message_text
+
+    try {
+      await navigator.clipboard.writeText(textToCopy)
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = textToCopy
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+    setCopiedId(msg.id)
+    setTimeout(() => setCopiedId(null), 1800)
   }
 
-  // --- TRANSLATE MESSAGE ---
-  const handleTranslateMessage = async (msg: ChatMessageItem) => {
-    const targetLang = localStorage.getItem('pref_lang') || 'en'
-    if (translatedMap[msg.id]) {
-      setTranslatedMap(prev => {
-        const copy = { ...prev }
-        delete copy[msg.id]
-        return copy
-      })
+  const handleConfirmForward = async () => {
+    if (!user || !forwardTarget) return
+    const forwardedBody = `↪ Forwarded from ${forwardTarget.sender_name}:\n${forwardTarget.message_text}`
+    await supabase.from('chat_messages').insert([
+      {
+        room_id: forwardRoomId,
+        sender_id: user.id,
+        sender_name: user.full_name,
+        message_text: forwardedBody,
+      },
+    ])
+    setForwardTarget(null)
+    if (forwardRoomId === roomId) {
+      await loadMessages(roomId)
+    }
+  }
+
+  const handleCreateChatPoll = async () => {
+    if (!user) return
+    const q = pollQuestion.trim()
+    const cleanOpts = pollOptions.map(o => o.trim()).filter(Boolean)
+    if (!q || cleanOpts.length < 2) {
+      alert('Enter a poll question and at least 2 options.')
       return
     }
 
-    setTranslatingId(msg.id)
-    try {
-      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(
-        targetLang
-      )}&dt=t&q=${encodeURIComponent(msg.message_text)}`
-      const res = await fetch(url)
-      const data = await res.json()
-      const translatedText = Array.isArray(data?.[0])
-        ? data[0].map((seg: any) => seg[0]).join('')
-        : msg.message_text
-      setTranslatedMap(prev => ({ ...prev, [msg.id]: translatedText }))
-    } catch {
-      alert('Translation service is temporarily unavailable.')
-    } finally {
-      setTranslatingId(null)
+    setCreatingPoll(true)
+    const payload: PollPayload = {
+      question: q,
+      options: cleanOpts,
+      votes: {},
     }
+    await supabase.from('chat_messages').insert([
+      {
+        room_id: roomId,
+        sender_id: user.id,
+        sender_name: user.full_name,
+        message_text: `${POLL_PREFIX}${JSON.stringify(payload)}`,
+      },
+    ])
+    setCreatingPoll(false)
+    setPollQuestion('')
+    setPollOptions(['', ''])
+    setShowPollCreator(false)
+    await loadMessages(roomId)
   }
 
-  const handleCreateCustomGroup = () => {
-    const clean = newGroupName.trim()
-    if (!clean) return
-    if (!customGroups.includes(clean)) {
-      setCustomGroups(prev => [...prev, clean])
+  const handleVoteOnChatPoll = async (msg: ChatMessageRow, optionIndex: number) => {
+    if (!user) return
+    const parsed = parsePollMessage(msg.message_text)
+    if (!parsed) return
+
+    const updatedVotes: Record<string, number[]> = {}
+    for (const [optKey, voterIds] of Object.entries(parsed.votes)) {
+      updatedVotes[optKey] = (voterIds || []).filter(id => id !== user.id)
     }
-    setRoomId(clean)
-    setRoomLabel(`Group: ${clean}`)
-    setNewGroupName('')
-    setShowNewGroupBox(false)
+    const targetKey = String(optionIndex)
+    const currentList = updatedVotes[targetKey] ?? []
+    if (!currentList.includes(user.id)) {
+      currentList.push(user.id)
+    }
+    updatedVotes[targetKey] = currentList
+
+    const nextPayload: PollPayload = {
+      ...parsed,
+      votes: updatedVotes,
+    }
+
+    await supabase
+      .from('chat_messages')
+      .update({ message_text: `${POLL_PREFIX}${JSON.stringify(nextPayload)}` })
+      .eq('id', msg.id)
+
+    await loadMessages(roomId)
   }
 
   if (!user) return null
 
-  const pinnedMessages = messages.filter(m => m.is_pinned)
-
   return (
-    <div className="mx-auto max-w-4xl space-y-3">
-      {/* Room Selector & Private Group Bar */}
-      <Card className="border-border/40 bg-card/75 backdrop-blur-sm">
-        <CardHeader className="pb-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="flex items-center gap-2 text-base text-primary">
-              <MessageCircle className="h-5 w-5" />
-              {roomLabel}
-            </CardTitle>
+    <Card className="border-border/40 bg-card/75 backdrop-blur-sm">
+      <CardHeader className="pb-3 space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-base text-primary">
+            <MessageCircle className="h-5 w-5" />
+            {activeDmPartner ? `Direct Chat • ${activeDmPartner.full_name}` : 'Batch Group Chat'}
+          </CardTitle>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Button
-                type="button"
-                size="sm"
-                variant={roomId === 'global' ? 'default' : 'outline'}
-                onClick={() => {
-                  setRoomId('global')
-                  setRoomLabel('Common Batch Chat')
-                }}
-                className={
-                  roomId === 'global'
-                    ? 'gold-gradient text-gold-foreground text-xs font-semibold'
-                    : 'text-xs'
-                }
-              >
-                Common Chat
-              </Button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              type="button"
+              size="sm"
+              variant={roomId === 'global' ? 'default' : 'outline'}
+              onClick={() => {
+                setActiveDmPartner(null)
+                setRoomId('global')
+              }}
+              className={`h-7 text-xs gap-1 ${
+                roomId === 'global' ? 'gold-gradient text-gold-foreground font-semibold' : ''
+              }`}
+            >
+              <Users className="h-3.5 w-3.5" />
+              Batch Room
+            </Button>
 
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setShowNewGroupBox(prev => !prev)}
-                className="text-xs gap-1"
-              >
-                <Users className="h-3.5 w-3.5" />
-                Groups ({customGroups.length})
-              </Button>
-            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setShowPollCreator(prev => !prev)}
+              className="h-7 text-xs gap-1 border-primary/40 text-primary"
+            >
+              <BarChart2 className="h-3.5 w-3.5" />
+              {showPollCreator ? 'Close Poll' : 'Create Poll'}
+            </Button>
           </div>
+        </div>
 
-          {showNewGroupBox && (
-            <div className="mt-2 pt-2 border-t border-border/30 space-y-2 text-xs">
-              <div className="flex gap-2">
-                <Input
-                  value={newGroupName}
-                  onChange={e => setNewGroupName(e.target.value)}
-                  placeholder="Create or join private group name..."
-                  className="h-8 text-xs"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleCreateCustomGroup}
-                  className="h-8 gold-gradient text-gold-foreground font-semibold gap-1"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Open Group
-                </Button>
-              </div>
-              {customGroups.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {customGroups.map(g => (
-                    <button
-                      key={g}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+          <span className="text-[11px] text-muted-foreground shrink-0">DM Member:</span>
+          <select
+            value={activeDmPartner ? String(activeDmPartner.id) : ''}
+            onChange={e => {
+              const chosenId = e.target.value
+              if (!chosenId) {
+                setActiveDmPartner(null)
+                setRoomId('global')
+                return
+              }
+              const found = members.find(m => String(m.id) === chosenId)
+              if (found) {
+                setActiveDmPartner(found)
+                setRoomId(buildDmRoom(user.id, found.id))
+              }
+            }}
+            className="h-8 rounded-md border border-border/50 bg-background px-2.5 text-xs"
+          >
+            <option value="">-- Batch Group Room --</option>
+            {members
+              .filter(m => m.id !== user.id)
+              .map(m => (
+                <option key={m.id} value={String(m.id)}>
+                  {m.full_name}
+                </option>
+              ))}
+          </select>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-3 text-xs">
+        {showPollCreator && (
+          <div className="rounded-xl border border-primary/35 bg-primary/5 p-3.5 space-y-2.5">
+            <p className="font-bold text-primary">Create Quick Chat Poll</p>
+            <Input
+              value={pollQuestion}
+              onChange={e => setPollQuestion(e.target.value)}
+              placeholder="Ask a question..."
+              className="h-8 text-xs"
+            />
+            <div className="space-y-1.5">
+              {pollOptions.map((opt, idx) => (
+                <div key={idx} className="flex items-center gap-1.5">
+                  <Input
+                    value={opt}
+                    onChange={e => {
+                      const copy = [...pollOptions]
+                      copy[idx] = e.target.value
+                      setPollOptions(copy)
+                    }}
+                    placeholder={`Option ${idx + 1}`}
+                    className="h-8 text-xs"
+                  />
+                  {pollOptions.length > 2 && (
+                    <Button
                       type="button"
-                      onClick={() => {
-                        setRoomId(g)
-                        setRoomLabel(`Group: ${g}`)
-                      }}
-                      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                        roomId === g
-                          ? 'bg-primary text-primary-foreground'
-                          : 'border border-border/50 bg-background/60 text-foreground'
-                      }`}
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setPollOptions(pollOptions.filter((_, i) => i !== idx))}
+                      className="h-8 w-8 text-destructive"
                     >
-                      # {g}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </CardHeader>
-
-        <CardContent className="space-y-3">
-          {/* PINNED ANNOUNCEMENTS BANNER */}
-          {pinnedMessages.length > 0 && (
-            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-2.5 space-y-1.5 text-xs">
-              <p className="flex items-center gap-1.5 font-bold text-amber-300 text-[11px]">
-                <Pin className="h-3.5 w-3.5" />
-                Pinned Announcements ({pinnedMessages.length})
-              </p>
-              {pinnedMessages.map(pm => (
-                <div
-                  key={`pin-${pm.id}`}
-                  className="flex items-start justify-between gap-2 rounded bg-background/70 px-2.5 py-1.5"
-                >
-                  <p className="text-foreground/95">
-                    <strong className="text-primary">{pm.sender_name}:</strong> {pm.message_text}
-                  </p>
-                  <button
-                    type="button"
-                    title="Unpin"
-                    onClick={() => handleTogglePin(pm)}
-                    className="text-muted-foreground hover:text-destructive shrink-0"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
-          )}
-
-          {/* MESSAGES STREAM */}
-          <div className="h-[52vh] overflow-y-auto space-y-2.5 rounded-xl border border-border/30 bg-background/40 p-3">
-            {messages.length === 0 ? (
-              <p className="py-12 text-center text-xs text-muted-foreground">
-                No messages in this room yet. Start the conversation!
-              </p>
-            ) : (
-              messages.map(m => {
-                const isMine = m.sender_id === user.id
-                const reactions = m.reactions_json || {}
-                const isImage =
-                  m.attachment_type?.startsWith('image/') ||
-                  (m.attachment_url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.attachment_name || ''))
-                const isVideo =
-                  m.attachment_type?.startsWith('video/') ||
-                  (m.attachment_url && /\.(mp4|webm|mov)$/i.test(m.attachment_name || ''))
-                const isPdf =
-                  m.attachment_type === 'application/pdf' ||
-                  (m.attachment_name || '').toLowerCase().endsWith('.pdf')
-
-                return (
-                  <div
-                    key={m.id}
-                    className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}
-                  >
-                    <div
-                      className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-3.5 py-2.5 text-xs space-y-1.5 shadow-sm ${
-                        isMine
-                          ? 'bg-primary/20 border border-primary/40 text-foreground'
-                          : 'bg-card border border-border/40 text-foreground'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="font-bold text-primary text-[11px]">{m.sender_name}</span>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground">
-                            {formatISTDateTime(m.created_at)}
-                          </span>
-                          <button
-                            type="button"
-                            title={m.is_pinned ? 'Unpin message' : 'Pin announcement'}
-                            onClick={() => handleTogglePin(m)}
-                            className="text-muted-foreground hover:text-amber-300"
-                          >
-                            {m.is_pinned ? (
-                              <PinOff className="h-3 w-3 text-amber-400" />
-                            ) : (
-                              <Pin className="h-3 w-3" />
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            title="Translate message"
-                            onClick={() => handleTranslateMessage(m)}
-                            className="text-muted-foreground hover:text-primary"
-                          >
-                            <Languages className="h-3 w-3" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Voice Note Player */}
-                      {m.audio_url && (
-                        <audio controls src={m.audio_url} className="w-full max-w-[250px] h-8" />
-                      )}
-
-                      {/* Inline Photo / Video / PDF Attachment Preview */}
-                      {m.attachment_url && (
-                        <div className="space-y-1.5 pt-1">
-                          {isImage ? (
-                            <img
-                              src={m.attachment_url}
-                              alt={m.attachment_name || 'Shared image'}
-                              className="max-h-56 rounded-lg border border-border/40 object-contain"
-                            />
-                          ) : isVideo ? (
-                            <video
-                              controls
-                              src={m.attachment_url}
-                              className="max-h-56 w-full rounded-lg border border-border/40"
-                            />
-                          ) : isPdf ? (
-                            <div className="space-y-1">
-                              <iframe
-                                src={m.attachment_url}
-                                title={m.attachment_name || 'PDF Preview'}
-                                className="h-48 w-full rounded-lg border border-border/40 bg-white"
-                              />
-                              <a
-                                href={m.attachment_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
-                              >
-                                <FileText className="h-3.5 w-3.5" />
-                                Open Full PDF ({m.attachment_name || 'Document.pdf'})
-                              </a>
-                            </div>
-                          ) : (
-                            <a
-                              href={m.attachment_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-background/80 px-2.5 py-1.5 text-[11px] font-semibold text-primary"
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                              {m.attachment_name || 'Download Attachment'}
-                            </a>
-                          )}
-                        </div>
-                      )}
-
-                      {m.message_text && (
-                        <p className="whitespace-pre-line leading-relaxed">{m.message_text}</p>
-                      )}
-
-                      {translatingId === m.id && (
-                        <p className="text-[10px] italic text-muted-foreground">Translating...</p>
-                      )}
-                      {translatedMap[m.id] && (
-                        <p className="rounded bg-background/70 px-2 py-1 text-[11px] text-emerald-300 border-l-2 border-emerald-500">
-                          {translatedMap[m.id]}
-                        </p>
-                      )}
-
-                      {/* Emoji Reaction Bar */}
-                      <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-border/20">
-                        {REACTION_EMOJIS.map(emoji => {
-                          const count = Array.isArray(reactions[emoji])
-                            ? reactions[emoji].length
-                            : 0
-                          const iReacted =
-                            Array.isArray(reactions[emoji]) &&
-                            reactions[emoji].includes(user.id)
-
-                          return (
-                            <button
-                              key={emoji}
-                              type="button"
-                              onClick={() => handleToggleReaction(m, emoji)}
-                              className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] transition-colors ${
-                                iReacted
-                                  ? 'bg-primary/25 border border-primary/50 text-foreground'
-                                  : 'bg-background/50 hover:bg-background text-muted-foreground'
-                              }`}
-                            >
-                              <span>{emoji}</span>
-                              {count > 0 && <span className="text-[10px] font-bold">{count}</span>}
-                            </button>
-                          )
-                        })}
-
-                        {(isMine || userIsAdmin) && (
-                          <button
-                            type="button"
-                            title="Delete message"
-                            onClick={async () => {
-                              await supabase.from('chat_messages').delete().eq('id', m.id)
-                              await loadMessages(roomId)
-                            }}
-                            className="ml-auto text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })
-            )}
-            <div ref={bottomRef} />
-          </div>
-
-          {/* MESSAGE, FILE ATTACHMENT & VOICE NOTE INPUT BAR */}
-          <div className="flex items-center gap-1.5">
-            <input
-              ref={fileInputRef}
-              type="file"
-              onChange={handleFileAttachment}
-              className="hidden"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              disabled={sending || isRecording}
-              onClick={() => fileInputRef.current?.click()}
-              title="Attach Photo, Video, or PDF"
-              className="h-9 w-9 shrink-0"
-            >
-              <Paperclip className="h-4 w-4" />
-            </Button>
-
-            {!isRecording ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <Button
                 type="button"
                 variant="outline"
-                size="icon"
-                disabled={sending}
-                onClick={startVoiceRecording}
-                title="Record Voice Note"
-                className="h-9 w-9 shrink-0 text-amber-400 border-amber-500/40"
+                size="sm"
+                onClick={() => setPollOptions([...pollOptions, ''])}
+                className="h-7 text-xs gap-1"
               >
-                <Mic className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
+                Add Option
               </Button>
-            ) : (
               <Button
                 type="button"
                 size="sm"
-                onClick={stopVoiceRecording}
-                className="h-9 bg-red-600 hover:bg-red-500 text-white font-bold gap-1 shrink-0 text-xs animate-pulse"
+                disabled={creatingPoll}
+                onClick={handleCreateChatPoll}
+                className="h-7 gold-gradient text-gold-foreground font-semibold text-xs"
               >
-                <Square className="h-3.5 w-3.5" />
-                Stop &amp; Send ({recordingSeconds}s)
+                {creatingPoll ? 'Posting...' : 'Post Poll to Chat'}
               </Button>
-            )}
+            </div>
+          </div>
+        )}
 
-            <Input
-              value={text}
-              disabled={isRecording}
-              onChange={e => setText(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSendMessage()
-                }
-              }}
-              placeholder="Type a message (use @Name to mention)..."
-              className="h-9 text-xs"
-            />
+        {forwardTarget && (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-amber-300">
+                Forward message from {forwardTarget.sender_name}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setForwardTarget(null)}
+                className="h-6 w-6"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <p className="rounded bg-background/60 p-2 text-[11px] text-foreground/90 line-clamp-2">
+              {forwardTarget.message_text}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={forwardRoomId}
+                onChange={e => setForwardRoomId(e.target.value)}
+                className="h-8 rounded-md border border-border/50 bg-background px-2.5 text-xs"
+              >
+                <option value="global">Batch Group Room</option>
+                {members
+                  .filter(m => m.id !== user.id)
+                  .map(m => (
+                    <option key={m.id} value={buildDmRoom(user.id, m.id)}>
+                      DM: {m.full_name}
+                    </option>
+                  ))}
+              </select>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleConfirmForward}
+                className="h-8 gold-gradient text-gold-foreground font-semibold text-xs gap-1"
+              >
+                <Forward className="h-3.5 w-3.5" />
+                Forward Now
+              </Button>
+            </div>
+          </div>
+        )}
 
+        <div className="max-h-96 overflow-y-auto space-y-2.5 rounded-xl border border-border/30 bg-background/50 p-3">
+          {messages.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">
+              No messages yet. Type @ to mention a member and start the conversation.
+            </p>
+          ) : (
+            messages.map(msg => {
+              const isMine = msg.sender_id === user.id
+              const pollData = parsePollMessage(msg.message_text)
+              const totalPollVotes = pollData
+                ? Object.values(pollData.votes).reduce((s, arr) => s + (arr?.length || 0), 0)
+                : 0
+
+              return (
+                <div
+                  key={msg.id}
+                  className={`rounded-xl border p-3 space-y-1.5 ${
+                    isMine
+                      ? 'border-primary/40 bg-primary/10 ml-4'
+                      : 'border-border/40 bg-card/80 mr-4'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                    <span className="font-bold text-primary">{msg.sender_name}</span>
+                    <span>{formatISTDateTime(msg.created_at)}</span>
+                  </div>
+
+                  {pollData ? (
+                    <div className="space-y-2 pt-0.5">
+                      <div className="flex items-center gap-1.5 font-bold text-foreground">
+                        <BarChart2 className="h-3.5 w-3.5 text-primary" />
+                        <span>{pollData.question}</span>
+                        <Badge variant="outline" className="text-[10px]">
+                          {totalPollVotes} vote{totalPollVotes === 1 ? '' : 's'}
+                        </Badge>
+                      </div>
+                      <div className="space-y-1.5">
+                        {pollData.options.map((opt, idx) => {
+                          const voters = pollData.votes[String(idx)] ?? []
+                          const pct =
+                            totalPollVotes > 0 ? Math.round((voters.length / totalPollVotes) * 100) : 0
+                          const votedByMe = voters.includes(user.id)
+
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handleVoteOnChatPoll(msg, idx)}
+                              className={`w-full text-left rounded-lg border px-2.5 py-1.5 transition-all ${
+                                votedByMe
+                                  ? 'border-emerald-500 bg-emerald-500/15 font-bold text-emerald-300'
+                                  : 'border-border/40 bg-background/70 hover:border-primary/40'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span>{opt}</span>
+                                <span>
+                                  {voters.length} ({pct}%)
+                                </span>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-line text-foreground/95 leading-relaxed">
+                      {msg.message_text}
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-2 pt-1 border-t border-border/20">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReplyTarget(msg)
+                        inputRef.current?.focus()
+                      }}
+                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground hover:text-primary"
+                    >
+                      <Reply className="h-3 w-3" />
+                      Reply
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCopyMessage(msg)}
+                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground hover:text-primary"
+                    >
+                      {copiedId === msg.id ? (
+                        <>
+                          <Check className="h-3 w-3 text-emerald-400" />
+                          <span className="text-emerald-400">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3" />
+                          Copy
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForwardTarget(msg)
+                        setForwardRoomId('global')
+                      }}
+                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground hover:text-primary"
+                    >
+                      <Forward className="h-3 w-3" />
+                      Forward
+                    </button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {replyTarget && (
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/35 bg-primary/10 px-3 py-1.5 text-[11px]">
+            <span className="truncate text-foreground">
+              Replying to <strong>{replyTarget.sender_name}</strong>: {replyTarget.message_text}
+            </span>
             <Button
               type="button"
-              disabled={sending || isRecording || !text.trim()}
-              onClick={handleSendMessage}
-              className="h-9 gold-gradient text-gold-foreground font-semibold gap-1 shrink-0 text-xs"
+              variant="ghost"
+              size="icon"
+              onClick={() => setReplyTarget(null)}
+              className="h-5 w-5 shrink-0"
             >
-              <Send className="h-3.5 w-3.5" />
-              Send
+              <X className="h-3 w-3" />
             </Button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+
+        {mentionCandidates.length > 0 && (
+          <div className="rounded-xl border border-primary/40 bg-card shadow-lg p-1.5 space-y-1">
+            <p className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+              Mention a Member
+            </p>
+            {mentionCandidates.map(m => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => handleSelectMention(m)}
+                className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs hover:bg-primary/15"
+              >
+                <span className="font-bold text-foreground">{m.full_name}</span>
+                {m.class_nickname && (
+                  <span className="text-[10px] text-primary">({m.class_nickname})</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <Input
+            ref={inputRef}
+            value={messageInput}
+            onChange={e => handleInputChange(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey && mentionCandidates.length === 0) {
+                e.preventDefault()
+                handleSendMessage()
+              }
+            }}
+            placeholder="Type a message (use @ to mention a member)..."
+            className="h-9 text-xs"
+          />
+          <Button
+            type="button"
+            disabled={sending || !messageInput.trim()}
+            onClick={handleSendMessage}
+            className="h-9 gold-gradient text-gold-foreground font-semibold gap-1.5 text-xs shrink-0"
+          >
+            <Send className="h-3.5 w-3.5" />
+            {sending ? 'Sending...' : 'Send'}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
