@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.75",
-  "timestamp": "25 Nov 2026, 04:58 AM IST",
-  "formatted": "V2.75, 25 Nov 2026, 04:58 AM IST",
+  "version": "V2.76",
+  "timestamp": "25 Nov 2026, 05:02 AM IST",
+  "formatted": "V2.76, 25 Nov 2026, 05:02 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Update navigation logic in NotificationsPage)",
+  "summary": "Minor general update (Enhance address fields with map picker functionality)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.76",
+      "timestamp": "25 Nov 2026, 05:02 AM IST",
+      "formatted": "V2.76, 25 Nov 2026, 05:02 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Enhance address fields with map picker functionality)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.75",
       "timestamp": "25 Nov 2026, 04:58 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.52, 24 Nov 2026, 11:59 PM IST",
       "type": "minor",
       "summary": "Minor technical update (Remove FundItem interface and funds state)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.51",
-      "timestamp": "24 Nov 2026, 11:56 PM IST",
-      "formatted": "V2.51, 24 Nov 2026, 11:56 PM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Update src/pages/AlumniAssociationHome.tsx for Tabs behaviour)",
       "requiresReinstall": false
     }
   ]
