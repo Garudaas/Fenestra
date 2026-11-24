@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.56",
-  "timestamp": "25 Nov 2026, 12:33 AM IST",
-  "formatted": "V2.56, 25 Nov 2026, 12:33 AM IST",
+  "version": "V2.57",
+  "timestamp": "25 Nov 2026, 12:43 AM IST",
+  "formatted": "V2.57, 25 Nov 2026, 12:43 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Add route for tasks in App component)",
+  "summary": "Minor general update (Chat and calling screen updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.57",
+      "timestamp": "25 Nov 2026, 12:43 AM IST",
+      "formatted": "V2.57, 25 Nov 2026, 12:43 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Chat and calling screen updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.56",
       "timestamp": "25 Nov 2026, 12:33 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.33, 24 Nov 2026, 04:21 PM IST",
       "type": "minor",
       "summary": "Minor general update (Implement receipt PDF generation and download functions)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.32",
-      "timestamp": "24 Nov 2026, 04:02 PM IST",
-      "formatted": "V2.32, 24 Nov 2026, 04:02 PM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Link the Treasury Tab in src/pages/AlumniAssociationHome.tsx to /treasury)",
       "requiresReinstall": false
     }
   ]
