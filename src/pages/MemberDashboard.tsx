@@ -15,8 +15,10 @@ import {
   archiveDailyCelebrationAlert,
   publishArchivedAlert,
 } from '@/lib/notificationService'
-import { formatFullDate } from '@/lib/formatters'
+import { formatFullDate, cleanPhoneNumber } from '@/lib/formatters'
 import { getDefaultSpouseGender } from '@/lib/fenestriansCore'
+import { exportRowsToCSV, openPrintableReport } from '@/lib/reportExporter'
+import { fetchCommitteeRolesMap, resolveMemberAssociationRole } from '@/lib/taskAuditService'
 import SmartDateInput from '@/components/shared/SmartDateInput'
 import {
   getPersistedExpandedTab,
@@ -53,6 +55,8 @@ import {
   Plus,
   CalendarClock,
   ExternalLink,
+  FileSpreadsheet,
+  Printer,
 } from 'lucide-react'
 import DirectoryTab from '@/pages/DirectoryTab'
 import ProfileTab from '@/pages/ProfileTab'
@@ -523,6 +527,82 @@ export default function MemberDashboard() {
     syncHeaderBadges()
   }
 
+  const handleQuickDirectoryExport = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const [usersRes, rolesMap] = await Promise.all([
+      supabase
+        .from('alumni')
+        .select('*')
+        .eq('is_placeholder', false)
+        .eq('hide_from_peers', false)
+        .neq('full_name', 'System Administrator')
+        .order('full_name', { ascending: true }),
+      fetchCommitteeRolesMap(),
+    ])
+    const list = usersRes.data ?? []
+    const headers = [
+      'Full Name',
+      'Association Role',
+      'Nickname',
+      'Blood Group',
+      'Contact Number',
+      'WhatsApp Number',
+      'Email',
+      'Profession / Status',
+      'Current Address',
+    ]
+    const rows = list.map((m: any) => [
+      m.full_name,
+      resolveMemberAssociationRole({ userId: m.id, isAdmin: m.is_admin, committeeRolesMap: rolesMap }).label,
+      m.class_nickname || '-',
+      m.blood_group || '-',
+      cleanPhoneNumber(m.contact_number) || '-',
+      cleanPhoneNumber(m.whatsapp_number) || '-',
+      m.email || '-',
+      m.current_status || '-',
+      m.current_address || '-',
+    ])
+    exportRowsToCSV(`Fenestrians_Directory_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows)
+  }
+
+  const handleQuickDirectoryPrint = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const [usersRes, rolesMap] = await Promise.all([
+      supabase
+        .from('alumni')
+        .select('*')
+        .eq('is_placeholder', false)
+        .eq('hide_from_peers', false)
+        .neq('full_name', 'System Administrator')
+        .order('full_name', { ascending: true }),
+      fetchCommitteeRolesMap(),
+    ])
+    const list = usersRes.data ?? []
+    const headers = [
+      'Full Name',
+      'Association Role',
+      'Nickname',
+      'Blood Group',
+      'Contact Number',
+      'WhatsApp Number',
+      'Email',
+      'Profession / Status',
+      'Current Address',
+    ]
+    const rows = list.map((m: any) => [
+      m.full_name,
+      resolveMemberAssociationRole({ userId: m.id, isAdmin: m.is_admin, committeeRolesMap: rolesMap }).label,
+      m.class_nickname || '-',
+      m.blood_group || '-',
+      cleanPhoneNumber(m.contact_number) || '-',
+      cleanPhoneNumber(m.whatsapp_number) || '-',
+      m.email || '-',
+      m.current_status || '-',
+      m.current_address || '-',
+    ])
+    openPrintableReport('Member & Emergency Donor Directory', `Total Listed: ${list.length} member(s)`, headers, rows)
+  }
+
   const handleCreateClassEvent = async () => {
     if (!user || !eventTitle.trim() || !eventStartDate) {
       alert('Please enter Event Title and Start Date.')
@@ -773,12 +853,20 @@ export default function MemberDashboard() {
     isOpen: boolean,
     onClick: () => void,
     icon: React.ReactNode,
-    badgeCount?: number
+    badgeCount?: number,
+    rightActions?: React.ReactNode
   ) => (
-    <button
-      type="button"
+    <div
       onClick={onClick}
-      className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3.5 text-left transition-all ${
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick()
+        }
+      }}
+      className={`flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl border p-3.5 text-left transition-all ${
         isOpen
           ? 'border-primary/60 bg-primary/10 shadow-sm'
           : 'border-border/40 bg-card/75 hover:border-primary/40 hover:bg-primary/5'
@@ -800,12 +888,16 @@ export default function MemberDashboard() {
           <p className="text-[11px] text-muted-foreground truncate">{subtitle}</p>
         </div>
       </div>
-      {isOpen ? (
-        <ChevronUp className="h-4 w-4 text-primary shrink-0" />
-      ) : (
-        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-      )}
-    </button>
+
+      <div className="flex items-center gap-1.5 shrink-0">
+        {rightActions}
+        {isOpen ? (
+          <ChevronUp className="h-4 w-4 text-primary shrink-0" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+        )}
+      </div>
+    </div>
   )
 
   return (
@@ -1006,7 +1098,26 @@ export default function MemberDashboard() {
                   setExpandedRosterTab(
                     toggleExclusiveTab(SCOPE_ROSTER, expandedRosterTab, 'directory')
                   ),
-                <Users className="h-4 w-4" />
+                <Users className="h-4 w-4" />,
+                undefined,
+                <>
+                  <button
+                    type="button"
+                    title="Export CSV Roster"
+                    onClick={handleQuickDirectoryExport}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-primary/35 bg-background/80 text-primary hover:bg-primary/15"
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    title="Print Roster / Donors"
+                    onClick={handleQuickDirectoryPrint}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-primary/35 bg-background/80 text-primary hover:bg-primary/15"
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                  </button>
+                </>
               )}
               {expandedRosterTab === 'directory' && (
                 <div className="pt-1">
@@ -1291,7 +1402,6 @@ export default function MemberDashboard() {
                         )}
                       </div>
 
-                      {/* Optional Family / Profile Details based on Event & Subject */}
                       {(eventSubject === 'spouse' ||
                         eventType === 'Anniversary party' ||
                         eventType === 'Wedding') && (
@@ -1463,7 +1573,7 @@ export default function MemberDashboard() {
               )}
 
               {renderAccordionToggle(
-                'Batch Jobs and Referrals',
+                'Job opportunities and employee referral Board',
                 'Jobs, internships, freelance projects & referrals board',
                 expandedActivityTab === 'opportunities',
                 () =>
@@ -1554,7 +1664,6 @@ export default function MemberDashboard() {
                   {expandedCommTab === 'external_calls' && (
                     <Card className="border-border/40 bg-card/80">
                       <CardContent className="p-4 space-y-4 text-xs">
-                        {/* WhatsApp Group Call */}
                         <div className="rounded-xl border border-emerald-500/35 bg-emerald-500/5 p-3 space-y-2">
                           <p className="font-bold text-emerald-300">WhatsApp Group Call / Group Link</p>
                           <Input
@@ -1577,7 +1686,6 @@ export default function MemberDashboard() {
                           </Button>
                         </div>
 
-                        {/* Google Meet */}
                         <div className="rounded-xl border border-sky-500/35 bg-sky-500/5 p-3 space-y-2">
                           <p className="font-bold text-sky-300">Google Meet</p>
                           <Input
@@ -1603,7 +1711,6 @@ export default function MemberDashboard() {
                           </Button>
                         </div>
 
-                        {/* Zoom Meeting Schedule */}
                         <div className="rounded-xl border border-indigo-500/35 bg-indigo-500/5 p-3 space-y-2.5">
                           <p className="font-bold text-indigo-300">Zoom Meeting Schedule</p>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
