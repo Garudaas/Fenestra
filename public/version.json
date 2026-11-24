@@ -1,11 +1,19 @@
 {
-  "version": "V2.61",
-  "timestamp": "25 Nov 2026, 12:56 AM IST",
-  "formatted": "V2.61, 25 Nov 2026, 12:56 AM IST",
+  "version": "V2.62",
+  "timestamp": "25 Nov 2026, 01:59 AM IST",
+  "formatted": "V2.62, 25 Nov 2026, 01:59 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Track previous routes on navigation actions)",
+  "summary": "Minor technical update (Update src/pages/CalendarTab.tsx (Remove \"Post Class Event\" and \"Assign Task\" from Calendar))",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.62",
+      "timestamp": "25 Nov 2026, 01:59 AM IST",
+      "formatted": "V2.62, 25 Nov 2026, 01:59 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Update src/pages/CalendarTab.tsx (Remove \"Post Class Event\" and \"Assign Task\" from Calendar))",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.61",
       "timestamp": "25 Nov 2026, 12:56 AM IST",
@@ -196,14 +204,6 @@
       "formatted": "V2.38, 24 Nov 2026, 04:45 PM IST",
       "type": "minor",
       "summary": "Minor technical update (Enhance index.html with meta tags for social sharing)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.37",
-      "timestamp": "24 Nov 2026, 04:41 PM IST",
-      "formatted": "V2.37, 24 Nov 2026, 04:41 PM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Fix missing newline at end of taskAuditService.ts)",
       "requiresReinstall": false
     }
   ]
