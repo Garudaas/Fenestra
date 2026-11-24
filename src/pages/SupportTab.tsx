@@ -47,6 +47,8 @@ interface OpportunityItem {
   created_at: string
 }
 
+const WA_GROUPS_STORAGE_KEY = 'fenestrians_whatsapp_groups_v1'
+
 export default function SupportTab({ mode }: SupportTabProps) {
   const { user, isAdmin } = useAuth()
   const [searchParams] = useSearchParams()
@@ -55,13 +57,11 @@ export default function SupportTab({ mode }: SupportTabProps) {
   const resolvedSection: 'support' | 'opportunities' =
     mode ?? (searchParams.get('view') === 'opportunities' ? 'opportunities' : 'support')
 
-  // Family Support states
   const [requests, setRequests] = useState<SupportRequestItem[]>([])
   const [suppTitle, setSuppTitle] = useState('')
   const [suppDesc, setSuppDesc] = useState('')
   const [postingSupport, setPostingSupport] = useState(false)
 
-  // Batch Job, Internship & Referral Board states
   const [opportunities, setOpportunities] = useState<OpportunityItem[]>([])
   const [oppType, setOppType] = useState('Job')
   const [oppTitle, setOppTitle] = useState('')
@@ -97,6 +97,8 @@ export default function SupportTab({ mode }: SupportTabProps) {
       return
     }
     setPostingSupport(true)
+    const alertText = `${user.full_name} posted a support request: ${suppTitle.trim()} — ${suppDesc.trim()}`
+
     const { error } = await supabase.from('family_support_requests').insert([
       {
         member_id: user.id,
@@ -111,9 +113,24 @@ export default function SupportTab({ mode }: SupportTabProps) {
       await publishArchivedAlert({
         category: 'help_needed',
         shortTitle: 'Your friend Needs help',
-        fullMessage: `${user.full_name} posted a support request: ${suppTitle.trim()} — ${suppDesc.trim()}`,
+        fullMessage: alertText,
         needsHelpFlag: true,
       })
+
+      try {
+        await navigator.clipboard.writeText(alertText)
+      } catch {
+        // Ignore
+      }
+      try {
+        const waRaw = localStorage.getItem(WA_GROUPS_STORAGE_KEY)
+        const waObj = waRaw ? JSON.parse(waRaw) : null
+        if (waObj?.mainGroupUrlOrId && String(waObj.mainGroupUrlOrId).startsWith('http')) {
+          window.open(waObj.mainGroupUrlOrId, '_blank', 'noopener,noreferrer')
+        }
+      } catch {
+        // Ignore
+      }
     }
 
     setPostingSupport(false)
@@ -192,7 +209,7 @@ export default function SupportTab({ mode }: SupportTabProps) {
               Family &amp; Batch Support Requests
             </CardTitle>
             <CardDescription className="text-xs">
-              Post medical, educational, or emergency assistance requests for immediate batch support.
+              Post medical, educational, or emergency assistance requests for immediate batch support and WhatsApp group alert.
             </CardDescription>
           </CardHeader>
 
@@ -275,7 +292,7 @@ export default function SupportTab({ mode }: SupportTabProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-primary">
               <Briefcase className="h-5 w-5" />
-              Batch Job, Internship &amp; Referral Board
+              Job opportunities and employee referral Board
             </CardTitle>
             <CardDescription className="text-xs">
               Share career openings, freelance consulting projects, internships, or company referrals for classmates and student mentees.
