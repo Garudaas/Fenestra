@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.38",
-  "timestamp": "24 Nov 2026, 04:45 PM IST",
-  "formatted": "V2.38, 24 Nov 2026, 04:45 PM IST",
+  "version": "V2.39",
+  "timestamp": "24 Nov 2026, 09:59 PM IST",
+  "formatted": "V2.39, 24 Nov 2026, 09:59 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Enhance index.html with meta tags for social sharing)",
+  "summary": "Minor general update (Button appearance or behavior updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.39",
+      "timestamp": "24 Nov 2026, 09:59 PM IST",
+      "formatted": "V2.39, 24 Nov 2026, 09:59 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Button appearance or behavior updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.38",
       "timestamp": "24 Nov 2026, 04:45 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.15, 23 Nov 2026, 10:07 PM IST",
       "type": "minor",
       "summary": "Minor general update (Delete public/manifest.webmanifest)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.14",
-      "timestamp": "23 Nov 2026, 10:06 PM IST",
-      "formatted": "V2.14, 23 Nov 2026, 10:06 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Update manifest.json with new network details)",
       "requiresReinstall": false
     }
   ]
