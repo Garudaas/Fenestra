@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { updateAppIconBadge } from '@/lib/offlineCache'
+import { recordPreviousRoute } from '@/lib/navigationState'
 import {
   fetchUserNotifications,
   clearChatNotifications,
@@ -72,7 +73,6 @@ export default function NotificationQuickBar() {
     setUnreadCallCount(callTotal)
     setUnreadAlertsCount(totalAlertBadge)
 
-    // Sync total unread alerts + pending tasks onto the phone/desktop app icon badge
     const pendingTaskCount = pendingTasksRes.count || 0
     updateAppIconBadge(Math.max(totalAlertBadge, pendingTaskCount))
 
@@ -97,12 +97,13 @@ export default function NotificationQuickBar() {
 
         window.dispatchEvent(new CustomEvent('fenestrians-open-snoozed', { detail: item }))
         if (location.pathname !== '/notifications') {
+          recordPreviousRoute(`${location.pathname}${location.search}`)
           navigate('/notifications')
         }
         break
       }
     }
-  }, [user, location.pathname, navigate])
+  }, [user, location.pathname, location.search, navigate])
 
   useEffect(() => {
     if (!user || user.is_placeholder) {
@@ -267,7 +268,10 @@ export default function NotificationQuickBar() {
 
       <button
         type="button"
-        onClick={() => navigate('/notifications')}
+        onClick={() => {
+          recordPreviousRoute(`${location.pathname}${location.search}`)
+          navigate('/notifications')
+        }}
         title="Notifications"
         className="relative flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/25 transition-all"
       >
@@ -285,6 +289,7 @@ export default function NotificationQuickBar() {
         onClick={async () => {
           await clearChatNotifications(user.id)
           setUnreadChatCount(0)
+          recordPreviousRoute(`${location.pathname}${location.search}`)
           navigate('/dashboard?tab=chat')
         }}
         title="Chat"
@@ -300,7 +305,10 @@ export default function NotificationQuickBar() {
 
       <button
         type="button"
-        onClick={() => navigate('/dashboard?tab=calls')}
+        onClick={() => {
+          recordPreviousRoute(`${location.pathname}${location.search}`)
+          navigate('/dashboard?tab=calls')
+        }}
         title="Voice & Video Calls"
         className="relative flex items-center gap-1 rounded-full bg-muted/40 px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-all"
       >
