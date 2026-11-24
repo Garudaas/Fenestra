@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.69",
-  "timestamp": "25 Nov 2026, 04:41 AM IST",
-  "formatted": "V2.69, 25 Nov 2026, 04:41 AM IST",
+  "version": "V2.70",
+  "timestamp": "25 Nov 2026, 04:43 AM IST",
+  "formatted": "V2.70, 25 Nov 2026, 04:43 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Treasury Governance & QR Upload (TreasuryPage.tsx))",
+  "summary": "Minor technical update (Executive Committee Election & President Guardrails (AlumniAssociationHome.tsx))",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.70",
+      "timestamp": "25 Nov 2026, 04:43 AM IST",
+      "formatted": "V2.70, 25 Nov 2026, 04:43 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Executive Committee Election & President Guardrails (AlumniAssociationHome.tsx))",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.69",
       "timestamp": "25 Nov 2026, 04:41 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.46, 24 Nov 2026, 11:46 PM IST",
       "type": "minor",
       "summary": "Minor general update (Implement navigation state management functions)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.45",
-      "timestamp": "24 Nov 2026, 11:16 PM IST",
-      "formatted": "V2.45, 24 Nov 2026, 11:16 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Association page)",
       "requiresReinstall": false
     }
   ]
