@@ -71,6 +71,7 @@ export default function SettingsTab() {
   // 3. App Installation & Updates
   const [latestVersion, setLatestVersion] = useState<AppVersionData>(APP_VERSION_INFO)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [copiedAppLink, setCopiedAppLink] = useState(false)
 
   // 4. Invite New Member
   const [inviteName, setInviteName] = useState('')
@@ -93,6 +94,11 @@ export default function SettingsTab() {
     () => localStorage.getItem('fenestrians_default_video_room') || 'Main-Room'
   )
   const [savedMediaPrefs, setSavedMediaPrefs] = useState(false)
+
+  const smartLauncherUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/app`
+      : 'https://fenestrians.salmaali.in/app'
 
   useEffect(() => {
     if (!user) return
@@ -149,6 +155,21 @@ export default function SettingsTab() {
   const handleDisableBiometrics = () => {
     removeBiometricCredential()
     setSavedBiometric(null)
+  }
+
+  const handleCopyAppLauncherLink = async () => {
+    try {
+      await navigator.clipboard.writeText(smartLauncherUrl)
+    } catch {
+      const tempInput = document.createElement('input')
+      tempInput.value = smartLauncherUrl
+      document.body.appendChild(tempInput)
+      tempInput.select()
+      document.execCommand('copy')
+      document.body.removeChild(tempInput)
+    }
+    setCopiedAppLink(true)
+    setTimeout(() => setCopiedAppLink(false), 2000)
   }
 
   const handleCheckUpdate = async () => {
@@ -370,7 +391,7 @@ export default function SettingsTab() {
         {renderAccordionHeader(
           'updates',
           'App Installation & Updates',
-          `Current Version: ${APP_VERSION_INFO.version} • Smart install & update tools`,
+          `Current Version: ${APP_VERSION_INFO.version} • Share install link & check updates`,
           <Download className="h-4 w-4" />
         )}
         {openSection === 'updates' && (
@@ -383,6 +404,44 @@ export default function SettingsTab() {
                 Latest Server Version: <strong className="text-foreground">{latestVersion.version}</strong>
               </p>
             </div>
+
+            {/* Copyable Smart App Launcher Link for Sharing */}
+            <div className="rounded-lg border border-primary/35 bg-primary/5 p-3 space-y-2">
+              <p className="font-semibold text-primary">
+                Share Smart App Launcher Link
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Copy and share this link in any message. Anyone who opens it will launch Fenestrians directly or be guided to install it on their device.
+              </p>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={smartLauncherUrl}
+                  onClick={handleCopyAppLauncherLink}
+                  title="Click to copy Smart App Launcher link"
+                  className="h-8 cursor-pointer font-mono text-[11px] bg-background/80"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleCopyAppLauncherLink}
+                  className="h-8 gold-gradient text-gold-foreground font-semibold gap-1.5 shrink-0"
+                >
+                  {copiedAppLink ? (
+                    <>
+                      <Check className="h-3.5 w-3.5" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" />
+                      Copy Link
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
