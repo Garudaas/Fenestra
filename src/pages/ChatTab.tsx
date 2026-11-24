@@ -197,7 +197,7 @@ export default function ChatTab() {
       if (m.id === user.id) continue
       if (lower.includes(`@${m.full_name.toLowerCase()}`)) {
         await publishArchivedAlert({
-          category: 'chat_mention',
+          category: 'member_message',
           shortTitle: `Mentioned by ${user.full_name}`,
           fullMessage: `${user.full_name} mentioned you in ${
             targetRoom === 'global' ? 'Batch Chat' : 'Direct Chat'
@@ -230,7 +230,7 @@ export default function ChatTab() {
     if (!error) {
       if (activeDmPartner && roomId.startsWith('DM-')) {
         await publishArchivedAlert({
-          category: 'direct_message',
+          category: 'member_message',
           shortTitle: `New DM from ${user.full_name}`,
           fullMessage: `${user.full_name}: ${trimmed}`,
           targetUserId: activeDmPartner.id,
