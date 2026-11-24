@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.65",
-  "timestamp": "25 Nov 2026, 02:05 AM IST",
-  "formatted": "V2.65, 25 Nov 2026, 02:05 AM IST",
+  "version": "V2.66",
+  "timestamp": "25 Nov 2026, 02:07 AM IST",
+  "formatted": "V2.66, 25 Nov 2026, 02:07 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor DirectoryTab component and update props)",
+  "summary": "Minor general update (Implement class event posting feature)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.66",
+      "timestamp": "25 Nov 2026, 02:07 AM IST",
+      "formatted": "V2.66, 25 Nov 2026, 02:07 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Implement class event posting feature)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.65",
       "timestamp": "25 Nov 2026, 02:05 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.42, 24 Nov 2026, 11:04 PM IST",
       "type": "minor",
       "summary": "Minor general update (Enhance MemberProfilePage with association role feature)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.41",
-      "timestamp": "24 Nov 2026, 11:02 PM IST",
-      "formatted": "V2.41, 24 Nov 2026, 11:02 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Add committee roles mapping and display logic)",
       "requiresReinstall": false
     }
   ]
