@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.48",
-  "timestamp": "24 Nov 2026, 11:49 PM IST",
-  "formatted": "V2.48, 24 Nov 2026, 11:49 PM IST",
+  "version": "V2.49",
+  "timestamp": "24 Nov 2026, 11:52 PM IST",
+  "formatted": "V2.49, 24 Nov 2026, 11:52 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Update src/pages/MemberDashboard.tsx)",
+  "summary": "Minor general update (Remove unused constant SCOPE_DASHBOARD_HUB)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.49",
+      "timestamp": "24 Nov 2026, 11:52 PM IST",
+      "formatted": "V2.49, 24 Nov 2026, 11:52 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Remove unused constant SCOPE_DASHBOARD_HUB)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.48",
       "timestamp": "24 Nov 2026, 11:49 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.25, 23 Nov 2026, 10:40 PM IST",
       "type": "minor",
       "summary": "Minor general update (Add admin audit log functionality to MaintenanceTab)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.24",
-      "timestamp": "23 Nov 2026, 10:39 PM IST",
-      "formatted": "V2.24, 23 Nov 2026, 10:39 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Chat and calling screen updated)",
       "requiresReinstall": false
     }
   ]
