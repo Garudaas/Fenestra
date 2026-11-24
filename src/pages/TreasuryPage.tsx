@@ -2,8 +2,18 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { formatFullDate, formatISTDateTime } from '@/lib/formatters'
-import { checkCanManageTreasury, resolveOfficerDisplayName } from '@/lib/taskAuditService'
+import { formatFullDate, formatISTDateTime, cleanPhoneNumber } from '@/lib/formatters'
+import {
+  checkCanManageTreasury,
+  checkIsOfficeBearer,
+  resolveOfficerDisplayName,
+} from '@/lib/taskAuditService'
+import {
+  generateReceiptPdfBlob,
+  triggerPdfDownload,
+  type TreasuryReceiptData,
+} from '@/lib/receiptGenerator'
+import { publishArchivedAlert } from '@/lib/notificationService'
 import { exportRowsToCSV, openPrintableReport } from '@/lib/reportExporter'
 import SmartDateInput from '@/components/shared/SmartDateInput'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -29,6 +39,8 @@ import {
   Clock,
   UserCheck,
   Filter,
+  Download,
+  FileText,
 } from 'lucide-react'
 
 export const TREASURY_CATEGORIES = [
@@ -55,6 +67,8 @@ interface TreasuryTransaction {
   reference_no: string | null
   note: string | null
   entry_date: string
+  receipt_number: string | null
+  receipt_url: string | null
   recorded_by_id: number | null
   recorded_by_name: string | null
   updated_by_name: string | null
@@ -82,6 +96,13 @@ interface AccountInfoRow {
   updated_at: string | null
 }
 
+interface MemberDirectoryBasic {
+  id: number
+  full_name: string
+  whatsapp_number: string | null
+  contact_number: string | null
+}
+
 export default function TreasuryPage() {
   const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
@@ -89,8 +110,9 @@ export default function TreasuryPage() {
   const userIsAdmin = Boolean(isAdmin || user?.is_admin)
 
   const [canManageTreasury, setCanManageTreasury] = useState(userIsAdmin)
+  const [isOfficeBearer, setIsOfficeBearer] = useState(userIsAdmin)
   const [officerLabel, setOfficerLabel] = useState<string>('')
-  const [members, setMembers] = useState<Array<{ id: number; full_name: string }>>([])
+  const [members, setMembers] = useState<MemberDirectoryBasic[]>([])
   const [transactions, setTransactions] = useState<TreasuryTransaction[]>([])
   const [budgets, setBudgets] = useState<CategoryBudgetRow[]>([])
   const [accountInfo, setAccountInfo] = useState<AccountInfoRow>({
@@ -108,7 +130,7 @@ export default function TreasuryPage() {
   const [loading, setLoading] = useState(true)
   const [statusBanner, setStatusBanner] = useState('')
 
-  // Account Info Edit Modal / Inline State (Treasurer Only)
+  // Account Info Edit State (Treasurer Only)
   const [editingAccount, setEditingAccount] = useState(false)
   const [accHolder, setAccHolder] = useState('')
   const [accBank, setAccBank] = useState('')
@@ -124,7 +146,7 @@ export default function TreasuryPage() {
   const [budgetInputNotes, setBudgetInputNotes] = useState('')
   const [savingBudget, setSavingBudget] = useState(false)
 
-  // Transaction Entry Form State (Treasurer Only: 'none' | 'contribution' | 'expense')
+  // Transaction Entry Form State (Treasurer Only)
   const [activeEntryForm, setActiveEntryForm] = useState<'none' | 'contribution' | 'expense'>('none')
   const [editingTxId, setEditingTxId] = useState<number | null>(null)
   const [txCategory, setTxCategory] = useState<string>(TREASURY_CATEGORIES[0])
@@ -138,7 +160,7 @@ export default function TreasuryPage() {
   const [txNote, setTxNote] = useState('')
   const [savingTx, setSavingTx] = useState(false)
 
-  // Ledger Filter States (Available to all members)
+  // Ledger Filter States
   const [filterCategory, setFilterCategory] = useState<string>('ALL')
   const [filterType, setFilterType] = useState<'ALL' | 'contribution' | 'expense'>('ALL')
   const [filterSearch, setFilterSearch] = useState('')
@@ -177,14 +199,22 @@ export default function TreasuryPage() {
   const showToast = (msg: string) => {
     setStatusBanner(msg)
     window.scrollTo({ top: 0, behavior: 'smooth' })
-    setTimeout(() => setStatusBanner(''), 4000)
+    setTimeout(() => setStatusBanner(''), 5000)
   }
 
   const loadTreasuryData = async () => {
     if (!user) return
     setLoading(true)
 
-    const [txRes, budgetRes, accRes, membersRes, treasuryCheck, titledName] = await Promise.all([
+    const [
+      txRes,
+      budgetRes,
+      accRes,
+      membersRes,
+      treasuryCheck,
+      officeBearerCheck,
+      titledName,
+    ] = await Promise.all([
       supabase
         .from('association_transactions')
         .select('*')
@@ -194,19 +224,21 @@ export default function TreasuryPage() {
       supabase.from('treasury_account_info').select('*').eq('id', 1).maybeSingle(),
       supabase
         .from('alumni')
-        .select('id, full_name')
+        .select('id, full_name, whatsapp_number, contact_number')
         .eq('is_placeholder', false)
         .neq('full_name', 'System Administrator')
         .order('full_name', { ascending: true }),
       checkCanManageTreasury(user.id),
+      checkIsOfficeBearer(user.id),
       resolveOfficerDisplayName(user.id, user.full_name),
     ])
 
     setTransactions((txRes.data ?? []) as TreasuryTransaction[])
     setBudgets((budgetRes.data ?? []) as CategoryBudgetRow[])
-    setMembers((membersRes.data ?? []) as Array<{ id: number; full_name: string }>)
+    setMembers((membersRes.data ?? []) as MemberDirectoryBasic[])
     setOfficerLabel(titledName)
     setCanManageTreasury(Boolean(userIsAdmin || treasuryCheck.canManageTreasury))
+    setIsOfficeBearer(Boolean(userIsAdmin || officeBearerCheck))
 
     if (accRes.data) {
       setAccountInfo(accRes.data as AccountInfoRow)
@@ -226,6 +258,44 @@ export default function TreasuryPage() {
         details,
       },
     ])
+  }
+
+  // Build Receipt Data helper for any contribution transaction
+  const buildReceiptDataFromTx = (tx: TreasuryTransaction): TreasuryReceiptData => {
+    const receiptNo = tx.receipt_number || `FEN-RCP-${String(tx.id).padStart(4, '0')}`
+    const catDisplay =
+      tx.category === 'Others' && tx.custom_category
+        ? `Others (${tx.custom_category})`
+        : tx.category || 'Association Fund'
+    const bankSummary = [
+      accountInfo.bank_name,
+      accountInfo.account_number ? `A/C: ${accountInfo.account_number}` : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+
+    return {
+      receiptNumber: receiptNo,
+      entryDate: tx.entry_date,
+      createdAtIso: tx.created_at,
+      donorName: tx.person_name,
+      categoryDisplay: catDisplay,
+      amount: Number(tx.amount || 0),
+      paymentMode: tx.payment_mode || 'UPI / Bank Transfer',
+      referenceNo: tx.reference_no,
+      note: tx.note,
+      loggedByName: tx.recorded_by_name || 'Treasurer',
+      associationName: accountInfo.account_holder_name || 'Fenestrians Alumni Association',
+      bankSummary,
+      upiId: accountInfo.upi_id,
+    }
+  }
+
+  // Generates & downloads the printable PDF receipt anytime
+  const handleDownloadTransactionReceipt = (tx: TreasuryTransaction) => {
+    const receiptData = buildReceiptDataFromTx(tx)
+    const pdfBlob = generateReceiptPdfBlob(receiptData)
+    triggerPdfDownload(pdfBlob, `${receiptData.receiptNumber}_${tx.person_name.replace(/\s+/g, '_')}.pdf`)
   }
 
   // Category-by-Category Accounting Summary
@@ -288,6 +358,7 @@ export default function TreasuryPage() {
       if (q) {
         const hay = [
           tx.person_name,
+          tx.receipt_number,
           cat,
           tx.custom_category,
           tx.reference_no,
@@ -457,7 +528,6 @@ export default function TreasuryPage() {
       return
     }
 
-    // Warn Treasurer if Expense exceeds available funds in that category
     if (activeEntryForm === 'expense' && !editingTxId) {
       const catStat = categorySummaries.find(c => c.category === txCategory)
       if (catStat && amt > catStat.balance) {
@@ -476,14 +546,21 @@ export default function TreasuryPage() {
     const actor = officerLabel || user.full_name
     const nowIso = new Date().toISOString()
 
+    // Resolve member record either by dropdown ID or exact name match
+    const matchedDonor = txMemberId
+      ? members.find(m => String(m.id) === txMemberId)
+      : members.find(
+          m => m.full_name.trim().toLowerCase() === txPersonName.trim().toLowerCase()
+        )
+
     if (editingTxId) {
-      const { error } = await supabase
+      const { data: updatedRow, error } = await supabase
         .from('association_transactions')
         .update({
           entry_type: activeEntryForm,
           category: txCategory,
           custom_category: txCategory === 'Others' ? txCustomCategory.trim() : null,
-          member_id: txMemberId ? Number(txMemberId) : null,
+          member_id: matchedDonor ? matchedDonor.id : null,
           person_name: txPersonName.trim(),
           amount: amt,
           entry_date: txDate || nowIso.slice(0, 10),
@@ -494,6 +571,31 @@ export default function TreasuryPage() {
           updated_at: nowIso,
         })
         .eq('id', editingTxId)
+        .select('*')
+        .single()
+
+      if (!error && updatedRow && activeEntryForm === 'contribution') {
+        const txTyped = updatedRow as TreasuryTransaction
+        const receiptNo = txTyped.receipt_number || `FEN-RCP-${String(txTyped.id).padStart(4, '0')}`
+        const pdfBlob = generateReceiptPdfBlob(
+          buildReceiptDataFromTx({ ...txTyped, receipt_number: receiptNo })
+        )
+        const storagePath = `treasury_receipts/${receiptNo}.pdf`
+        const { error: upErr } = await supabase.storage
+          .from('fenestrians-media')
+          .upload(storagePath, pdfBlob, { contentType: 'application/pdf', upsert: true })
+        if (!upErr) {
+          const { data: pubData } = supabase.storage
+            .from('fenestrians-media')
+            .getPublicUrl(storagePath)
+          if (pubData?.publicUrl) {
+            await supabase
+              .from('association_transactions')
+              .update({ receipt_number: receiptNo, receipt_url: pubData.publicUrl })
+              .eq('id', txTyped.id)
+          }
+        }
+      }
 
       setSavingTx(false)
       if (error) {
@@ -506,30 +608,107 @@ export default function TreasuryPage() {
         txCategory,
         `Edited ${activeEntryForm === 'contribution' ? 'Fund Received' : 'Expense'} of ₹${amt.toLocaleString('en-IN')} (${txPersonName.trim()}) under "${txCategory}"`
       )
-      showToast('Treasury entry updated!')
+      showToast('Treasury entry & receipt updated!')
     } else {
-      const { error } = await supabase.from('association_transactions').insert([
-        {
-          entry_type: activeEntryForm,
-          category: txCategory,
-          custom_category: txCategory === 'Others' ? txCustomCategory.trim() : null,
-          member_id: txMemberId ? Number(txMemberId) : null,
-          person_name: txPersonName.trim(),
-          amount: amt,
-          entry_date: txDate || nowIso.slice(0, 10),
-          payment_mode: txPaymentMode,
-          reference_no: txRefNo.trim() || null,
-          note: txNote.trim() || null,
-          recorded_by_id: user.id,
-          recorded_by_name: actor,
-        },
-      ])
+      const { data: insertedRow, error } = await supabase
+        .from('association_transactions')
+        .insert([
+          {
+            entry_type: activeEntryForm,
+            category: txCategory,
+            custom_category: txCategory === 'Others' ? txCustomCategory.trim() : null,
+            member_id: matchedDonor ? matchedDonor.id : null,
+            person_name: txPersonName.trim(),
+            amount: amt,
+            entry_date: txDate || nowIso.slice(0, 10),
+            payment_mode: txPaymentMode,
+            reference_no: txRefNo.trim() || null,
+            note: txNote.trim() || null,
+            recorded_by_id: user.id,
+            recorded_by_name: actor,
+          },
+        ])
+        .select('*')
+        .single()
 
-      setSavingTx(false)
-      if (error) {
-        alert('Error saving entry: ' + error.message)
+      if (error || !insertedRow) {
+        setSavingTx(false)
+        alert('Error saving entry: ' + (error?.message || 'Unexpected error'))
         return
       }
+
+      const txTyped = insertedRow as TreasuryTransaction
+      const catDisplay =
+        txCategory === 'Others' ? `Others (${txCustomCategory.trim()})` : txCategory
+
+      // When Fund Received is logged: generate PDF receipt, upload it, and send via WhatsApp
+      if (activeEntryForm === 'contribution') {
+        const receiptNo = `FEN-RCP-${String(txTyped.id).padStart(4, '0')}`
+        const receiptData = buildReceiptDataFromTx({
+          ...txTyped,
+          receipt_number: receiptNo,
+        })
+        const pdfBlob = generateReceiptPdfBlob(receiptData)
+        const storagePath = `treasury_receipts/${receiptNo}.pdf`
+
+        let publicReceiptUrl = ''
+        const { error: uploadErr } = await supabase.storage
+          .from('fenestrians-media')
+          .upload(storagePath, pdfBlob, {
+            contentType: 'application/pdf',
+            upsert: true,
+          })
+
+        if (!uploadErr) {
+          const { data: pubData } = supabase.storage
+            .from('fenestrians-media')
+            .getPublicUrl(storagePath)
+          publicReceiptUrl = pubData?.publicUrl || ''
+        }
+
+        await supabase
+          .from('association_transactions')
+          .update({
+            receipt_number: receiptNo,
+            receipt_url: publicReceiptUrl || null,
+          })
+          .eq('id', txTyped.id)
+
+        const receiptWhatsAppText = [
+          `*${accountInfo.account_holder_name || 'Fenestrians Alumni Association'} — Official Receipt*`,
+          `Receipt No: *${receiptNo}*`,
+          `Received From: *${txPersonName.trim()}*`,
+          `Amount Received: *₹${amt.toLocaleString('en-IN')}/-*`,
+          `Towards: *${catDisplay}*`,
+          `Date: ${formatFullDate(txTyped.entry_date)}`,
+          txRefNo.trim() ? `Ref No: ${txRefNo.trim()}` : '',
+          `Logged By: ${actor} (${formatISTDateTime(txTyped.created_at)})`,
+          publicReceiptUrl ? `\nPrintable PDF Receipt:\n${publicReceiptUrl}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n')
+
+        // 1. Send in-app alert + Push + WhatsApp Cloud API message if matched to a member
+        if (matchedDonor) {
+          await publishArchivedAlert({
+            category: 'member_message',
+            shortTitle: `Receipt ${receiptNo} (₹${amt.toLocaleString('en-IN')})`,
+            fullMessage: receiptWhatsAppText,
+            targetUserId: matchedDonor.id,
+          })
+        }
+
+        // 2. Open pre-filled WhatsApp message with printable receipt link to the sender
+        const donorRawPhone =
+          matchedDonor?.whatsapp_number || matchedDonor?.contact_number || ''
+        const donorDigits = cleanPhoneNumber(donorRawPhone).replace(/\D/g, '')
+        const waUrl = donorDigits
+          ? `https://wa.me/${donorDigits}?text=${encodeURIComponent(receiptWhatsAppText)}`
+          : `https://wa.me/?text=${encodeURIComponent(receiptWhatsAppText)}`
+        window.open(waUrl, '_blank', 'noopener,noreferrer')
+      }
+
+      setSavingTx(false)
 
       await recordAuditLog(
         activeEntryForm === 'contribution' ? 'treasury_fund_received' : 'treasury_expense_done',
@@ -538,13 +717,12 @@ export default function TreasuryPage() {
           activeEntryForm === 'contribution'
             ? `Fund Received from ${txPersonName.trim()}`
             : `Expense paid to ${txPersonName.trim()}`
-        } of ₹${amt.toLocaleString('en-IN')} towards "${
-          txCategory === 'Others' ? `Others (${txCustomCategory.trim()})` : txCategory
-        }"`
+        } of ₹${amt.toLocaleString('en-IN')} towards "${catDisplay}"`
       )
+
       showToast(
         activeEntryForm === 'contribution'
-          ? `Fund Received (₹${amt.toLocaleString('en-IN')}) logged under ${txCategory}!`
+          ? `Fund Received (₹${amt.toLocaleString('en-IN')}) logged & printable receipt sent via WhatsApp!`
           : `Expense (₹${amt.toLocaleString('en-IN')}) logged under ${txCategory}!`
       )
     }
@@ -580,6 +758,7 @@ export default function TreasuryPage() {
   // --- CSV & PRINTABLE REPORTS ---
   const buildReportRows = () => {
     const headers = [
+      'Receipt No.',
       'Entry Date',
       'Type',
       'Towards / Category',
@@ -596,6 +775,9 @@ export default function TreasuryPage() {
           ? `Others (${tx.custom_category})`
           : tx.category || 'Association Fund'
       return [
+        tx.entry_type === 'contribution'
+          ? tx.receipt_number || `FEN-RCP-${String(tx.id).padStart(4, '0')}`
+          : '-',
         formatFullDate(tx.entry_date),
         tx.entry_type === 'contribution' ? 'FUND RECEIVED (+)' : 'EXPENSE (-)',
         catDisplay,
@@ -633,10 +815,11 @@ export default function TreasuryPage() {
 
   if (!user) return null
 
+  const canDownloadAnyReceipt = Boolean(canManageTreasury || isOfficeBearer)
+
   return (
     <div className="min-h-svh bg-background p-4 sm:p-6 pb-28">
       <div className="mx-auto max-w-6xl space-y-5">
-        {/* Top Back Navigation */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button
             type="button"
@@ -677,7 +860,7 @@ export default function TreasuryPage() {
                   Fenestrians Treasury &amp; Accounts
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Official Association Bank Details, Category-Wise Funds, Budgets &amp; Audited Transaction Ledger
+                  Official Association Bank Details, Category-Wise Funds, Budgets, Printable Receipts &amp; Audited Transaction Ledger
                 </CardDescription>
               </div>
 
@@ -720,7 +903,6 @@ export default function TreasuryPage() {
               </div>
             </div>
 
-            {/* TREASURER PRIMARY ACTION BUTTONS */}
             {canManageTreasury && (
               <div className="flex flex-wrap gap-2.5 pt-3 border-t border-border/30">
                 <Button
@@ -752,7 +934,6 @@ export default function TreasuryPage() {
             )}
           </CardHeader>
 
-          {/* OVERALL FINANCIAL SUMMARY */}
           <CardContent className="pt-0">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-center">
@@ -786,7 +967,7 @@ export default function TreasuryPage() {
           </CardContent>
         </Card>
 
-        {/* TREASURER ENTRY FORM: LOG FUND RECEIVED OR EXPENSE DONE */}
+        {/* TREASURER ENTRY FORM */}
         {canManageTreasury && activeEntryForm !== 'none' && (
           <Card
             className={`border-2 ${
@@ -817,7 +998,6 @@ export default function TreasuryPage() {
 
             <CardContent className="space-y-3 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Received From / Paid To Member Selector */}
                 <div>
                   <Label>
                     {activeEntryForm === 'contribution'
@@ -843,7 +1023,6 @@ export default function TreasuryPage() {
                   </select>
                 </div>
 
-                {/* Received From / Paid To Text Name */}
                 <div>
                   <Label>
                     {activeEntryForm === 'contribution'
@@ -862,7 +1041,6 @@ export default function TreasuryPage() {
                   />
                 </div>
 
-                {/* Towards Category */}
                 <div>
                   <Label>
                     {activeEntryForm === 'contribution'
@@ -891,7 +1069,6 @@ export default function TreasuryPage() {
                 </div>
               </div>
 
-              {/* Custom Specification when "Others" is chosen */}
               {txCategory === 'Others' && (
                 <div>
                   <Label className="text-primary">Specify “Others” Category / Purpose *</Label>
@@ -959,7 +1136,9 @@ export default function TreasuryPage() {
 
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                 <span className="text-[11px] text-muted-foreground">
-                  Will be logged by <strong className="text-primary">{officerLabel}</strong> with current IST timestamp.
+                  {activeEntryForm === 'contribution'
+                    ? 'A printable PDF receipt will be generated & sent to the donor via WhatsApp.'
+                    : `Will be logged by ${officerLabel} with current IST timestamp.`}
                 </span>
 
                 <div className="flex gap-2">
@@ -980,11 +1159,11 @@ export default function TreasuryPage() {
                     className="gold-gradient text-gold-foreground font-bold text-xs"
                   >
                     {savingTx
-                      ? 'Saving...'
+                      ? 'Saving & Generating Receipt...'
                       : editingTxId
                       ? 'Update Entry'
                       : activeEntryForm === 'contribution'
-                      ? 'Save Fund Received'
+                      ? 'Save & Send Receipt via WhatsApp'
                       : 'Save Expense Entry'}
                   </Button>
                 </div>
@@ -1246,7 +1425,6 @@ export default function TreasuryPage() {
                       </div>
                     </div>
 
-                    {/* Inline Budget Editor for Treasurer */}
                     {canManageTreasury && editingBudgetCategory === cat.category && (
                       <div className="rounded-lg border border-primary/40 bg-primary/5 p-2.5 space-y-2">
                         <p className="font-bold text-primary text-[11px]">
@@ -1297,17 +1475,21 @@ export default function TreasuryPage() {
           </CardContent>
         </Card>
 
-        {/* COMPLETE AUDITED TRANSACTION LOG (WHO LOGGED IT & EXACT TIME IN IST) */}
+        {/* COMPLETE AUDITED TRANSACTION LOG (CLICK YOUR NAME OR OFFICE BEARER BUTTON TO DOWNLOAD RECEIPT) */}
         <Card className="border-border/40 bg-card/75 backdrop-blur-sm">
           <CardHeader className="pb-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <CardTitle className="flex items-center gap-2 text-base text-primary">
-                <Filter className="h-5 w-5" />
-                Audited Receipts &amp; Expenses Log ({filteredTransactions.length})
-              </CardTitle>
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base text-primary">
+                  <Filter className="h-5 w-5" />
+                  Audited Receipts &amp; Expenses Log ({filteredTransactions.length})
+                </CardTitle>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Members can click on their own name in any Fund Received entry to download their printable PDF receipt anytime.
+                </p>
+              </div>
             </div>
 
-            {/* Filters */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
               <select
                 value={filterCategory}
@@ -1337,7 +1519,7 @@ export default function TreasuryPage() {
               <Input
                 value={filterSearch}
                 onChange={e => setFilterSearch(e.target.value)}
-                placeholder="Search donor, payee, ref #, or logger..."
+                placeholder="Search donor, receipt #, payee, ref #, or logger..."
                 className="h-8 text-xs"
               />
             </div>
@@ -1355,10 +1537,18 @@ export default function TreasuryPage() {
             ) : (
               filteredTransactions.map(tx => {
                 const isReceipt = tx.entry_type === 'contribution'
+                const receiptCode =
+                  tx.receipt_number || `FEN-RCP-${String(tx.id).padStart(4, '0')}`
                 const catDisplay =
                   tx.category === 'Others' && tx.custom_category
                     ? `Others: ${tx.custom_category}`
                     : tx.category || 'Association Fund'
+
+                const isCurrentUsersReceipt =
+                  isReceipt &&
+                  (tx.member_id === user.id ||
+                    tx.person_name.trim().toLowerCase() ===
+                      user.full_name.trim().toLowerCase())
 
                 return (
                   <div
@@ -1374,9 +1564,27 @@ export default function TreasuryPage() {
                               : 'bg-rose-600/25 text-rose-300 border border-rose-500/40 text-[10px]'
                           }
                         >
-                          {isReceipt ? 'FUND RECEIVED' : 'EXPENSE'}
+                          {isReceipt ? `RECEIPT • ${receiptCode}` : 'EXPENSE'}
                         </Badge>
-                        <span className="font-bold text-sm text-foreground">{tx.person_name}</span>
+
+                        {/* Any member can click their own name in Funds Received to download their receipt anytime */}
+                        {isCurrentUsersReceipt ? (
+                          <button
+                            type="button"
+                            title="Click your name to download your printable PDF receipt"
+                            onClick={() => handleDownloadTransactionReceipt(tx)}
+                            className="inline-flex items-center gap-1.5 font-bold text-sm text-primary underline decoration-dotted underline-offset-4 hover:text-emerald-300 transition-colors text-left"
+                          >
+                            <span>{tx.person_name}</span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary no-underline">
+                              <Download className="h-2.5 w-2.5" />
+                              Download My Receipt
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="font-bold text-sm text-foreground">{tx.person_name}</span>
+                        )}
+
                         <Badge variant="outline" className="border-primary/40 text-primary text-[10px]">
                           Towards: {catDisplay}
                         </Badge>
@@ -1396,15 +1604,20 @@ export default function TreasuryPage() {
                         <p className="text-foreground/90 leading-snug">{tx.note}</p>
                       )}
 
-                      {/* Audit Trail: Who Logged It and At What Time */}
                       <div className="flex flex-wrap items-center gap-3 pt-1 text-[10px] text-muted-foreground border-t border-border/20">
                         <span className="inline-flex items-center gap-1">
                           <UserCheck className="h-3 w-3 text-primary" />
-                          Logged by: <strong className="text-foreground">{tx.recorded_by_name || 'Treasurer'}</strong>
+                          Logged by:{' '}
+                          <strong className="text-foreground">
+                            {tx.recorded_by_name || 'Treasurer'}
+                          </strong>
                         </span>
                         <span className="inline-flex items-center gap-1">
                           <Clock className="h-3 w-3 text-primary" />
-                          Logged at: <strong className="text-foreground">{formatISTDateTime(tx.created_at)}</strong>
+                          Logged at:{' '}
+                          <strong className="text-foreground">
+                            {formatISTDateTime(tx.created_at)}
+                          </strong>
                         </span>
                         {tx.updated_by_name && tx.updated_at && (
                           <span>
@@ -1422,6 +1635,21 @@ export default function TreasuryPage() {
                       >
                         {isReceipt ? '+' : '-'}₹{Number(tx.amount).toLocaleString('en-IN')}
                       </span>
+
+                      {/* Treasurer / Office Bearers can download any receipt anytime */}
+                      {isReceipt && canDownloadAnyReceipt && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          title="Download Printable PDF Receipt"
+                          onClick={() => handleDownloadTransactionReceipt(tx)}
+                          className="h-7 px-2 text-[11px] gap-1 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/15"
+                        >
+                          <FileText className="h-3 w-3" />
+                          Receipt
+                        </Button>
+                      )}
 
                       {canManageTreasury && (
                         <div className="flex items-center gap-1">
