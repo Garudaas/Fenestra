@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.52",
-  "timestamp": "24 Nov 2026, 11:59 PM IST",
-  "formatted": "V2.52, 24 Nov 2026, 11:59 PM IST",
+  "version": "V2.53",
+  "timestamp": "25 Nov 2026, 12:07 AM IST",
+  "formatted": "V2.53, 25 Nov 2026, 12:07 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Remove FundItem interface and funds state)",
+  "summary": "Minor general update (Remove isAdmin check from PersistentSessionRedirect)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.53",
+      "timestamp": "25 Nov 2026, 12:07 AM IST",
+      "formatted": "V2.53, 25 Nov 2026, 12:07 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Remove isAdmin check from PersistentSessionRedirect)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.52",
       "timestamp": "24 Nov 2026, 11:59 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.29, 24 Nov 2026, 03:57 PM IST",
       "type": "minor",
       "summary": "Minor technical update (Add TreasuryPage route to App component)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.28",
-      "timestamp": "24 Nov 2026, 03:55 PM IST",
-      "formatted": "V2.28, 24 Nov 2026, 03:55 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Create Treasury Page)",
       "requiresReinstall": false
     }
   ]
