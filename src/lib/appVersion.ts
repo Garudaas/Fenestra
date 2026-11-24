@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.74",
+  "version": "V2.75",
   "timestamp": "25 Nov 2026, 04:58 AM IST",
-  "formatted": "V2.74, 25 Nov 2026, 04:58 AM IST",
+  "formatted": "V2.75, 25 Nov 2026, 04:58 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement task editing and withdrawal features)",
+  "summary": "Minor general update (Update navigation logic in NotificationsPage)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.75",
+      "timestamp": "25 Nov 2026, 04:58 AM IST",
+      "formatted": "V2.75, 25 Nov 2026, 04:58 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Update navigation logic in NotificationsPage)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.74",
       "timestamp": "25 Nov 2026, 04:58 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.51, 24 Nov 2026, 11:56 PM IST",
       "type": "minor",
       "summary": "Minor technical update (Update src/pages/AlumniAssociationHome.tsx for Tabs behaviour)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.50",
-      "timestamp": "24 Nov 2026, 11:55 PM IST",
-      "formatted": "V2.50, 24 Nov 2026, 11:55 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
       "requiresReinstall": false
     }
   ]
