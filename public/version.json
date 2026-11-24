@@ -1,11 +1,19 @@
 {
-  "version": "V2.31",
-  "timestamp": "24 Nov 2026, 04:01 PM IST",
-  "formatted": "V2.31, 24 Nov 2026, 04:01 PM IST",
+  "version": "V2.32",
+  "timestamp": "24 Nov 2026, 04:02 PM IST",
+  "formatted": "V2.32, 24 Nov 2026, 04:02 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (ink the Treasury Tab in src/pages/AlumniAssociationHome.tsx to /treasury)",
+  "summary": "Minor technical update (Link the Treasury Tab in src/pages/AlumniAssociationHome.tsx to /treasury)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.32",
+      "timestamp": "24 Nov 2026, 04:02 PM IST",
+      "formatted": "V2.32, 24 Nov 2026, 04:02 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Link the Treasury Tab in src/pages/AlumniAssociationHome.tsx to /treasury)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.31",
       "timestamp": "24 Nov 2026, 04:01 PM IST",
@@ -196,14 +204,6 @@
       "formatted": "V2.08, 23 Nov 2026, 10:00 PM IST",
       "type": "minor",
       "summary": "Minor general update (Login and registration screen updated)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.07",
-      "timestamp": "23 Nov 2026, 09:58 PM IST",
-      "formatted": "V2.07, 23 Nov 2026, 09:58 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Add web app manifest for Fenestrians Network)",
       "requiresReinstall": false
     }
   ]
