@@ -89,6 +89,7 @@ export function App() {
           <Route path="/roster" element={<MemberDashboard />} />
           <Route path="/emergency" element={<MemberDashboard />} />
           <Route path="/activities" element={<MemberDashboard />} />
+          <Route path="/tasks" element={<MemberDashboard />} />
           <Route path="/drive" element={<MemberDashboard />} />
           <Route path="/settings-maintenance" element={<MemberDashboard />} />
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
