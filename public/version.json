@@ -1,11 +1,19 @@
 {
-  "version": "V2.67",
-  "timestamp": "25 Nov 2026, 04:33 AM IST",
-  "formatted": "V2.67, 25 Nov 2026, 04:33 AM IST",
+  "version": "V2.68",
+  "timestamp": "25 Nov 2026, 04:36 AM IST",
+  "formatted": "V2.68, 25 Nov 2026, 04:36 AM IST",
   "type": "minor",
-  "summary": "Minor general update (WhatsApp Group Setup & Instructions, Bulk WhatsApp, and Bulk Email)",
+  "summary": "Minor technical update (Update src/pages/MemberDashboard.tsx (WhatsApp Group Call, Google Meet & Zoom Schedule in Communication + Post an Event Sub-Tab))",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.68",
+      "timestamp": "25 Nov 2026, 04:36 AM IST",
+      "formatted": "V2.68, 25 Nov 2026, 04:36 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Update src/pages/MemberDashboard.tsx (WhatsApp Group Call, Google Meet & Zoom Schedule in Communication + Post an Event Sub-Tab))",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.67",
       "timestamp": "25 Nov 2026, 04:33 AM IST",
@@ -196,14 +204,6 @@
       "formatted": "V2.44, 24 Nov 2026, 11:08 PM IST",
       "type": "minor",
       "summary": "Minor general update (Enhance ProfileTab with association role feature)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.43",
-      "timestamp": "24 Nov 2026, 11:05 PM IST",
-      "formatted": "V2.43, 24 Nov 2026, 11:05 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Implement contact method handling in MemberProfilePage)",
       "requiresReinstall": false
     }
   ]
