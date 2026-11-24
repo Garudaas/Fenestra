@@ -1,11 +1,19 @@
 {
-  "version": "V2.63",
-  "timestamp": "25 Nov 2026, 02:01 AM IST",
-  "formatted": "V2.63, 25 Nov 2026, 02:01 AM IST",
+  "version": "V2.64",
+  "timestamp": "25 Nov 2026, 02:03 AM IST",
+  "formatted": "V2.64, 25 Nov 2026, 02:03 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Add mode prop to SupportTab for dynamic section handling)",
+  "summary": "Minor general update (Chat and calling screen updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.64",
+      "timestamp": "25 Nov 2026, 02:03 AM IST",
+      "formatted": "V2.64, 25 Nov 2026, 02:03 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Chat and calling screen updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.63",
       "timestamp": "25 Nov 2026, 02:01 AM IST",
@@ -196,14 +204,6 @@
       "formatted": "V2.40, 24 Nov 2026, 11:01 PM IST",
       "type": "minor",
       "summary": "Minor general update (Add CommitteeRolesMap and AssociationRoleBadgeInfo types)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.39",
-      "timestamp": "24 Nov 2026, 09:59 PM IST",
-      "formatted": "V2.39, 24 Nov 2026, 09:59 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Button appearance or behavior updated)",
       "requiresReinstall": false
     }
   ]
