@@ -32,6 +32,8 @@ import {
   Repeat,
   FileSpreadsheet,
   Printer,
+  Pencil,
+  Ban,
 } from 'lucide-react'
 
 interface TaskRow {
@@ -87,6 +89,13 @@ export default function TasksTab() {
   const [inspectedTask, setInspectedTask] = useState<TaskRow | null>(null)
   const [inspectedPublicGroup, setInspectedPublicGroup] = useState<CombinedPublicTask | null>(null)
   const [updatingSubItem, setUpdatingSubItem] = useState(false)
+
+  // Edit Assigned Task modal state
+  const [editingTask, setEditingTask] = useState<TaskRow | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editDueDate, setEditDueDate] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const [taskTitle, setTaskTitle] = useState('')
   const [taskBulletsText, setTaskBulletsText] = useState('')
@@ -230,6 +239,60 @@ export default function TasksTab() {
 
     return Array.from(groups.values())
   }, [tasks, members, officerPrefixMap])
+
+  const openEditModal = (t: TaskRow, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingTask(t)
+    setEditTitle(t.title.replace(/\s*\(edited\)\s*$/i, ''))
+    setEditDescription(t.description)
+    setEditDueDate(t.due_date ? String(t.due_date).slice(0, 10) : '')
+  }
+
+  const handleSaveEditedTask = async () => {
+    if (!user || !editingTask) return
+    const cleanBaseTitle = editTitle.trim() || editingTask.title.replace(/\s*\(edited\)\s*$/i, '')
+    const finalEditedTitle = cleanBaseTitle.endsWith('(edited)')
+      ? cleanBaseTitle
+      : `${cleanBaseTitle} (edited)`
+    const finalEditedDesc = editDescription.trim().includes('(edited)')
+      ? editDescription.trim()
+      : `${editDescription.trim()} (edited)`
+
+    setSavingEdit(true)
+    await supabase
+      .from('member_tasks')
+      .update({
+        title: finalEditedTitle,
+        description: finalEditedDesc,
+        due_date: editDueDate || null,
+      })
+      .eq('id', editingTask.id)
+
+    await publishArchivedAlert({
+      category: 'personal_task',
+      shortTitle: `Task Updated (edited): ${cleanBaseTitle}`,
+      fullMessage: `${user.full_name} revised task "${cleanBaseTitle}" (edited):\n${finalEditedDesc}`,
+      targetUserId: editingTask.assigned_to_user_id,
+    })
+
+    setSavingEdit(false)
+    setEditingTask(null)
+    await loadTasksAndMembers()
+  }
+
+  const handleWithdrawTask = async (t: TaskRow, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!user) return
+    if (
+      !window.confirm(
+        `Withdraw task "${t.title}" assigned to ${getMemberName(t.assigned_to_user_id)}? This will permanently delete it from the assignee's tasks.`
+      )
+    ) {
+      return
+    }
+    await supabase.from('member_tasks').delete().eq('id', t.id)
+    await loadTasksAndMembers()
+  }
 
   const handleToggleSubItemCompleted = async (task: TaskRow, subItemId: string) => {
     if (!user || task.assigned_to_user_id !== user.id || updatingSubItem) return
@@ -704,6 +767,7 @@ export default function TasksTab() {
                   const senderLabel = getSenderLabel(t)
                   const assigneeLabel = getMemberName(t.assigned_to_user_id)
                   const isCompleted = t.status === 'completed'
+                  const isAssignedByCurrentUser = t.assigned_by_user_id === user.id
 
                   return (
                     <div
@@ -752,18 +816,47 @@ export default function TasksTab() {
                         </div>
                       </div>
 
-                      {isCompleted && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          title="Delete Completed Task Details"
-                          onClick={e => handleDeleteCompletedTask(t, e)}
-                          className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {isAssignedByCurrentUser && !isCompleted && (
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              title="Edit Task Details"
+                              onClick={e => openEditModal(t, e)}
+                              className="h-7 px-2 text-[11px] gap-1 border-primary/40 text-primary hover:bg-primary/10"
+                            >
+                              <Pencil className="h-3 w-3" />
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              title="Withdraw Task"
+                              onClick={e => handleWithdrawTask(t, e)}
+                              className="h-7 px-2 text-[11px] gap-1 border-destructive/40 text-destructive hover:bg-destructive/10"
+                            >
+                              <Ban className="h-3 w-3" />
+                              Withdraw
+                            </Button>
+                          </>
+                        )}
+
+                        {isCompleted && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title="Delete Completed Task Details"
+                            onClick={e => handleDeleteCompletedTask(t, e)}
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
@@ -835,6 +928,80 @@ export default function TasksTab() {
           )}
         </CardContent>
       </Card>
+
+      {/* EDIT ASSIGNED TASK MODAL */}
+      {editingTask && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          onClick={() => setEditingTask(null)}
+        >
+          <Card
+            className="w-full max-w-lg border-primary/40 bg-card shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base text-primary">Edit Assigned Task</CardTitle>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setEditingTask(null)}
+                  className="h-7 w-7"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs">
+              <div>
+                <label className="font-semibold text-foreground">Task Title</label>
+                <Input
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  className="mt-1 text-xs"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-foreground">Due Date</label>
+                <SmartDateInput
+                  value={editDueDate}
+                  onChange={setEditDueDate}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-foreground">Task Details</label>
+                <Textarea
+                  value={editDescription}
+                  onChange={e => setEditDescription(e.target.value)}
+                  className="mt-1 h-28 text-xs"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditingTask(null)}
+                  className="text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={savingEdit}
+                  onClick={handleSaveEditedTask}
+                  className="gold-gradient text-gold-foreground font-semibold text-xs"
+                >
+                  {savingEdit ? 'Saving...' : 'Save Revision (edited)'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {inspectedTask && (
         <div
