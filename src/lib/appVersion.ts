@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.30",
-  "timestamp": "24 Nov 2026, 03:58 PM IST",
-  "formatted": "V2.30, 24 Nov 2026, 03:58 PM IST",
+  "version": "V2.31",
+  "timestamp": "24 Nov 2026, 04:01 PM IST",
+  "formatted": "V2.31, 24 Nov 2026, 04:01 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Add treasury tab to MemberDashboard)",
+  "summary": "Minor technical update (ink the Treasury Tab in src/pages/AlumniAssociationHome.tsx to /treasury)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.31",
+      "timestamp": "24 Nov 2026, 04:01 PM IST",
+      "formatted": "V2.31, 24 Nov 2026, 04:01 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (ink the Treasury Tab in src/pages/AlumniAssociationHome.tsx to /treasury)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.30",
       "timestamp": "24 Nov 2026, 03:58 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.07, 23 Nov 2026, 09:58 PM IST",
       "type": "minor",
       "summary": "Minor general update (Add web app manifest for Fenestrians Network)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.06",
-      "timestamp": "23 Nov 2026, 09:56 PM IST",
-      "formatted": "V2.06, 23 Nov 2026, 09:56 PM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add ShareTargetPage component for sharing content)",
       "requiresReinstall": false
     }
   ]
