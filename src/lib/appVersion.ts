@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.73",
-  "timestamp": "25 Nov 2026, 04:56 AM IST",
-  "formatted": "V2.73, 25 Nov 2026, 04:56 AM IST",
+  "version": "V2.74",
+  "timestamp": "25 Nov 2026, 04:58 AM IST",
+  "formatted": "V2.74, 25 Nov 2026, 04:58 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance DirectoryTab with location handling and guidance)",
+  "summary": "Minor general update (Implement task editing and withdrawal features)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.74",
+      "timestamp": "25 Nov 2026, 04:58 AM IST",
+      "formatted": "V2.74, 25 Nov 2026, 04:58 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Implement task editing and withdrawal features)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.73",
       "timestamp": "25 Nov 2026, 04:56 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.50, 24 Nov 2026, 11:55 PM IST",
       "type": "minor",
       "summary": "Minor general update (Update print statement from 'Hello' to 'Goodbye')",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.49",
-      "timestamp": "24 Nov 2026, 11:52 PM IST",
-      "formatted": "V2.49, 24 Nov 2026, 11:52 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Remove unused constant SCOPE_DASHBOARD_HUB)",
       "requiresReinstall": false
     }
   ]
