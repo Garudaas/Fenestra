@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.43",
-  "timestamp": "24 Nov 2026, 11:05 PM IST",
-  "formatted": "V2.43, 24 Nov 2026, 11:05 PM IST",
+  "version": "V2.44",
+  "timestamp": "24 Nov 2026, 11:08 PM IST",
+  "formatted": "V2.44, 24 Nov 2026, 11:08 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement contact method handling in MemberProfilePage)",
+  "summary": "Minor general update (Enhance ProfileTab with association role feature)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.44",
+      "timestamp": "24 Nov 2026, 11:08 PM IST",
+      "formatted": "V2.44, 24 Nov 2026, 11:08 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Enhance ProfileTab with association role feature)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.43",
       "timestamp": "24 Nov 2026, 11:05 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.20, 23 Nov 2026, 10:27 PM IST",
       "type": "minor",
       "summary": "Minor technical update (Remove unused import for formatISTDateTime)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.19",
-      "timestamp": "23 Nov 2026, 10:22 PM IST",
-      "formatted": "V2.19, 23 Nov 2026, 10:22 PM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add recurrence rule and export/print functionality)",
       "requiresReinstall": false
     }
   ]
