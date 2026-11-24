@@ -7,6 +7,8 @@ import { resolveOfficerDisplayName, type TaskSubItem } from '@/lib/taskAuditServ
 import { publishArchivedAlert, type AuditActionItem } from '@/lib/notificationService'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Wrench,
   ClipboardCheck,
@@ -22,6 +24,11 @@ import {
   Trash2,
   UserCheck,
   ShieldAlert,
+  MessageCircle,
+  Mail,
+  ExternalLink,
+  Copy,
+  Check,
 } from 'lucide-react'
 
 interface StagedAuditTask {
@@ -49,11 +56,37 @@ interface AdminAuditLogEntry {
   created_at: string
 }
 
+interface DirectoryMemberContact {
+  id: number
+  full_name: string
+  whatsapp_number: string | null
+  contact_number: string | null
+  email: string | null
+}
+
+interface WhatsAppGroupConfig {
+  mainGroupName: string
+  mainGroupUrlOrId: string
+  relatedGroupName: string
+  relatedGroupUrlOrId: string
+}
+
+const WA_GROUPS_STORAGE_KEY = 'fenestrians_whatsapp_groups_v1'
+
 function inferPreferenceType(fieldKey: string): 'skip_missing_field' | 'retain_duplicate' {
   if (fieldKey === 'duplicate_phone_numbers' || fieldKey.startsWith('family_name_')) {
     return 'retain_duplicate'
   }
   return 'skip_missing_field'
+}
+
+function normalizeWhatsAppTarget(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return ''
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed
+  const digits = trimmed.replace(/\D/g, '')
+  if (digits.length >= 10) return `https://wa.me/${digits}`
+  return trimmed
 }
 
 export default function MaintenanceTab() {
@@ -65,6 +98,35 @@ export default function MaintenanceTab() {
   const [selectedTaskIds, setSelectedTaskIds] = useState<Record<number, boolean>>({})
   const [auditLogs, setAuditLogs] = useState<AdminAuditLogEntry[]>([])
 
+  // WhatsApp Group & Bulk Messaging states
+  const [memberContacts, setMemberContacts] = useState<DirectoryMemberContact[]>([])
+  const [waConfig, setWaConfig] = useState<WhatsAppGroupConfig>(() => {
+    try {
+      const saved = localStorage.getItem(WA_GROUPS_STORAGE_KEY)
+      if (saved) return JSON.parse(saved)
+    } catch {
+      // Ignore
+    }
+    return {
+      mainGroupName: 'Fenestrians Official Group',
+      mainGroupUrlOrId: '',
+      relatedGroupName: 'Fenestrians Committee / Batch Group',
+      relatedGroupUrlOrId: '',
+    }
+  })
+  const [waSavedNotice, setWaSavedNotice] = useState('')
+  const [waGroupMessage, setWaGroupMessage] = useState('')
+  const [copiedGroupMsg, setCopiedGroupMsg] = useState(false)
+
+  const [bulkWaMessage, setBulkWaMessage] = useState('')
+  const [selectedWaMemberIds, setSelectedWaMemberIds] = useState<Record<number, boolean>>({})
+  const [waQueueIndex, setWaQueueIndex] = useState<number>(0)
+
+  const [bulkEmailSubject, setBulkEmailSubject] = useState('')
+  const [bulkEmailBody, setBulkEmailBody] = useState('')
+  const [selectedEmailMemberIds, setSelectedEmailMemberIds] = useState<Record<number, boolean>>({})
+  const [copiedEmails, setCopiedEmails] = useState(false)
+
   const userIsAdmin = Boolean(isAdmin || user?.is_admin)
 
   useEffect(() => {
@@ -72,6 +134,7 @@ export default function MaintenanceTab() {
       loadUnsentAuditTasks()
       scanStalePrivateGroups()
       loadAdminAuditLogs()
+      loadMemberContacts()
     }
   }, [userIsAdmin])
 
@@ -81,6 +144,116 @@ export default function MaintenanceTab() {
         Access restricted to administrators only.
       </div>
     )
+  }
+
+  const loadMemberContacts = async () => {
+    const { data } = await supabase
+      .from('alumni')
+      .select('id, full_name, whatsapp_number, contact_number, email')
+      .eq('is_placeholder', false)
+      .neq('full_name', 'System Administrator')
+      .order('full_name', { ascending: true })
+    if (data) setMemberContacts(data as DirectoryMemberContact[])
+  }
+
+  const saveWhatsAppGroupConfig = () => {
+    try {
+      localStorage.setItem(WA_GROUPS_STORAGE_KEY, JSON.stringify(waConfig))
+      setWaSavedNotice('WhatsApp group addresses saved in browser settings.')
+      setTimeout(() => setWaSavedNotice(''), 3000)
+    } catch {
+      setWaSavedNotice('Could not save settings locally.')
+    }
+  }
+
+  const handleCopyAndOpenGroup = async (urlOrId: string, label: string) => {
+    const textToCopy = waGroupMessage.trim()
+    if (textToCopy) {
+      try {
+        await navigator.clipboard.writeText(textToCopy)
+        setCopiedGroupMsg(true)
+        setTimeout(() => setCopiedGroupMsg(false), 2000)
+      } catch {
+        // Ignore clipboard failure
+      }
+    }
+
+    const target = normalizeWhatsAppTarget(urlOrId)
+    if (!target) {
+      alert(`Please enter the WhatsApp Group link or ID for "${label}" first.`)
+      return
+    }
+    if (target.startsWith('http://') || target.startsWith('https://')) {
+      window.open(target, '_blank', 'noopener,noreferrer')
+    } else {
+      alert(`Group ID/address saved (${target}). Paste the copied message into ${label} in WhatsApp.`)
+    }
+  }
+
+  const chosenWaMembers = useMemo(
+    () =>
+      memberContacts.filter(m => {
+        if (!selectedWaMemberIds[m.id]) return false
+        const phone = cleanPhoneNumber(m.whatsapp_number || m.contact_number).replace(/\D/g, '')
+        return phone.length >= 10
+      }),
+    [memberContacts, selectedWaMemberIds]
+  )
+
+  const handleOpenNextBulkWhatsApp = () => {
+    if (!bulkWaMessage.trim()) {
+      alert('Please enter the WhatsApp message to send.')
+      return
+    }
+    if (chosenWaMembers.length === 0) {
+      alert('Please select at least one member with a valid WhatsApp/phone number.')
+      return
+    }
+    const idx = waQueueIndex % chosenWaMembers.length
+    const targetMember = chosenWaMembers[idx]
+    const digits = cleanPhoneNumber(
+      targetMember.whatsapp_number || targetMember.contact_number
+    ).replace(/\D/g, '')
+
+    const personalized = bulkWaMessage.replace(/\{name\}/gi, targetMember.full_name)
+    window.open(
+      `https://wa.me/${digits}?text=${encodeURIComponent(personalized)}`,
+      '_blank',
+      'noopener,noreferrer'
+    )
+    setWaQueueIndex((idx + 1) % chosenWaMembers.length)
+  }
+
+  const chosenEmailMembers = useMemo(
+    () =>
+      memberContacts.filter(
+        m => Boolean(selectedEmailMemberIds[m.id]) && Boolean(m.email && m.email.trim())
+      ),
+    [memberContacts, selectedEmailMemberIds]
+  )
+
+  const handleLaunchBulkEmail = () => {
+    if (chosenEmailMembers.length === 0) {
+      alert('Please select at least one member who has an email address.')
+      return
+    }
+    const recipients = chosenEmailMembers.map(m => m.email!.trim()).join(',')
+    const mailtoUrl = `mailto:?bcc=${encodeURIComponent(recipients)}&subject=${encodeURIComponent(
+      bulkEmailSubject.trim() || 'Fenestrians Batch Update'
+    )}&body=${encodeURIComponent(bulkEmailBody.trim())}`
+    window.location.href = mailtoUrl
+  }
+
+  const handleCopyEmailList = async () => {
+    if (chosenEmailMembers.length === 0) return
+    const listStr = chosenEmailMembers.map(m => m.email!.trim()).join(', ')
+    try {
+      await navigator.clipboard.writeText(listStr)
+      setCopiedEmails(true)
+      setTimeout(() => setCopiedEmails(false), 2000)
+    } catch {
+      // Ignore
+    }
   }
 
   const recordGovernanceLog = async (actionType: string, targetName: string, details: string) => {
@@ -700,6 +873,293 @@ export default function MaintenanceTab() {
               {statusMessage}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* WHATSAPP GROUP ADDRESSES, INSTRUCTIONS, BULK WHATSAPP & BULK EMAIL */}
+      <Card className="border-emerald-500/40 bg-card/75 backdrop-blur-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm text-emerald-300">
+            <MessageCircle className="h-4 w-4" />
+            WhatsApp Group Setup, Bulk WhatsApp &amp; Bulk Email
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-xs">
+          <div className="rounded-xl border border-border/40 bg-background/60 p-3 space-y-1.5 text-[11px] text-muted-foreground">
+            <p className="font-bold text-foreground">How to Configure &amp; Use WhatsApp Group / Bulk Messaging:</p>
+            <p>1. Open WhatsApp on your phone or WhatsApp Web, open the <strong>Fenestrians WhatsApp Group</strong> (or related group), tap Group Info -&gt; Invite via Link (or copy the group link/ID), and paste it below.</p>
+            <p>2. Because browser WhatsApp links do not auto-post directly into a group chat without confirmation, clicking a Group Send button copies your message and opens the group so you can paste and send with one tap (or connect a WhatsApp Business/Webhook bridge if automating).</p>
+            <p>3. For <strong>Bulk Individual WhatsApp</strong>, select members, include <code className="text-primary">{'{name}'}</code> if desired, and step through the pre-filled chat queue.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label className="font-semibold text-foreground">Fenestrians WhatsApp Group Name</label>
+              <Input
+                value={waConfig.mainGroupName}
+                onChange={e => setWaConfig({ ...waConfig, mainGroupName: e.target.value })}
+                className="mt-1 h-8 text-xs"
+              />
+            </div>
+            <div>
+              <label className="font-semibold text-foreground">Fenestrians Group Invite Link or Group ID</label>
+              <Input
+                value={waConfig.mainGroupUrlOrId}
+                onChange={e => setWaConfig({ ...waConfig, mainGroupUrlOrId: e.target.value })}
+                placeholder="https://chat.whatsapp.com/... or Group ID"
+                className="mt-1 h-8 text-xs"
+              />
+            </div>
+            <div>
+              <label className="font-semibold text-foreground">Related Group Name (Optional)</label>
+              <Input
+                value={waConfig.relatedGroupName}
+                onChange={e => setWaConfig({ ...waConfig, relatedGroupName: e.target.value })}
+                className="mt-1 h-8 text-xs"
+              />
+            </div>
+            <div>
+              <label className="font-semibold text-foreground">Related Group Link or ID (Optional)</label>
+              <Input
+                value={waConfig.relatedGroupUrlOrId}
+                onChange={e => setWaConfig({ ...waConfig, relatedGroupUrlOrId: e.target.value })}
+                placeholder="https://chat.whatsapp.com/... or Group ID"
+                className="mt-1 h-8 text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={saveWhatsAppGroupConfig}
+              className="h-8 gold-gradient text-gold-foreground font-semibold text-xs"
+            >
+              Save Group Addresses
+            </Button>
+            {waSavedNotice && <span className="text-emerald-400 font-semibold">{waSavedNotice}</span>}
+          </div>
+
+          {/* Group Message Composer */}
+          <div className="rounded-xl border border-border/40 bg-muted/15 p-3 space-y-2">
+            <p className="font-bold text-primary">Send Message to WhatsApp Group</p>
+            <Textarea
+              value={waGroupMessage}
+              onChange={e => setWaGroupMessage(e.target.value)}
+              placeholder="Type announcement or update for the Fenestrians WhatsApp group..."
+              className="h-20 text-xs"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleCopyAndOpenGroup(waConfig.mainGroupUrlOrId, waConfig.mainGroupName)}
+                className="h-8 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold gap-1.5 text-xs"
+              >
+                {copiedGroupMsg ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedGroupMsg ? 'Copied!' : 'Copy & Open'} {waConfig.mainGroupName}
+                <ExternalLink className="h-3 w-3" />
+              </Button>
+
+              {waConfig.relatedGroupUrlOrId && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    handleCopyAndOpenGroup(waConfig.relatedGroupUrlOrId, waConfig.relatedGroupName)
+                  }
+                  className="h-8 border-emerald-500/40 text-emerald-300 font-semibold gap-1.5 text-xs"
+                >
+                  Copy &amp; Open {waConfig.relatedGroupName}
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Bulk Individual WhatsApp Queue */}
+          <div className="rounded-xl border border-border/40 bg-muted/15 p-3 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-bold text-primary">
+                Bulk Individual WhatsApp ({chosenWaMembers.length} selected)
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next: Record<number, boolean> = {}
+                    memberContacts.forEach(m => {
+                      if (cleanPhoneNumber(m.whatsapp_number || m.contact_number).replace(/\D/g, '').length >= 10) {
+                        next[m.id] = true
+                      }
+                    })
+                    setSelectedWaMemberIds(next)
+                    setWaQueueIndex(0)
+                  }}
+                  className="text-[11px] text-primary hover:underline"
+                >
+                  Select All With WhatsApp
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedWaMemberIds({})
+                    setWaQueueIndex(0)
+                  }}
+                  className="text-[11px] text-muted-foreground hover:underline"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <Textarea
+              value={bulkWaMessage}
+              onChange={e => setBulkWaMessage(e.target.value)}
+              placeholder="Hi {name}, here is an update from Fenestrians..."
+              className="h-16 text-xs"
+            />
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-28 overflow-y-auto rounded-lg border border-border/30 bg-background/60 p-2">
+              {memberContacts.map(m => {
+                const validPhone =
+                  cleanPhoneNumber(m.whatsapp_number || m.contact_number).replace(/\D/g, '').length >= 10
+                return (
+                  <label
+                    key={m.id}
+                    className={`flex items-center gap-1.5 text-[11px] truncate ${
+                      validPhone ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      disabled={!validPhone}
+                      checked={Boolean(selectedWaMemberIds[m.id])}
+                      onChange={e =>
+                        setSelectedWaMemberIds(prev => ({ ...prev, [m.id]: e.target.checked }))
+                      }
+                      className="h-3.5 w-3.5 accent-emerald-500"
+                    />
+                    <span className="truncate">{m.full_name}</span>
+                  </label>
+                )
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[11px] text-muted-foreground">
+                Queue position:{' '}
+                {chosenWaMembers.length > 0
+                  ? `${(waQueueIndex % chosenWaMembers.length) + 1} of ${chosenWaMembers.length} (${
+                      chosenWaMembers[waQueueIndex % chosenWaMembers.length]?.full_name
+                    })`
+                  : 'None'}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleOpenNextBulkWhatsApp}
+                className="h-8 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold gap-1.5 text-xs"
+              >
+                <Send className="h-3.5 w-3.5" />
+                Open Next WhatsApp Chat
+              </Button>
+            </div>
+          </div>
+
+          {/* Bulk Email */}
+          <div className="rounded-xl border border-border/40 bg-muted/15 p-3 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-bold text-primary flex items-center gap-1.5">
+                <Mail className="h-3.5 w-3.5" />
+                Bulk Email ({chosenEmailMembers.length} selected)
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next: Record<number, boolean> = {}
+                    memberContacts.forEach(m => {
+                      if (m.email && m.email.trim()) next[m.id] = true
+                    })
+                    setSelectedEmailMemberIds(next)
+                  }}
+                  className="text-[11px] text-primary hover:underline"
+                >
+                  Select All With Email
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedEmailMemberIds({})}
+                  className="text-[11px] text-muted-foreground hover:underline"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <Input
+              value={bulkEmailSubject}
+              onChange={e => setBulkEmailSubject(e.target.value)}
+              placeholder="Email Subject..."
+              className="h-8 text-xs"
+            />
+            <Textarea
+              value={bulkEmailBody}
+              onChange={e => setBulkEmailBody(e.target.value)}
+              placeholder="Write your email message to selected members..."
+              className="h-16 text-xs"
+            />
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-28 overflow-y-auto rounded-lg border border-border/30 bg-background/60 p-2">
+              {memberContacts.map(m => {
+                const hasEmail = Boolean(m.email && m.email.trim())
+                return (
+                  <label
+                    key={m.id}
+                    className={`flex items-center gap-1.5 text-[11px] truncate ${
+                      hasEmail ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      disabled={!hasEmail}
+                      checked={Boolean(selectedEmailMemberIds[m.id])}
+                      onChange={e =>
+                        setSelectedEmailMemberIds(prev => ({ ...prev, [m.id]: e.target.checked }))
+                      }
+                      className="h-3.5 w-3.5 accent-amber-500"
+                    />
+                    <span className="truncate">{m.full_name}</span>
+                  </label>
+                )
+              })}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleLaunchBulkEmail}
+                className="h-8 gold-gradient text-gold-foreground font-semibold gap-1.5 text-xs"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                Open Bulk Email (BCC)
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleCopyEmailList}
+                className="h-8 text-xs gap-1"
+              >
+                {copiedEmails ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedEmails ? 'Copied Emails' : 'Copy Selected Emails'}
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
