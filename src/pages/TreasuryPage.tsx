@@ -15,6 +15,7 @@ import {
 } from '@/lib/receiptGenerator'
 import { publishArchivedAlert } from '@/lib/notificationService'
 import { exportRowsToCSV, openPrintableReport } from '@/lib/reportExporter'
+import { readFileAsDataURL } from '@/lib/helpers'
 import SmartDateInput from '@/components/shared/SmartDateInput'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -41,6 +42,8 @@ import {
   Filter,
   Download,
   FileText,
+  QrCode,
+  Upload,
 } from 'lucide-react'
 
 export const TREASURY_CATEGORIES = [
@@ -53,6 +56,9 @@ export const TREASURY_CATEGORIES = [
   'Association Fund',
   'Others',
 ] as const
+
+const ADMIN_TREASURY_GRANTS_KEY = 'fenestrians_admin_treasury_grants_v1'
+const PAYMENT_QR_STORAGE_KEY = 'fenestrians_treasury_qr_v1'
 
 interface TreasuryTransaction {
   id: number
@@ -103,13 +109,26 @@ interface MemberDirectoryBasic {
   contact_number: string | null
 }
 
+function hasExplicitAdminTreasuryGrant(userId: number): boolean {
+  try {
+    const raw = localStorage.getItem(ADMIN_TREASURY_GRANTS_KEY)
+    if (!raw) return false
+    const parsed = JSON.parse(raw)
+    const g = parsed?.[String(userId)]
+    return Boolean(g && (g.budgets || g.accounts || g.entries))
+  } catch {
+    return false
+  }
+}
+
 export default function TreasuryPage() {
   const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
 
   const userIsAdmin = Boolean(isAdmin || user?.is_admin)
 
-  const [canManageTreasury, setCanManageTreasury] = useState(userIsAdmin)
+  const [canManageTreasury, setCanManageTreasury] = useState(false)
+  const [canUploadQr, setCanUploadQr] = useState(userIsAdmin)
   const [isOfficeBearer, setIsOfficeBearer] = useState(userIsAdmin)
   const [officerLabel, setOfficerLabel] = useState<string>('')
   const [members, setMembers] = useState<MemberDirectoryBasic[]>([])
@@ -127,10 +146,19 @@ export default function TreasuryPage() {
     updated_at: null,
   })
 
+  // Payment QR Code state
+  const [paymentQrUrl, setPaymentQrUrl] = useState<string>(() => {
+    try {
+      return localStorage.getItem(PAYMENT_QR_STORAGE_KEY) || ''
+    } catch {
+      return ''
+    }
+  })
+
   const [loading, setLoading] = useState(true)
   const [statusBanner, setStatusBanner] = useState('')
 
-  // Account Info Edit State (Treasurer Only)
+  // Account Info Edit State
   const [editingAccount, setEditingAccount] = useState(false)
   const [accHolder, setAccHolder] = useState('')
   const [accBank, setAccBank] = useState('')
@@ -140,13 +168,13 @@ export default function TreasuryPage() {
   const [accNotes, setAccNotes] = useState('')
   const [savingAccount, setSavingAccount] = useState(false)
 
-  // Budget Edit State per Category (Treasurer Only)
+  // Budget Edit State per Category
   const [editingBudgetCategory, setEditingBudgetCategory] = useState<string | null>(null)
   const [budgetInputAmount, setBudgetInputAmount] = useState('')
   const [budgetInputNotes, setBudgetInputNotes] = useState('')
   const [savingBudget, setSavingBudget] = useState(false)
 
-  // Transaction Entry Form State (Treasurer Only)
+  // Transaction Entry Form State
   const [activeEntryForm, setActiveEntryForm] = useState<'none' | 'contribution' | 'expense'>('none')
   const [editingTxId, setEditingTxId] = useState<number | null>(null)
   const [txCategory, setTxCategory] = useState<string>(TREASURY_CATEGORIES[0])
@@ -214,6 +242,7 @@ export default function TreasuryPage() {
       treasuryCheck,
       officeBearerCheck,
       titledName,
+      commRes,
     ] = await Promise.all([
       supabase
         .from('association_transactions')
@@ -231,20 +260,64 @@ export default function TreasuryPage() {
       checkCanManageTreasury(user.id),
       checkIsOfficeBearer(user.id),
       resolveOfficerDisplayName(user.id, user.full_name),
+      supabase.from('alumni_committee').select('alumni_id, role_title'),
     ])
 
     setTransactions((txRes.data ?? []) as TreasuryTransaction[])
     setBudgets((budgetRes.data ?? []) as CategoryBudgetRow[])
     setMembers((membersRes.data ?? []) as MemberDirectoryBasic[])
     setOfficerLabel(titledName)
-    setCanManageTreasury(Boolean(userIsAdmin || treasuryCheck.canManageTreasury))
-    setIsOfficeBearer(Boolean(userIsAdmin || officeBearerCheck))
+
+    const myCommitteeRoles = (commRes.data ?? [])
+      .filter((c: any) => Number(c.alumni_id) === Number(user.id))
+      .map((c: any) => String(c.role_title || '').toLowerCase())
+
+    const isPresidentOrTreasurer = myCommitteeRoles.some(
+      r => r.includes('president') || r.includes('treasurer')
+    )
+    const grantedByPresOrTreasurer = hasExplicitAdminTreasuryGrant(user.id)
+
+    // Admins do NOT get treasury editing/logging privileges by default unless President/Treasurer grants it
+    const effectiveTreasuryAccess = Boolean(
+      isPresidentOrTreasurer ||
+        treasuryCheck.canManageTreasury ||
+        (userIsAdmin && grantedByPresOrTreasurer)
+    )
+
+    setCanManageTreasury(effectiveTreasuryAccess)
+    setIsOfficeBearer(Boolean(officeBearerCheck || myCommitteeRoles.length > 0))
+    setCanUploadQr(
+      Boolean(
+        userIsAdmin ||
+          effectiveTreasuryAccess ||
+          officeBearerCheck ||
+          myCommitteeRoles.length > 0
+      )
+    )
 
     if (accRes.data) {
       setAccountInfo(accRes.data as AccountInfoRow)
     }
 
     setLoading(false)
+  }
+
+  const handleQrFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !canUploadQr) return
+    const dataUrl = await readFileAsDataURL(file)
+    try {
+      localStorage.setItem(PAYMENT_QR_STORAGE_KEY, dataUrl)
+    } catch {
+      // Ignore storage quota errors
+    }
+    setPaymentQrUrl(dataUrl)
+    await recordAuditLog(
+      'treasury_upload_qr',
+      'Payment QR Code',
+      'Uploaded/updated Association Payment QR Code'
+    )
+    showToast('Payment QR Code uploaded for members to scan!')
   }
 
   const recordAuditLog = async (actionType: string, targetName: string, details: string) => {
@@ -260,7 +333,6 @@ export default function TreasuryPage() {
     ])
   }
 
-  // Build Receipt Data helper for any contribution transaction
   const buildReceiptDataFromTx = (tx: TreasuryTransaction): TreasuryReceiptData => {
     const receiptNo = tx.receipt_number || `FEN-RCP-${String(tx.id).padStart(4, '0')}`
     const catDisplay =
@@ -291,14 +363,15 @@ export default function TreasuryPage() {
     }
   }
 
-  // Generates & downloads the printable PDF receipt anytime
   const handleDownloadTransactionReceipt = (tx: TreasuryTransaction) => {
     const receiptData = buildReceiptDataFromTx(tx)
     const pdfBlob = generateReceiptPdfBlob(receiptData)
-    triggerPdfDownload(pdfBlob, `${receiptData.receiptNumber}_${tx.person_name.replace(/\s+/g, '_')}.pdf`)
+    triggerPdfDownload(
+      pdfBlob,
+      `${receiptData.receiptNumber}_${tx.person_name.replace(/\s+/g, '_')}.pdf`
+    )
   }
 
-  // Category-by-Category Accounting Summary
   const categorySummaries = useMemo(() => {
     return TREASURY_CATEGORIES.map(cat => {
       const catTxs = transactions.filter(
@@ -331,7 +404,6 @@ export default function TreasuryPage() {
     })
   }, [transactions, budgets])
 
-  // Overall Totals
   const totals = useMemo(() => {
     const totalReceived = transactions
       .filter(t => t.entry_type === 'contribution')
@@ -344,7 +416,6 @@ export default function TreasuryPage() {
     return { totalReceived, totalSpent, netBalance, totalBudgeted }
   }, [transactions, categorySummaries])
 
-  // Filtered Transactions for Ledger View
   const filteredTransactions = useMemo(() => {
     const q = filterSearch.trim().toLowerCase()
     return transactions.filter(tx => {
@@ -374,7 +445,6 @@ export default function TreasuryPage() {
     })
   }, [transactions, filterCategory, filterType, filterSearch])
 
-  // --- TREASURER: UPDATE BANK / UPI ACCOUNT DETAILS ---
   const openAccountEditor = () => {
     setAccHolder(accountInfo.account_holder_name || 'Fenestrians Alumni Association')
     setAccBank(accountInfo.bank_name || '')
@@ -421,7 +491,6 @@ export default function TreasuryPage() {
     await loadTreasuryData()
   }
 
-  // --- TREASURER: SET CATEGORY BUDGET ---
   const openBudgetEditor = (catSummary: (typeof categorySummaries)[number]) => {
     setEditingBudgetCategory(catSummary.category)
     setBudgetInputAmount(
@@ -463,7 +532,6 @@ export default function TreasuryPage() {
     await loadTreasuryData()
   }
 
-  // --- TREASURER: LOG / EDIT FUNDS RECEIVED & EXPENSES ---
   const resetTxForm = () => {
     setActiveEntryForm('none')
     setEditingTxId(null)
@@ -546,7 +614,6 @@ export default function TreasuryPage() {
     const actor = officerLabel || user.full_name
     const nowIso = new Date().toISOString()
 
-    // Resolve member record either by dropdown ID or exact name match
     const matchedDonor = txMemberId
       ? members.find(m => String(m.id) === txMemberId)
       : members.find(
@@ -641,7 +708,6 @@ export default function TreasuryPage() {
       const catDisplay =
         txCategory === 'Others' ? `Others (${txCustomCategory.trim()})` : txCategory
 
-      // When Fund Received is logged: generate PDF receipt, upload it, and send via WhatsApp
       if (activeEntryForm === 'contribution') {
         const receiptNo = `FEN-RCP-${String(txTyped.id).padStart(4, '0')}`
         const receiptData = buildReceiptDataFromTx({
@@ -688,7 +754,6 @@ export default function TreasuryPage() {
           .filter(Boolean)
           .join('\n')
 
-        // 1. Send in-app alert + Push + WhatsApp Cloud API message if matched to a member
         if (matchedDonor) {
           await publishArchivedAlert({
             category: 'member_message',
@@ -698,7 +763,6 @@ export default function TreasuryPage() {
           })
         }
 
-        // 2. Open pre-filled WhatsApp message with printable receipt link to the sender
         const donorRawPhone =
           matchedDonor?.whatsapp_number || matchedDonor?.contact_number || ''
         const donorDigits = cleanPhoneNumber(donorRawPhone).replace(/\D/g, '')
@@ -755,7 +819,6 @@ export default function TreasuryPage() {
     await loadTreasuryData()
   }
 
-  // --- CSV & PRINTABLE REPORTS ---
   const buildReportRows = () => {
     const headers = [
       'Receipt No.',
@@ -850,7 +913,6 @@ export default function TreasuryPage() {
           </div>
         )}
 
-        {/* HEADER & ROLE BANNER */}
         <Card className="border-primary/40 bg-card/85 backdrop-blur-md shadow-xl">
           <CardHeader className="pb-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -860,7 +922,7 @@ export default function TreasuryPage() {
                   Fenestrians Treasury &amp; Accounts
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Official Association Bank Details, Category-Wise Funds, Budgets, Printable Receipts &amp; Audited Transaction Ledger
+                  Official Association Bank Details, Payment QR, Category-Wise Funds, Budgets, Printable Receipts &amp; Audited Transaction Ledger
                 </CardDescription>
               </div>
 
@@ -967,7 +1029,6 @@ export default function TreasuryPage() {
           </CardContent>
         </Card>
 
-        {/* TREASURER ENTRY FORM */}
         {canManageTreasury && activeEntryForm !== 'none' && (
           <Card
             className={`border-2 ${
@@ -1172,7 +1233,7 @@ export default function TreasuryPage() {
           </Card>
         )}
 
-        {/* OFFICIAL ASSOCIATION BANK & UPI ACCOUNT DETAILS */}
+        {/* OFFICIAL ASSOCIATION BANK, UPI ACCOUNT DETAILS & PAYMENT QR CODE */}
         <Card className="border-border/40 bg-card/75 backdrop-blur-sm">
           <CardHeader className="pb-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1181,22 +1242,46 @@ export default function TreasuryPage() {
                 Official Association Bank &amp; UPI Account Details
               </CardTitle>
 
-              {canManageTreasury && !editingAccount && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={openAccountEditor}
-                  className="h-7 text-xs gap-1 border-primary/40 text-primary"
-                >
-                  <Pencil className="h-3 w-3" />
-                  Edit Account Details
-                </Button>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {canUploadQr && (
+                  <>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="treasury-qr-upload"
+                      onChange={handleQrFileUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => document.getElementById('treasury-qr-upload')?.click()}
+                      className="h-7 text-xs gap-1 border-emerald-500/40 text-emerald-300"
+                    >
+                      <Upload className="h-3 w-3" />
+                      {paymentQrUrl ? 'Replace Payment QR' : 'Upload Payment QR'}
+                    </Button>
+                  </>
+                )}
+
+                {canManageTreasury && !editingAccount && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={openAccountEditor}
+                    className="h-7 text-xs gap-1 border-primary/40 text-primary"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    Edit Account Details
+                  </Button>
+                )}
+              </div>
             </div>
           </CardHeader>
 
-          <CardContent className="text-xs">
+          <CardContent className="text-xs space-y-3">
             {canManageTreasury && editingAccount ? (
               <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-3.5">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -1310,6 +1395,31 @@ export default function TreasuryPage() {
                 )}
               </div>
             )}
+
+            {/* Payment QR Code Display for Members to Scan */}
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="space-y-1">
+                <p className="flex items-center gap-1.5 font-bold text-primary">
+                  <QrCode className="h-4 w-4" />
+                  Scan Payment QR Code
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Scan this QR code with any UPI / banking app to make a payment. Only the Treasurer, President, officers, or admins can upload or update the QR image.
+                </p>
+              </div>
+
+              {paymentQrUrl ? (
+                <img
+                  src={paymentQrUrl}
+                  alt="Association Payment QR Code"
+                  className="h-36 w-36 rounded-xl border border-primary/40 bg-white p-1.5 object-contain shrink-0"
+                />
+              ) : (
+                <div className="flex h-28 w-28 items-center justify-center rounded-xl border border-dashed border-border/60 bg-background/50 text-[10px] text-muted-foreground text-center p-2 shrink-0">
+                  No QR uploaded yet
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -1475,7 +1585,7 @@ export default function TreasuryPage() {
           </CardContent>
         </Card>
 
-        {/* COMPLETE AUDITED TRANSACTION LOG (CLICK YOUR NAME OR OFFICE BEARER BUTTON TO DOWNLOAD RECEIPT) */}
+        {/* COMPLETE AUDITED TRANSACTION LOG */}
         <Card className="border-border/40 bg-card/75 backdrop-blur-sm">
           <CardHeader className="pb-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1567,7 +1677,6 @@ export default function TreasuryPage() {
                           {isReceipt ? `RECEIPT • ${receiptCode}` : 'EXPENSE'}
                         </Badge>
 
-                        {/* Any member can click their own name in Funds Received to download their receipt anytime */}
                         {isCurrentUsersReceipt ? (
                           <button
                             type="button"
@@ -1636,7 +1745,6 @@ export default function TreasuryPage() {
                         {isReceipt ? '+' : '-'}₹{Number(tx.amount).toLocaleString('en-IN')}
                       </span>
 
-                      {/* Treasurer / Office Bearers can download any receipt anytime */}
                       {isReceipt && canDownloadAnyReceipt && (
                         <Button
                           type="button"
