@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.46",
-  "timestamp": "24 Nov 2026, 11:46 PM IST",
-  "formatted": "V2.46, 24 Nov 2026, 11:46 PM IST",
+  "version": "V2.47",
+  "timestamp": "24 Nov 2026, 11:47 PM IST",
+  "formatted": "V2.47, 24 Nov 2026, 11:47 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement navigation state management functions)",
+  "summary": "Minor general update (Add multiple routes to MemberDashboard)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.47",
+      "timestamp": "24 Nov 2026, 11:47 PM IST",
+      "formatted": "V2.47, 24 Nov 2026, 11:47 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Add multiple routes to MemberDashboard)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.46",
       "timestamp": "24 Nov 2026, 11:46 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.23, 23 Nov 2026, 10:38 PM IST",
       "type": "minor",
       "summary": "Minor technical update (Update SupportTab.tsx)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.22",
-      "timestamp": "23 Nov 2026, 10:37 PM IST",
-      "formatted": "V2.22, 23 Nov 2026, 10:37 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Enhance DirectoryTab with travel alerts and SOS features)",
       "requiresReinstall": false
     }
   ]
