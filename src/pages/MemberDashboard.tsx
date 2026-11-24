@@ -42,6 +42,7 @@ import {
   Plane,
   HandHeart,
   ArrowLeft,
+  Bell,
 } from 'lucide-react'
 import DirectoryTab from '@/pages/DirectoryTab'
 import ProfileTab from '@/pages/ProfileTab'
@@ -60,10 +61,12 @@ type HubSectionKey =
   | 'emergency'
   | 'alumni'
   | 'activities'
+  | 'tasks'
+  | 'notifications'
   | 'drive'
   | 'settings_maintenance'
 
-type ActivitySubTab = 'calendar' | 'city_town' | 'tasks' | 'opportunities' | 'communication'
+type ActivitySubTab = 'calendar' | 'city_town' | 'opportunities' | 'communication'
 type CommSubTab = 'chat' | 'video' | 'voice'
 type DriveSubTab = 'gallery' | 'folders'
 
@@ -82,6 +85,10 @@ function resolveHubFromPathname(pathname: string): HubSectionKey {
       return 'emergency'
     case '/activities':
       return 'activities'
+    case '/tasks':
+      return 'tasks'
+    case '/notifications':
+      return 'notifications'
     case '/drive':
       return 'drive'
     case '/settings-maintenance':
@@ -101,6 +108,7 @@ export default function MemberDashboard() {
     resolveHubFromPathname(location.pathname)
   )
   const [alerts, setAlerts] = useState<string[]>([])
+  const [notifBadge, setNotifBadge] = useState(0)
   const [chatBadge, setChatBadge] = useState(0)
   const [callsBadge, setCallsBadge] = useState(0)
   const [tasksBadge, setTasksBadge] = useState(0)
@@ -136,17 +144,21 @@ export default function MemberDashboard() {
     ])
     const unread = list.filter(i => i.status === 'unread')
 
+    let unreadTotal = 0
     let chats = 0
     let calls = 0
 
     for (const item of unread) {
+      const cnt = item.unread_count || 1
+      unreadTotal += cnt
       if (isChatNotification(item.category)) {
-        chats += item.unread_count || 1
+        chats += cnt
       } else if (item.category === 'group_call' || item.category === 'video_call') {
-        calls += item.unread_count || 1
+        calls += cnt
       }
     }
 
+    setNotifBadge(unreadTotal)
     setChatBadge(chats)
     setCallsBadge(calls)
     setTasksBadge(pendingTasksRes.count || 0)
@@ -170,8 +182,7 @@ export default function MemberDashboard() {
         setHubSection('activities')
         setExpandedActivityTab('calendar')
       } else if (rawTab === 'tasks') {
-        setHubSection('activities')
-        setExpandedActivityTab('tasks')
+        setHubSection('tasks')
       } else if (rawTab === 'chat') {
         setHubSection('activities')
         setExpandedActivityTab('communication')
@@ -372,6 +383,16 @@ export default function MemberDashboard() {
       navigate('/activities')
       return
     }
+    if (tabId === 'tasks') {
+      recordPreviousRoute(currentFull)
+      navigate('/tasks')
+      return
+    }
+    if (tabId === 'notifications') {
+      recordPreviousRoute(currentFull)
+      navigate('/notifications')
+      return
+    }
     if (tabId === 'drive') {
       recordPreviousRoute(currentFull)
       navigate('/drive')
@@ -432,9 +453,23 @@ export default function MemberDashboard() {
     {
       id: 'activities',
       label: 'Activities',
-      description: 'Calendar, City Map / In Town, Tasks, Jobs & Comms',
+      description: 'Calendar, City Map / In Town, Jobs & Comms',
       icon: CalendarDays,
-      badge: tasksBadge + totalCommBadge,
+      badge: totalCommBadge,
+    },
+    {
+      id: 'tasks',
+      label: 'Tasks and Action Items',
+      description: 'Unfinished personal tasks & action checklists',
+      icon: ListTodo,
+      badge: tasksBadge,
+    },
+    {
+      id: 'notifications',
+      label: 'Notification Center',
+      description: 'Unread alerts, messages, calls & task reminders',
+      icon: Bell,
+      badge: notifBadge,
     },
     {
       id: 'drive',
@@ -534,6 +569,23 @@ export default function MemberDashboard() {
                 <span>Back</span>
               </Button>
             )}
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => openMainTabPage('notifications')}
+              className="relative h-8 gap-1 px-2.5 text-xs border-primary/40 text-primary hover:bg-primary/10 shrink-0"
+              title="Notification Center"
+            >
+              <Bell className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Alerts</span>
+              {notifBadge > 0 && (
+                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                  {notifBadge}
+                </span>
+              )}
+            </Button>
 
             <Button
               size="sm"
@@ -789,6 +841,33 @@ export default function MemberDashboard() {
             </div>
           )}
 
+          {hubSection === 'tasks' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-primary flex items-center gap-2">
+                  <ListTodo className="h-5 w-5" />
+                  Tasks and Action Items
+                  {tasksBadge > 0 && (
+                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white">
+                      {tasksBadge}
+                    </span>
+                  )}
+                </h2>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCloseCurrentSubPage}
+                  className="text-xs gap-1"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Close Page
+                </Button>
+              </div>
+              <TasksTab />
+            </div>
+          )}
+
           {hubSection === 'activities' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -855,23 +934,6 @@ export default function MemberDashboard() {
               )}
 
               {renderAccordionToggle(
-                'Tasks and Action Items',
-                'Assigned personal tasks, recurring tasks & action checklists',
-                expandedActivityTab === 'tasks',
-                () =>
-                  setExpandedActivityTab(
-                    toggleExclusiveTab(SCOPE_ACTIVITIES, expandedActivityTab, 'tasks') as ActivitySubTab | null
-                  ),
-                <ListTodo className="h-4 w-4" />,
-                tasksBadge
-              )}
-              {expandedActivityTab === 'tasks' && (
-                <div className="pt-1">
-                  <TasksTab />
-                </div>
-              )}
-
-              {renderAccordionToggle(
                 'Batch Jobs and Referrals',
                 'Jobs, internships, freelance projects & referrals board',
                 expandedActivityTab === 'opportunities',
@@ -902,7 +964,7 @@ export default function MemberDashboard() {
                 <div className="space-y-2.5 rounded-xl border border-border/40 bg-card/60 p-3">
                   {renderAccordionToggle(
                     'Chat',
-                    'Common batch chat, group rooms & private messages',
+                    'Common batch chat, group rooms, @mentions, reply, forward, copy & polls',
                     expandedCommTab === 'chat',
                     () =>
                       setExpandedCommTab(
