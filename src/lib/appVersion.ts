@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.41",
-  "timestamp": "24 Nov 2026, 11:02 PM IST",
-  "formatted": "V2.41, 24 Nov 2026, 11:02 PM IST",
+  "version": "V2.42",
+  "timestamp": "24 Nov 2026, 11:04 PM IST",
+  "formatted": "V2.42, 24 Nov 2026, 11:04 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Add committee roles mapping and display logic)",
+  "summary": "Minor general update (Enhance MemberProfilePage with association role feature)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.42",
+      "timestamp": "24 Nov 2026, 11:04 PM IST",
+      "formatted": "V2.42, 24 Nov 2026, 11:04 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Enhance MemberProfilePage with association role feature)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.41",
       "timestamp": "24 Nov 2026, 11:02 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.18, 23 Nov 2026, 10:19 PM IST",
       "type": "minor",
       "summary": "Minor general update (Enhance CallsTab with scheduling and attendance features)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.17",
-      "timestamp": "23 Nov 2026, 10:18 PM IST",
-      "formatted": "V2.17, 23 Nov 2026, 10:18 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Treasury, Polls, Event RSVPs, Meeting Minutes PDFs & ExCom Reports)",
       "requiresReinstall": false
     }
   ]
