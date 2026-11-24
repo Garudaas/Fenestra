@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.35",
-  "timestamp": "24 Nov 2026, 04:25 PM IST",
-  "formatted": "V2.35, 24 Nov 2026, 04:25 PM IST",
+  "version": "V2.36",
+  "timestamp": "24 Nov 2026, 04:36 PM IST",
+  "formatted": "V2.36, 24 Nov 2026, 04:36 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement checkIsOfficeBearer function)",
+  "summary": "Minor general update (Implement copy functionality for Smart App Launcher link)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.36",
+      "timestamp": "24 Nov 2026, 04:36 PM IST",
+      "formatted": "V2.36, 24 Nov 2026, 04:36 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Implement copy functionality for Smart App Launcher link)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.35",
       "timestamp": "24 Nov 2026, 04:25 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.12, 23 Nov 2026, 10:03 PM IST",
       "type": "minor",
       "summary": "Minor general update (Enhance DirectoryTab with offline capabilities)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.11",
-      "timestamp": "23 Nov 2026, 10:02 PM IST",
-      "formatted": "V2.11, 23 Nov 2026, 10:02 PM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor authentication pages for improved usability)",
       "requiresReinstall": false
     }
   ]
