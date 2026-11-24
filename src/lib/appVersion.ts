@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.59",
-  "timestamp": "25 Nov 2026, 12:48 AM IST",
-  "formatted": "V2.59, 25 Nov 2026, 12:48 AM IST",
+  "version": "V2.60",
+  "timestamp": "25 Nov 2026, 12:50 AM IST",
+  "formatted": "V2.60, 25 Nov 2026, 12:50 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance task management with sub-item updates)",
+  "summary": "Minor general update (Implement previous route tracking on NotificationsPage)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.60",
+      "timestamp": "25 Nov 2026, 12:50 AM IST",
+      "formatted": "V2.60, 25 Nov 2026, 12:50 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Implement previous route tracking on NotificationsPage)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.59",
       "timestamp": "25 Nov 2026, 12:48 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.36, 24 Nov 2026, 04:36 PM IST",
       "type": "minor",
       "summary": "Minor general update (Implement copy functionality for Smart App Launcher link)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.35",
-      "timestamp": "24 Nov 2026, 04:25 PM IST",
-      "formatted": "V2.35, 24 Nov 2026, 04:25 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Implement checkIsOfficeBearer function)",
       "requiresReinstall": false
     }
   ]
