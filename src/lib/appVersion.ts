@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.33",
-  "timestamp": "24 Nov 2026, 04:21 PM IST",
-  "formatted": "V2.33, 24 Nov 2026, 04:21 PM IST",
+  "version": "V2.34",
+  "timestamp": "24 Nov 2026, 04:24 PM IST",
+  "formatted": "V2.34, 24 Nov 2026, 04:24 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Implement receipt PDF generation and download functions)",
+  "summary": "Minor general update (Enhance TreasuryPage with receipt handling and refactoring)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.34",
+      "timestamp": "24 Nov 2026, 04:24 PM IST",
+      "formatted": "V2.34, 24 Nov 2026, 04:24 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Enhance TreasuryPage with receipt handling and refactoring)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.33",
       "timestamp": "24 Nov 2026, 04:21 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.10, 23 Nov 2026, 10:02 PM IST",
       "type": "minor",
       "summary": "Minor general update (Login and registration screen updated)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.09",
-      "timestamp": "23 Nov 2026, 10:00 PM IST",
-      "formatted": "V2.09, 23 Nov 2026, 10:00 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Enhance NotificationQuickBar with pending tasks count)",
       "requiresReinstall": false
     }
   ]
