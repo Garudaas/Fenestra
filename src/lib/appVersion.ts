@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.40",
-  "timestamp": "24 Nov 2026, 11:01 PM IST",
-  "formatted": "V2.40, 24 Nov 2026, 11:01 PM IST",
+  "version": "V2.41",
+  "timestamp": "24 Nov 2026, 11:02 PM IST",
+  "formatted": "V2.41, 24 Nov 2026, 11:02 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Add CommitteeRolesMap and AssociationRoleBadgeInfo types)",
+  "summary": "Minor general update (Add committee roles mapping and display logic)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.41",
+      "timestamp": "24 Nov 2026, 11:02 PM IST",
+      "formatted": "V2.41, 24 Nov 2026, 11:02 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Add committee roles mapping and display logic)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.40",
       "timestamp": "24 Nov 2026, 11:01 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.17, 23 Nov 2026, 10:18 PM IST",
       "type": "minor",
       "summary": "Minor general update (Treasury, Polls, Event RSVPs, Meeting Minutes PDFs & ExCom Reports)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.16",
-      "timestamp": "23 Nov 2026, 10:16 PM IST",
-      "formatted": "V2.16, 23 Nov 2026, 10:16 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Add calendar event creation and download functions)",
       "requiresReinstall": false
     }
   ]
