@@ -20,6 +20,10 @@ import {
   Send,
 } from 'lucide-react'
 
+interface SupportTabProps {
+  mode?: 'support' | 'opportunities'
+}
+
 interface SupportRequestItem {
   id: number
   member_id: number
@@ -43,20 +47,13 @@ interface OpportunityItem {
   created_at: string
 }
 
-export default function SupportTab() {
+export default function SupportTab({ mode }: SupportTabProps) {
   const { user, isAdmin } = useAuth()
   const [searchParams] = useSearchParams()
   const userIsAdmin = Boolean(isAdmin || user?.is_admin)
 
-  const [section, setSection] = useState<'support' | 'opportunities'>(() =>
-    searchParams.get('view') === 'opportunities' ? 'opportunities' : 'support'
-  )
-
-  useEffect(() => {
-    if (searchParams.get('view') === 'opportunities') {
-      setSection('opportunities')
-    }
-  }, [searchParams])
+  const resolvedSection: 'support' | 'opportunities' =
+    mode ?? (searchParams.get('view') === 'opportunities' ? 'opportunities' : 'support')
 
   // Family Support states
   const [requests, setRequests] = useState<SupportRequestItem[]>([])
@@ -187,33 +184,7 @@ export default function SupportTab() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-4">
-      <div className="flex gap-1.5 rounded-xl border border-border/50 bg-card/80 p-1">
-        <button
-          type="button"
-          onClick={() => setSection('support')}
-          className={`flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-all ${
-            section === 'support'
-              ? 'gold-gradient text-gold-foreground shadow'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Family Support Requests ({requests.length})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSection('opportunities')}
-          className={`flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-all ${
-            section === 'opportunities'
-              ? 'gold-gradient text-gold-foreground shadow'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Jobs, Internships &amp; Referrals ({opportunities.length})
-        </button>
-      </div>
-
-      {section === 'support' ? (
+      {resolvedSection === 'support' ? (
         <Card className="border-border/40 bg-card/75 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-primary">
@@ -300,7 +271,6 @@ export default function SupportTab() {
           </CardContent>
         </Card>
       ) : (
-        /* BATCH JOB, INTERNSHIP & REFERRAL BOARD */
         <Card className="border-border/40 bg-card/75 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-primary">
