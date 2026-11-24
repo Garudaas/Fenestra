@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.25",
-  "timestamp": "23 Nov 2026, 10:40 PM IST",
-  "formatted": "V2.25, 23 Nov 2026, 10:40 PM IST",
+  "version": "V2.26",
+  "timestamp": "24 Nov 2026, 03:50 PM IST",
+  "formatted": "V2.26, 24 Nov 2026, 03:50 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Add admin audit log functionality to MaintenanceTab)",
+  "summary": "Minor general update (Implement checkCanManageTreasury function)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.26",
+      "timestamp": "24 Nov 2026, 03:50 PM IST",
+      "formatted": "V2.26, 24 Nov 2026, 03:50 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Implement checkCanManageTreasury function)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.25",
       "timestamp": "23 Nov 2026, 10:40 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.02, 23 Nov 2026, 04:47 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor officerPrefixMap state initialization)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.01",
-      "timestamp": "23 Nov 2026, 04:46 AM IST",
-      "formatted": "V2.01, 23 Nov 2026, 04:46 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor MemberProfilePage with hooks and imports)",
       "requiresReinstall": false
     }
   ]
