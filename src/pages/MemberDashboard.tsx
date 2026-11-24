@@ -2,15 +2,20 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
 import {
   fetchUserNotifications,
   clearChatNotifications,
   isChatNotification,
   archiveDailyCelebrationAlert,
+  publishArchivedAlert,
 } from '@/lib/notificationService'
 import { formatFullDate } from '@/lib/formatters'
+import SmartDateInput from '@/components/shared/SmartDateInput'
 import {
   getPersistedExpandedTab,
   toggleExclusiveTab,
@@ -43,6 +48,8 @@ import {
   HandHeart,
   ArrowLeft,
   Bell,
+  Plus,
+  CalendarClock,
 } from 'lucide-react'
 import DirectoryTab from '@/pages/DirectoryTab'
 import ProfileTab from '@/pages/ProfileTab'
@@ -66,8 +73,8 @@ type HubSectionKey =
   | 'drive'
   | 'settings_maintenance'
 
-type ActivitySubTab = 'calendar' | 'city_town' | 'opportunities' | 'communication'
-type CommSubTab = 'chat' | 'video' | 'voice'
+type ActivitySubTab = 'calendar' | 'post_event' | 'city_town' | 'opportunities' | 'communication'
+type CommSubTab = 'chat' | 'video' | 'voice' | 'scheduled_calls'
 type DriveSubTab = 'gallery' | 'folders'
 
 const SCOPE_ROSTER = 'sub_roster'
@@ -112,6 +119,13 @@ export default function MemberDashboard() {
   const [chatBadge, setChatBadge] = useState(0)
   const [callsBadge, setCallsBadge] = useState(0)
   const [tasksBadge, setTasksBadge] = useState(0)
+
+  // Post Class Event state (sub-tab inside Activities)
+  const [eventTitle, setEventTitle] = useState('')
+  const [eventType, setEventType] = useState('Anniversary')
+  const [eventDate, setEventDate] = useState('')
+  const [eventDesc, setEventDesc] = useState('')
+  const [postingEvent, setPostingEvent] = useState(false)
 
   const [expandedRosterTab, setExpandedRosterTab] = useState<string | null>(() =>
     getPersistedExpandedTab(SCOPE_ROSTER)
@@ -347,6 +361,50 @@ export default function MemberDashboard() {
     syncHeaderBadges()
   }
 
+  const handleCreateClassEvent = async () => {
+    if (!user || !eventTitle.trim() || !eventDate) {
+      alert('Please enter Title and Date.')
+      return
+    }
+    setPostingEvent(true)
+    const roomTag =
+      eventType === 'Online Meeting'
+        ? 'Meeting-' + eventTitle.trim().replace(/[^a-zA-Z0-9]/g, '-')
+        : null
+
+    await supabase.from('calendar_events').insert([
+      {
+        title: eventTitle.trim(),
+        classification: eventType,
+        start_date: eventDate,
+        description: eventDesc.trim(),
+        room_tag: roomTag,
+        created_by: user.id,
+      },
+    ])
+    await supabase.from('chat_messages').insert([
+      {
+        room_id: 'global',
+        sender_id: 0,
+        sender_name: '🛡️ System Bot',
+        message_text: `🎟️ INVITATION: New Class ${eventType} Scheduled!\n📍 Event: ${eventTitle.trim()}\n📅 Date: ${eventDate}\n📝 Description: ${eventDesc.trim()}`,
+      },
+    ])
+    await publishArchivedAlert({
+      category: 'event',
+      shortTitle: 'Event alert',
+      fullMessage: `New Class ${eventType}: ${eventTitle.trim()} on ${eventDate}${
+        eventDesc.trim() ? ` — ${eventDesc.trim()}` : ''
+      }`,
+    })
+
+    setPostingEvent(false)
+    setEventTitle('')
+    setEventDate('')
+    setEventDesc('')
+    alert('Event successfully posted!')
+  }
+
   const openMainTabPage = (tabId: string) => {
     const currentFull = `${location.pathname}${location.search}`
     if (tabId === 'landing') {
@@ -453,7 +511,7 @@ export default function MemberDashboard() {
     {
       id: 'activities',
       label: 'Activities',
-      description: 'Calendar, City Map / In Town, Jobs & Comms',
+      description: 'Calendar, Post Event, City Map / In Town, Jobs & Comms',
       icon: CalendarDays,
       badge: totalCommBadge,
     },
@@ -740,6 +798,7 @@ export default function MemberDashboard() {
               {expandedRosterTab === 'directory' && (
                 <div className="pt-1">
                   <DirectoryTab
+                    mode="directory"
                     onStartDM={(id, name) => {
                       recordPreviousRoute('/roster')
                       navigate(`/dashboard?tab=chat&dmId=${id}&dmName=${encodeURIComponent(name)}`)
@@ -747,10 +806,6 @@ export default function MemberDashboard() {
                     onStartVideoCall={roomName => {
                       recordPreviousRoute('/roster')
                       navigate(`/dashboard?tab=calls&roomName=${encodeURIComponent(roomName)}`)
-                    }}
-                    onOpenSupportRequests={() => {
-                      recordPreviousRoute('/roster')
-                      navigate('/emergency')
                     }}
                   />
                 </div>
@@ -806,6 +861,7 @@ export default function MemberDashboard() {
               {expandedEmergencyTab === 'blood_sos' && (
                 <div className="pt-1">
                   <DirectoryTab
+                    mode="sos"
                     onStartDM={(id, name) => {
                       recordPreviousRoute('/emergency')
                       navigate(`/dashboard?tab=chat&dmId=${id}&dmName=${encodeURIComponent(name)}`)
@@ -813,11 +869,6 @@ export default function MemberDashboard() {
                     onStartVideoCall={roomName => {
                       recordPreviousRoute('/emergency')
                       navigate(`/dashboard?tab=calls&roomName=${encodeURIComponent(roomName)}`)
-                    }}
-                    onOpenSupportRequests={() => {
-                      setExpandedEmergencyTab(
-                        toggleExclusiveTab(SCOPE_EMERGENCY, expandedEmergencyTab, 'family_support')
-                      )
                     }}
                   />
                 </div>
@@ -835,7 +886,7 @@ export default function MemberDashboard() {
               )}
               {expandedEmergencyTab === 'family_support' && (
                 <div className="pt-1">
-                  <SupportTab />
+                  <SupportTab mode="support" />
                 </div>
               )}
             </div>
@@ -909,8 +960,79 @@ export default function MemberDashboard() {
               )}
 
               {renderAccordionToggle(
+                'Post Class Event',
+                'Schedule and announce a class event, reunion or online meeting',
+                expandedActivityTab === 'post_event',
+                () =>
+                  setExpandedActivityTab(
+                    toggleExclusiveTab(SCOPE_ACTIVITIES, expandedActivityTab, 'post_event') as ActivitySubTab | null
+                  ),
+                <Plus className="h-4 w-4" />
+              )}
+              {expandedActivityTab === 'post_event' && (
+                <div className="pt-1">
+                  <Card className="border-border/40 bg-card/60 backdrop-blur-sm">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-base text-primary">
+                        <Plus className="h-5 w-5" />
+                        Post Class Event
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <Label>Title</Label>
+                          <Input
+                            value={eventTitle}
+                            onChange={e => setEventTitle(e.target.value)}
+                            placeholder="Event title"
+                          />
+                        </div>
+                        <div>
+                          <Label>Type</Label>
+                          <select
+                            className="w-full h-9 rounded-md border border-border/50 bg-background px-3 text-sm"
+                            value={eventType}
+                            onChange={e => setEventType(e.target.value)}
+                          >
+                            <option>Anniversary</option>
+                            <option>Online Meeting</option>
+                            <option>Reunion</option>
+                            <option>Memorial</option>
+                            <option>Other</option>
+                          </select>
+                        </div>
+                        <div>
+                          <Label>Date</Label>
+                          <SmartDateInput value={eventDate} onChange={setEventDate} />
+                        </div>
+                        <div>
+                          <Label>Description</Label>
+                          <Textarea
+                            value={eventDesc}
+                            onChange={e => setEventDesc(e.target.value)}
+                            placeholder="Optional description"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        disabled={postingEvent}
+                        onClick={handleCreateClassEvent}
+                        title="Post Class Event"
+                        className="gold-gradient text-gold-foreground w-full"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        {postingEvent ? 'Posting...' : 'Post Event'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {renderAccordionToggle(
                 'I Am In Town / City Map',
-                'Browse batch city clusters and broadcast travel visits',
+                'Check member permanent/current locations and broadcast travel visits',
                 expandedActivityTab === 'city_town',
                 () =>
                   setExpandedActivityTab(
@@ -921,6 +1043,7 @@ export default function MemberDashboard() {
               {expandedActivityTab === 'city_town' && (
                 <div className="pt-1">
                   <DirectoryTab
+                    mode="city_travel"
                     onStartDM={(id, name) => {
                       recordPreviousRoute('/activities')
                       navigate(`/dashboard?tab=chat&dmId=${id}&dmName=${encodeURIComponent(name)}`)
@@ -945,13 +1068,13 @@ export default function MemberDashboard() {
               )}
               {expandedActivityTab === 'opportunities' && (
                 <div className="pt-1">
-                  <SupportTab />
+                  <SupportTab mode="opportunities" />
                 </div>
               )}
 
               {renderAccordionToggle(
                 'Communication',
-                'Sub-tabs: Chat, Video Call & Voice Call',
+                'Sub-tabs: Chat, Video Call, Voice Call & Scheduled Call Lobbies',
                 expandedActivityTab === 'communication',
                 () =>
                   setExpandedActivityTab(
@@ -977,7 +1100,7 @@ export default function MemberDashboard() {
 
                   {renderAccordionToggle(
                     'Video Call',
-                    'Start or join video rooms with batchmates',
+                    'Start or join video rooms & share photo during call',
                     expandedCommTab === 'video',
                     () =>
                       setExpandedCommTab(
@@ -986,7 +1109,7 @@ export default function MemberDashboard() {
                     <Video className="h-4 w-4" />,
                     callsBadge
                   )}
-                  {expandedCommTab === 'video' && <CallsTab />}
+                  {expandedCommTab === 'video' && <CallsTab mode="video" />}
 
                   {renderAccordionToggle(
                     'Voice Call',
@@ -998,7 +1121,19 @@ export default function MemberDashboard() {
                       ),
                     <Phone className="h-4 w-4" />
                   )}
-                  {expandedCommTab === 'voice' && <CallsTab />}
+                  {expandedCommTab === 'voice' && <CallsTab mode="voice" />}
+
+                  {renderAccordionToggle(
+                    'Scheduled Call Lobbies & Attendance Log',
+                    'Schedule call lobbies and track live call attendance',
+                    expandedCommTab === 'scheduled_calls',
+                    () =>
+                      setExpandedCommTab(
+                        toggleExclusiveTab(SCOPE_COMM, expandedCommTab, 'scheduled_calls') as CommSubTab | null
+                      ),
+                    <CalendarClock className="h-4 w-4" />
+                  )}
+                  {expandedCommTab === 'scheduled_calls' && <CallsTab mode="scheduled" />}
                 </div>
               )}
             </div>
