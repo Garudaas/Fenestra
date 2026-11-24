@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { publishArchivedAlert } from '@/lib/notificationService'
 import { formatFullDate } from '@/lib/formatters'
-import { checkIsPresidentOrGenSec, checkCanManageTreasury } from '@/lib/taskAuditService'
+import { checkIsPresidentOrGenSec } from '@/lib/taskAuditService'
 import { downloadIcsEvent, buildGoogleCalendarUrl } from '@/lib/calendarSync'
 import { exportRowsToCSV, openPrintableReport } from '@/lib/reportExporter'
 import SmartDateInput from '@/components/shared/SmartDateInput'
@@ -30,17 +30,11 @@ import {
   Megaphone,
   ShieldCheck,
   Vote,
-  Wallet,
   FileText,
   Download,
   CalendarPlus,
   FileSpreadsheet,
-  Printer,
   Upload,
-  Pencil,
-  Eye,
-  ArrowDownLeft,
-  ArrowUpRight,
 } from 'lucide-react'
 
 interface CommitteeMember {
@@ -101,19 +95,6 @@ interface FundItem {
   created_at: string
 }
 
-interface TransactionItem {
-  id: number
-  fund_id: number
-  entry_type: 'contribution' | 'expense'
-  member_id: number | null
-  person_name: string
-  amount: number
-  reference_no: string | null
-  note: string | null
-  entry_date: string
-  recorded_by_name: string | null
-}
-
 interface MentorshipEntry {
   id: number
   alumni_id: number
@@ -151,11 +132,8 @@ export default function AlumniAssociationHome() {
   const [polls, setPolls] = useState<PollItem[]>([])
   const [votesByPoll, setVotesByPoll] = useState<VotesByPollMap>({})
   const [funds, setFunds] = useState<FundItem[]>([])
-  const [transactions, setTransactions] = useState<TransactionItem[]>([])
   const [mentorships, setMentorships] = useState<MentorshipEntry[]>([])
   const [canManageAdmins, setCanManageAdmins] = useState(userIsAdmin)
-  const [canManageTreasury, setCanManageTreasury] = useState(userIsAdmin)
-  const [treasurerRoleLabel, setTreasurerRoleLabel] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [statusBanner, setStatusBanner] = useState('')
 
@@ -190,27 +168,6 @@ export default function AlumniAssociationHome() {
   const [pollCloseDate, setPollCloseDate] = useState('')
   const [savingPoll, setSavingPoll] = useState(false)
 
-  // Treasury Fund Form states (Create & Edit Fund)
-  const [showFundForm, setShowFundForm] = useState(false)
-  const [editingFundId, setEditingFundId] = useState<number | null>(null)
-  const [fundTitle, setFundTitle] = useState('')
-  const [fundCategory, setFundCategory] = useState('Reunion & Events')
-  const [fundTarget, setFundTarget] = useState('')
-  const [fundDesc, setFundDesc] = useState('')
-  const [savingFund, setSavingFund] = useState(false)
-
-  // Treasury Ledger Entry Form states (Log & Edit Fund Received / Expense Done)
-  const [selectedFundIdForEntry, setSelectedFundIdForEntry] = useState<number | null>(null)
-  const [editingTxId, setEditingTxId] = useState<number | null>(null)
-  const [entryType, setEntryType] = useState<'contribution' | 'expense'>('contribution')
-  const [entryMemberId, setEntryMemberId] = useState('')
-  const [entryPersonName, setEntryPersonName] = useState('')
-  const [entryAmount, setEntryAmount] = useState('')
-  const [entryDate, setEntryDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [entryRefNo, setEntryRefNo] = useState('')
-  const [entryNote, setEntryNote] = useState('')
-  const [savingEntry, setSavingEntry] = useState(false)
-
   // Mentorship state
   const [mentorRoleType, setMentorRoleType] = useState<'mentor' | 'mentee'>('mentor')
   const [domainArea, setDomainArea] = useState(MENTORSHIP_DOMAINS[0])
@@ -232,24 +189,6 @@ export default function AlumniAssociationHome() {
     setTimeout(() => setStatusBanner(''), 4000)
   }
 
-  const logTreasuryGovernanceAction = async (
-    actionType: string,
-    targetName: string,
-    details: string
-  ) => {
-    if (!user) return
-    const actorLabel = treasurerRoleLabel ? `${treasurerRoleLabel} ${user.full_name}` : user.full_name
-    await supabase.from('admin_audit_logs').insert([
-      {
-        actor_id: user.id,
-        actor_name: actorLabel,
-        action_type: actionType,
-        target_name: targetName,
-        details,
-      },
-    ])
-  }
-
   const loadAssociationData = async () => {
     if (!user) return
     setLoading(true)
@@ -261,10 +200,8 @@ export default function AlumniAssociationHome() {
       pollsRes,
       votesRes,
       fundsRes,
-      txRes,
       mentorRes,
       execCheck,
-      treasuryCheck,
     ] = await Promise.all([
       supabase
         .from('alumni')
@@ -286,14 +223,8 @@ export default function AlumniAssociationHome() {
       supabase.from('association_polls').select('*').order('created_at', { ascending: false }),
       supabase.from('association_poll_votes').select('*'),
       supabase.from('association_funds').select('*').order('created_at', { ascending: false }),
-      supabase
-        .from('association_transactions')
-        .select('*')
-        .order('entry_date', { ascending: false })
-        .order('created_at', { ascending: false }),
       supabase.from('mentorship_signups').select('*').order('created_at', { ascending: false }),
       checkIsPresidentOrGenSec(user.id),
-      checkCanManageTreasury(user.id),
     ])
 
     setMembersDirectory(membersRes.data ?? [])
@@ -316,13 +247,10 @@ export default function AlumniAssociationHome() {
     setVotesByPoll(voteMap)
 
     setFunds((fundsRes.data ?? []) as FundItem[])
-    setTransactions((txRes.data ?? []) as TransactionItem[])
     setMentorships((mentorRes.data ?? []) as MentorshipEntry[])
 
     const hasAdminAuthority = Boolean(userIsAdmin || execCheck.hasExecutiveAdmin)
     setCanManageAdmins(hasAdminAuthority)
-    setCanManageTreasury(Boolean(hasAdminAuthority || treasuryCheck.canManageTreasury))
-    setTreasurerRoleLabel(treasuryCheck.treasurerTitle || execCheck.officeTitle || null)
     setLoading(false)
   }
 
@@ -571,309 +499,6 @@ export default function AlumniAssociationHome() {
     await loadAssociationData()
   }
 
-  // --- TREASURER ACCOUNT MANAGEMENT (FUNDS RECEIVED & EXPENSES DONE) ---
-  const resetFundForm = () => {
-    setEditingFundId(null)
-    setFundTitle('')
-    setFundCategory('Reunion & Events')
-    setFundTarget('')
-    setFundDesc('')
-    setShowFundForm(false)
-  }
-
-  const openEditFundForm = (fund: FundItem) => {
-    setEditingFundId(fund.id)
-    setFundTitle(fund.title)
-    setFundCategory(fund.category || 'Reunion & Events')
-    setFundTarget(fund.target_amount ? String(fund.target_amount) : '')
-    setFundDesc(fund.description || '')
-    setShowFundForm(true)
-  }
-
-  const handleSaveFund = async () => {
-    if (!user || !canManageTreasury) return
-    if (!fundTitle.trim()) {
-      alert('Please enter a Fund / Account Title.')
-      return
-    }
-    setSavingFund(true)
-    const recorderName = treasurerRoleLabel
-      ? `${treasurerRoleLabel} ${user.full_name}`
-      : user.full_name
-
-    if (editingFundId) {
-      const { error } = await supabase
-        .from('association_funds')
-        .update({
-          title: fundTitle.trim(),
-          category: fundCategory,
-          target_amount: Number(fundTarget) || 0,
-          description: fundDesc.trim() || null,
-        })
-        .eq('id', editingFundId)
-
-      setSavingFund(false)
-      if (error) {
-        alert('Could not update fund: ' + error.message)
-        return
-      }
-      await logTreasuryGovernanceAction(
-        'treasury_edit_fund',
-        fundTitle.trim(),
-        `Updated fund account "${fundTitle.trim()}"`
-      )
-      showToastBanner('Association fund updated!')
-    } else {
-      const { error } = await supabase.from('association_funds').insert([
-        {
-          title: fundTitle.trim(),
-          category: fundCategory,
-          target_amount: Number(fundTarget) || 0,
-          description: fundDesc.trim() || null,
-          status: 'active',
-          created_by_name: recorderName,
-        },
-      ])
-
-      setSavingFund(false)
-      if (error) {
-        alert('Could not create fund: ' + error.message)
-        return
-      }
-      await logTreasuryGovernanceAction(
-        'treasury_create_fund',
-        fundTitle.trim(),
-        `Created association fund "${fundTitle.trim()}" (Target: ₹${Number(fundTarget) || 0})`
-      )
-      showToastBanner('Association fund created!')
-    }
-
-    resetFundForm()
-    await loadAssociationData()
-  }
-
-  const handleToggleFundStatus = async (fund: FundItem) => {
-    if (!canManageTreasury) return
-    const nextStatus = fund.status === 'closed' ? 'active' : 'closed'
-    await supabase
-      .from('association_funds')
-      .update({ status: nextStatus })
-      .eq('id', fund.id)
-    await logTreasuryGovernanceAction(
-      'treasury_fund_status',
-      fund.title,
-      `Marked fund "${fund.title}" as ${nextStatus.toUpperCase()}`
-    )
-    await loadAssociationData()
-  }
-
-  const handleDeleteFund = async (fund: FundItem) => {
-    if (!canManageTreasury) return
-    if (
-      !window.confirm(
-        `Delete fund "${fund.title}" and all of its recorded transactions? This cannot be undone.`
-      )
-    ) {
-      return
-    }
-    await supabase.from('association_funds').delete().eq('id', fund.id)
-    await logTreasuryGovernanceAction(
-      'treasury_delete_fund',
-      fund.title,
-      `Deleted fund "${fund.title}"`
-    )
-    showToastBanner(`Deleted fund "${fund.title}".`)
-    await loadAssociationData()
-  }
-
-  const resetTransactionForm = () => {
-    setSelectedFundIdForEntry(null)
-    setEditingTxId(null)
-    setEntryType('contribution')
-    setEntryMemberId('')
-    setEntryPersonName('')
-    setEntryAmount('')
-    setEntryDate(new Date().toISOString().slice(0, 10))
-    setEntryRefNo('')
-    setEntryNote('')
-  }
-
-  const openNewTransactionForm = (fundId: number, defaultType: 'contribution' | 'expense') => {
-    setSelectedFundIdForEntry(fundId)
-    setEditingTxId(null)
-    setEntryType(defaultType)
-    setEntryMemberId('')
-    setEntryPersonName('')
-    setEntryAmount('')
-    setEntryDate(new Date().toISOString().slice(0, 10))
-    setEntryRefNo('')
-    setEntryNote('')
-  }
-
-  const openEditTransactionForm = (tx: TransactionItem) => {
-    setSelectedFundIdForEntry(tx.fund_id)
-    setEditingTxId(tx.id)
-    setEntryType(tx.entry_type)
-    setEntryMemberId(tx.member_id ? String(tx.member_id) : '')
-    setEntryPersonName(tx.person_name)
-    setEntryAmount(String(tx.amount))
-    setEntryDate(tx.entry_date || new Date().toISOString().slice(0, 10))
-    setEntryRefNo(tx.reference_no || '')
-    setEntryNote(tx.note || '')
-  }
-
-  const handleSaveTransaction = async (fund: FundItem) => {
-    if (!user || !canManageTreasury) return
-    const amt = Number(entryAmount)
-    if (!entryPersonName.trim() || !amt || amt <= 0) {
-      alert(
-        entryType === 'contribution'
-          ? 'Please enter the Donor / Member Name and valid Amount Received.'
-          : 'Please enter the Payee / Vendor Name and valid Expense Amount.'
-      )
-      return
-    }
-
-    setSavingEntry(true)
-    const recorderName = treasurerRoleLabel
-      ? `${treasurerRoleLabel} ${user.full_name}`
-      : user.full_name
-
-    const payload = {
-      fund_id: fund.id,
-      entry_type: entryType,
-      member_id: entryType === 'contribution' && entryMemberId ? Number(entryMemberId) : null,
-      person_name: entryPersonName.trim(),
-      amount: amt,
-      entry_date: entryDate || new Date().toISOString().slice(0, 10),
-      reference_no: entryRefNo.trim() || null,
-      note: entryNote.trim() || null,
-      recorded_by_name: recorderName,
-    }
-
-    if (editingTxId) {
-      const { error } = await supabase
-        .from('association_transactions')
-        .update(payload)
-        .eq('id', editingTxId)
-
-      setSavingEntry(false)
-      if (error) {
-        alert('Could not update entry: ' + error.message)
-        return
-      }
-      await logTreasuryGovernanceAction(
-        'treasury_edit_entry',
-        fund.title,
-        `Edited ${entryType === 'contribution' ? 'Fund Received' : 'Expense'} of ₹${amt.toLocaleString('en-IN')} (${entryPersonName.trim()}) in "${fund.title}"`
-      )
-      showToastBanner('Ledger entry updated!')
-    } else {
-      const { error } = await supabase.from('association_transactions').insert([payload])
-
-      setSavingEntry(false)
-      if (error) {
-        alert('Could not record entry: ' + error.message)
-        return
-      }
-      await logTreasuryGovernanceAction(
-        entryType === 'contribution' ? 'treasury_fund_received' : 'treasury_expense_done',
-        fund.title,
-        `Logged ${entryType === 'contribution' ? 'Fund Received' : 'Expense Done'} of ₹${amt.toLocaleString('en-IN')} (${entryPersonName.trim()}) in "${fund.title}"`
-      )
-      showToastBanner(
-        entryType === 'contribution'
-          ? `Fund received (₹${amt.toLocaleString('en-IN')}) logged!`
-          : `Expense (₹${amt.toLocaleString('en-IN')}) recorded!`
-      )
-    }
-
-    resetTransactionForm()
-    await loadAssociationData()
-  }
-
-  const handleDeleteTransaction = async (tx: TransactionItem, fundTitleLabel: string) => {
-    if (!canManageTreasury) return
-    if (
-      !window.confirm(
-        `Delete this ${tx.entry_type === 'contribution' ? 'Fund Received' : 'Expense'} entry of ₹${Number(tx.amount).toLocaleString('en-IN')} (${tx.person_name})?`
-      )
-    ) {
-      return
-    }
-    await supabase.from('association_transactions').delete().eq('id', tx.id)
-    await logTreasuryGovernanceAction(
-      'treasury_delete_entry',
-      fundTitleLabel,
-      `Deleted ${tx.entry_type === 'contribution' ? 'Fund Received' : 'Expense'} entry of ₹${Number(tx.amount).toLocaleString('en-IN')} (${tx.person_name})`
-    )
-    showToastBanner('Ledger entry deleted.')
-    await loadAssociationData()
-  }
-
-  const handleExportTreasuryCsv = () => {
-    const headers = [
-      'Date',
-      'Fund Account',
-      'Entry Type',
-      'Member / Payee',
-      'Amount (INR)',
-      'UPI / Voucher Ref',
-      'Note / Particulars',
-      'Recorded By',
-    ]
-    const rows = transactions.map(tx => {
-      const fund = funds.find(f => f.id === tx.fund_id)
-      return [
-        formatFullDate(tx.entry_date),
-        fund?.title || 'General',
-        tx.entry_type === 'contribution' ? 'FUND RECEIVED (+)' : 'EXPENSE DONE (-)',
-        tx.person_name,
-        tx.amount,
-        tx.reference_no || '-',
-        tx.note || '-',
-        tx.recorded_by_name || '-',
-      ]
-    })
-    exportRowsToCSV(
-      `Fenestrians_Treasury_Ledger_${new Date().toISOString().slice(0, 10)}.csv`,
-      headers,
-      rows
-    )
-  }
-
-  const handlePrintTreasury = () => {
-    const headers = [
-      'Date',
-      'Fund Account',
-      'Entry Type',
-      'Member / Payee',
-      'Amount (INR)',
-      'UPI / Voucher Ref',
-      'Note / Particulars',
-      'Recorded By',
-    ]
-    const rows = transactions.map(tx => {
-      const fund = funds.find(f => f.id === tx.fund_id)
-      return [
-        formatFullDate(tx.entry_date),
-        fund?.title || 'General',
-        tx.entry_type === 'contribution' ? 'FUND RECEIVED (+)' : 'EXPENSE DONE (-)',
-        tx.person_name,
-        tx.amount,
-        tx.reference_no || '-',
-        tx.note || '-',
-        tx.recorded_by_name || '-',
-      ]
-    })
-    openPrintableReport(
-      'Association Treasury & Account Statement',
-      `Total Entries: ${transactions.length} • Net Balance: ₹${overallNetBalance.toLocaleString('en-IN')}`,
-      headers,
-      rows
-    )
-  }
-
   // --- MENTORSHIP ---
   const handleMentorshipSignup = async () => {
     if (!user) return
@@ -940,6 +565,23 @@ export default function AlumniAssociationHome() {
     )
   }
 
+  const handlePrintMentorshipRoster = () => {
+    const headers = ['Member Name', 'Role', 'Domain / Expertise', 'Availability Note', 'Registered Date']
+    const rows = mentorships.map(m => [
+      m.member_name,
+      m.role_type.toUpperCase(),
+      m.domain_area,
+      m.availability_note || '-',
+      formatFullDate(m.created_at),
+    ])
+    openPrintableReport(
+      'Fenestrians Mentorship Roster',
+      `Total Mentors & Mentees: ${mentorships.length}`,
+      headers,
+      rows
+    )
+  }
+
   if (!user) return null
 
   const filteredMentorships = mentorships.filter(m =>
@@ -947,15 +589,6 @@ export default function AlumniAssociationHome() {
   )
 
   const currentAdmins = membersDirectory.filter(m => m.is_admin)
-
-  // Overall Treasury Totals across all funds
-  const overallFundsReceived = transactions
-    .filter(t => t.entry_type === 'contribution')
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0)
-  const overallExpensesDone = transactions
-    .filter(t => t.entry_type === 'expense')
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0)
-  const overallNetBalance = overallFundsReceived - overallExpensesDone
 
   return (
     <div className="min-h-svh bg-background p-4 sm:p-6 pb-28">
@@ -980,6 +613,7 @@ export default function AlumniAssociationHome() {
           </div>
         )}
 
+        {/* LANDING HERO CARD: TITLE, SUBTITLE, OFFICE BEARERS, ADMINS & NAVIGATION TABS */}
         <Card className="border-primary/40 bg-card/80 backdrop-blur-md shadow-xl overflow-hidden">
           <CardHeader className="text-center space-y-2 py-5">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/40 bg-primary/10 text-primary shadow-md">
@@ -993,7 +627,104 @@ export default function AlumniAssociationHome() {
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="pt-0 pb-4">
+          <CardContent className="pt-0 pb-4 space-y-4">
+            {/* 1. OFFICE BEARERS LIST (Right below title & subtitle) */}
+            <div className="rounded-xl border border-primary/25 bg-primary/5 p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+                  <Award className="h-4 w-4" />
+                  Office Bearers ({committee.length})
+                </h2>
+              </div>
+
+              {loading ? (
+                <p className="text-xs text-muted-foreground">Loading office bearers...</p>
+              ) : committee.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No office bearers assigned yet.
+                </p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {committee.map(cm => {
+                    const linked = membersDirectory.find(m => m.id === cm.alumni_id)
+                    return (
+                      <div
+                        key={cm.id}
+                        onClick={() => {
+                          if (cm.alumni_id) navigate(`/member/${cm.alumni_id}`)
+                        }}
+                        className={`flex items-center gap-2.5 rounded-lg border border-border/40 bg-background/75 p-2.5 transition-all ${
+                          cm.alumni_id
+                            ? 'cursor-pointer hover:border-primary/50 hover:bg-primary/10'
+                            : ''
+                        }`}
+                      >
+                        {linked?.profile_picture_url ? (
+                          <img
+                            src={linked.profile_picture_url}
+                            alt={cm.member_name}
+                            className="h-9 w-9 shrink-0 rounded-full border border-primary/40 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/15 text-xs font-bold text-primary">
+                            {cm.member_name?.[0] || '?'}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-amber-400 truncate">
+                            {cm.role_title}
+                          </p>
+                          <p className="text-xs font-bold text-foreground truncate">
+                            {cm.member_name}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 2. APP ADMINS LIST (Right below Office Bearers) */}
+            <div className="rounded-xl border border-sky-500/25 bg-sky-500/5 p-3.5 space-y-2">
+              <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sky-400">
+                <ShieldCheck className="h-4 w-4" />
+                App Admins ({currentAdmins.length})
+              </h2>
+
+              {loading ? (
+                <p className="text-xs text-muted-foreground">Loading admins...</p>
+              ) : currentAdmins.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No app admins listed.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {currentAdmins.map(adm => (
+                    <button
+                      key={adm.id}
+                      type="button"
+                      onClick={() => navigate(`/member/${adm.id}`)}
+                      className="inline-flex items-center gap-2 rounded-full border border-sky-500/35 bg-background/80 px-3 py-1 text-xs font-semibold text-foreground hover:border-sky-400 hover:bg-sky-500/10 transition-colors"
+                    >
+                      {adm.profile_picture_url ? (
+                        <img
+                          src={adm.profile_picture_url}
+                          alt={adm.full_name}
+                          className="h-5 w-5 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-500/20 text-[10px] font-bold text-sky-300">
+                          {adm.full_name?.[0] || '?'}
+                        </span>
+                      )}
+                      <span>{adm.full_name}</span>
+                      <span className="text-[10px] font-bold text-sky-400">Admin</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 3. SUB-NAVIGATION TABS */}
             <div className="flex flex-wrap gap-1.5 rounded-xl border border-border/50 bg-background/60 p-1">
               {(
                 [
@@ -1469,538 +1200,6 @@ export default function AlumniAssociationHome() {
           </Card>
         )}
 
-        {/* SUB-TAB 3: TREASURY — TREASURER ACCOUNT MANAGEMENT & READ-ONLY MEMBER VIEW */}
-        {activeSubTab === 'treasury' && (
-          <Card className="border-border/40 bg-card/70 backdrop-blur-sm">
-            <CardHeader className="pb-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="space-y-1">
-                  <CardTitle className="flex items-center gap-2 text-base text-primary">
-                    <Wallet className="h-5 w-5" />
-                    Association Treasury &amp; Account Statement
-                  </CardTitle>
-                  <div>
-                    {canManageTreasury ? (
-                      <Badge className="bg-emerald-600/25 text-emerald-300 border border-emerald-500/40 text-[10px]">
-                        Treasurer Account Access Enabled
-                      </Badge>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-muted/40 px-2.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                        <Eye className="h-3 w-3 text-primary" />
-                        View-Only Transparency Ledger (Maintained by Treasurer)
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExportTreasuryCsv}
-                    className="h-8 text-xs gap-1"
-                  >
-                    <FileSpreadsheet className="h-3.5 w-3.5" />
-                    CSV Statement
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handlePrintTreasury}
-                    className="h-8 text-xs gap-1"
-                  >
-                    <Printer className="h-3.5 w-3.5" />
-                    Print Statement
-                  </Button>
-                  {canManageTreasury && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => {
-                        if (showFundForm) {
-                          resetFundForm()
-                        } else {
-                          resetFundForm()
-                          setShowFundForm(true)
-                        }
-                      }}
-                      className="h-8 gold-gradient text-gold-foreground font-semibold gap-1 text-xs"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      {showFundForm ? 'Close Fund Form' : 'New Fund Account'}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
-              {/* Overall Treasury Account Summary */}
-              <div className="grid grid-cols-3 gap-2.5 rounded-xl border border-primary/30 bg-primary/5 p-3 text-center">
-                <div>
-                  <p className="text-[11px] text-muted-foreground">Total Funds Received</p>
-                  <p className="text-sm sm:text-base font-bold text-emerald-400">
-                    ₹{overallFundsReceived.toLocaleString('en-IN')}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground">Total Expenses Done</p>
-                  <p className="text-sm sm:text-base font-bold text-rose-400">
-                    ₹{overallExpensesDone.toLocaleString('en-IN')}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground">Net Account Balance</p>
-                  <p className="text-sm sm:text-base font-bold text-primary">
-                    ₹{overallNetBalance.toLocaleString('en-IN')}
-                  </p>
-                </div>
-              </div>
-
-              {/* Treasurer Only: Create / Edit Fund Account Form */}
-              {canManageTreasury && showFundForm && (
-                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3 text-xs">
-                  <p className="font-bold text-primary">
-                    {editingFundId
-                      ? 'Edit Association Fund Account'
-                      : 'Create Association Fund Account'}
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <Label>Fund Account Title *</Label>
-                      <Input
-                        value={fundTitle}
-                        onChange={e => setFundTitle(e.target.value)}
-                        placeholder="e.g., Reunion 2027 / Student Scholarship"
-                        className="mt-1 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <Label>Category</Label>
-                      <select
-                        value={fundCategory}
-                        onChange={e => setFundCategory(e.target.value)}
-                        className="mt-1 w-full h-9 rounded-md border border-border/50 bg-background px-3 text-xs"
-                      >
-                        <option value="Reunion & Events">Reunion &amp; Events</option>
-                        <option value="Student Scholarship">Student Scholarship</option>
-                        <option value="Batch Welfare & Support">Batch Welfare &amp; Support</option>
-                        <option value="Department Development">Department Development</option>
-                        <option value="General Association Fund">General Association Fund</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Label>Target Amount (₹)</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={fundTarget}
-                        onChange={e => setFundTarget(e.target.value)}
-                        placeholder="e.g., 100000"
-                        className="mt-1 text-xs"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Account Details / Official UPI ID / Bank Info</Label>
-                    <Input
-                      value={fundDesc}
-                      onChange={e => setFundDesc(e.target.value)}
-                      placeholder="Purpose & official association UPI / bank details..."
-                      className="mt-1 text-xs"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={resetFundForm}
-                      className="text-xs"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={savingFund}
-                      onClick={handleSaveFund}
-                      className="gold-gradient text-gold-foreground font-semibold gap-1.5 text-xs"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      {savingFund
-                        ? 'Saving...'
-                        : editingFundId
-                        ? 'Update Fund Account'
-                        : 'Create Fund Account'}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {funds.length === 0 ? (
-                <p className="rounded-xl border border-border/30 bg-muted/15 p-6 text-center text-xs text-muted-foreground">
-                  No association fund accounts created yet.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {funds.map(fund => {
-                    const fundTxs = transactions.filter(t => t.fund_id === fund.id)
-                    const totalCollected = fundTxs
-                      .filter(t => t.entry_type === 'contribution')
-                      .reduce((sum, t) => sum + Number(t.amount || 0), 0)
-                    const totalExpense = fundTxs
-                      .filter(t => t.entry_type === 'expense')
-                      .reduce((sum, t) => sum + Number(t.amount || 0), 0)
-                    const netBalance = totalCollected - totalExpense
-                    const target = Number(fund.target_amount || 0)
-                    const pct =
-                      target > 0 ? Math.min(100, Math.round((totalCollected / target) * 100)) : 0
-                    const isClosed = fund.status === 'closed'
-
-                    return (
-                      <div
-                        key={fund.id}
-                        className="rounded-xl border border-border/40 bg-muted/15 p-4 space-y-3 text-xs"
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div className="space-y-0.5">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-sm font-bold text-primary">{fund.title}</h3>
-                              <Badge variant="outline" className="text-[10px]">
-                                {fund.category}
-                              </Badge>
-                              {isClosed && (
-                                <Badge variant="secondary" className="text-[10px]">
-                                  Closed Account
-                                </Badge>
-                              )}
-                            </div>
-                            {fund.description && (
-                              <p className="text-muted-foreground">{fund.description}</p>
-                            )}
-                          </div>
-
-                          {/* Treasurer Only Controls */}
-                          {canManageTreasury && (
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => openNewTransactionForm(fund.id, 'contribution')}
-                                className="h-7 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold gap-1 text-[11px]"
-                              >
-                                <ArrowDownLeft className="h-3 w-3" />
-                                + Fund Received
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => openNewTransactionForm(fund.id, 'expense')}
-                                className="h-7 bg-rose-600 hover:bg-rose-500 text-white font-semibold gap-1 text-[11px]"
-                              >
-                                <ArrowUpRight className="h-3 w-3" />
-                                - Expense Done
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                title="Edit Fund Details"
-                                onClick={() => openEditFundForm(fund)}
-                                className="h-7 w-7 text-primary hover:bg-primary/10"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleToggleFundStatus(fund)}
-                                className="h-7 px-2 text-[10px]"
-                              >
-                                {isClosed ? 'Reopen' : 'Close'}
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                title="Delete Fund Account"
-                                onClick={() => handleDeleteFund(fund)}
-                                className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2 rounded-lg border border-border/30 bg-background/60 p-2.5 text-center">
-                          <div>
-                            <p className="text-[10px] text-muted-foreground">Funds Received</p>
-                            <p className="font-bold text-emerald-400">
-                              ₹{totalCollected.toLocaleString('en-IN')}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-muted-foreground">Expenses Done</p>
-                            <p className="font-bold text-rose-400">
-                              ₹{totalExpense.toLocaleString('en-IN')}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-muted-foreground">Balance in Hand</p>
-                            <p className="font-bold text-primary">
-                              ₹{netBalance.toLocaleString('en-IN')}
-                            </p>
-                          </div>
-                        </div>
-
-                        {target > 0 && (
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-[11px]">
-                              <span>Target Progress ({pct}%)</span>
-                              <span>
-                                ₹{totalCollected.toLocaleString('en-IN')} / ₹
-                                {target.toLocaleString('en-IN')}
-                              </span>
-                            </div>
-                            <div className="h-2 w-full rounded-full bg-background overflow-hidden">
-                              <div
-                                style={{ width: `${pct}%` }}
-                                className="h-full gold-gradient transition-all"
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Treasurer Only: Log or Edit Transaction Form */}
-                        {canManageTreasury && selectedFundIdForEntry === fund.id && (
-                          <div className="rounded-lg border border-primary/35 bg-primary/5 p-3.5 space-y-2.5">
-                            <p className="font-bold text-primary">
-                              {editingTxId
-                                ? 'Edit Ledger Entry'
-                                : entryType === 'contribution'
-                                ? 'Log Fund Received (+)'
-                                : 'Log Expense Done (-)'}
-                            </p>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                              <div>
-                                <Label className="text-[11px]">Entry Type</Label>
-                                <select
-                                  value={entryType}
-                                  onChange={e =>
-                                    setEntryType(e.target.value as 'contribution' | 'expense')
-                                  }
-                                  className="mt-1 w-full h-8 rounded-md border border-border/50 bg-background px-2 text-xs font-semibold"
-                                >
-                                  <option value="contribution">Fund Received (+)</option>
-                                  <option value="expense">Expense Done (-)</option>
-                                </select>
-                              </div>
-
-                              <div>
-                                <Label className="text-[11px]">Date</Label>
-                                <SmartDateInput
-                                  value={entryDate}
-                                  onChange={setEntryDate}
-                                  className="mt-1"
-                                />
-                              </div>
-
-                              <div>
-                                <Label className="text-[11px]">Amount (₹) *</Label>
-                                <Input
-                                  type="number"
-                                  min={1}
-                                  value={entryAmount}
-                                  onChange={e => setEntryAmount(e.target.value)}
-                                  placeholder="Amount in ₹"
-                                  className="mt-1 h-8 text-xs font-bold"
-                                />
-                              </div>
-                            </div>
-
-                            {entryType === 'contribution' && (
-                              <div>
-                                <Label className="text-[11px]">
-                                  Select Registered Member (or type external donor below)
-                                </Label>
-                                <select
-                                  value={entryMemberId}
-                                  onChange={e => {
-                                    const chosenId = e.target.value
-                                    setEntryMemberId(chosenId)
-                                    const found = membersDirectory.find(
-                                      m => String(m.id) === chosenId
-                                    )
-                                    if (found) setEntryPersonName(found.full_name)
-                                  }}
-                                  className="mt-1 w-full h-8 rounded-md border border-border/50 bg-background px-2 text-xs"
-                                >
-                                  <option value="">-- Choose Member from Directory --</option>
-                                  {membersDirectory.map(m => (
-                                    <option key={m.id} value={String(m.id)}>
-                                      {m.full_name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            )}
-
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                              <div>
-                                <Label className="text-[11px]">
-                                  {entryType === 'contribution'
-                                    ? 'Contributor / Donor Name *'
-                                    : 'Payee / Vendor Name *'}
-                                </Label>
-                                <Input
-                                  value={entryPersonName}
-                                  onChange={e => setEntryPersonName(e.target.value)}
-                                  placeholder={
-                                    entryType === 'contribution'
-                                      ? 'Member or Donor Name'
-                                      : 'Vendor / Purpose Payee'
-                                  }
-                                  className="mt-1 h-8 text-xs"
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-[11px]">UPI / Bank / Bill Ref No.</Label>
-                                <Input
-                                  value={entryRefNo}
-                                  onChange={e => setEntryRefNo(e.target.value)}
-                                  placeholder="UPI Ref / Receipt #"
-                                  className="mt-1 h-8 text-xs"
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-[11px]">Particulars / Note</Label>
-                                <Input
-                                  value={entryNote}
-                                  onChange={e => setEntryNote(e.target.value)}
-                                  placeholder="e.g., Reunion contribution / Hall advance"
-                                  className="mt-1 h-8 text-xs"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="flex gap-2 pt-1">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={resetTransactionForm}
-                                className="h-8 text-xs"
-                              >
-                                Cancel
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                disabled={savingEntry}
-                                onClick={() => handleSaveTransaction(fund)}
-                                className="h-8 gold-gradient text-gold-foreground font-semibold text-xs"
-                              >
-                                {savingEntry
-                                  ? 'Saving...'
-                                  : editingTxId
-                                  ? 'Update Entry'
-                                  : 'Save to Account Ledger'}
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Itemized Account Ledger (Visible to all members; Edit/Delete only for Treasurer) */}
-                        {fundTxs.length > 0 && (
-                          <div className="space-y-1.5 max-h-64 overflow-y-auto pt-1">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                              Account Ledger Entries ({fundTxs.length})
-                            </p>
-                            {fundTxs.map(tx => (
-                              <div
-                                key={tx.id}
-                                className="flex items-center justify-between gap-2 rounded-lg border border-border/30 bg-background/60 px-3 py-2 text-[11px]"
-                              >
-                                <div className="min-w-0 space-y-0.5">
-                                  <div className="flex flex-wrap items-center gap-1.5">
-                                    <span className="font-bold text-foreground">
-                                      {tx.person_name}
-                                    </span>
-                                    <span className="text-[10px] text-muted-foreground">
-                                      • {formatFullDate(tx.entry_date)}
-                                    </span>
-                                    {tx.reference_no && (
-                                      <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                                        Ref: {tx.reference_no}
-                                      </span>
-                                    )}
-                                  </div>
-                                  {(tx.note || tx.recorded_by_name) && (
-                                    <p className="text-[10px] text-muted-foreground truncate">
-                                      {tx.note ? `${tx.note} ` : ''}
-                                      {tx.recorded_by_name
-                                        ? `(Logged by ${tx.recorded_by_name})`
-                                        : ''}
-                                    </p>
-                                  )}
-                                </div>
-
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <span
-                                    className={`font-bold text-xs ${
-                                      tx.entry_type === 'contribution'
-                                        ? 'text-emerald-400'
-                                        : 'text-rose-400'
-                                    }`}
-                                  >
-                                    {tx.entry_type === 'contribution' ? '+' : '-'}₹
-                                    {Number(tx.amount).toLocaleString('en-IN')}
-                                  </span>
-
-                                  {canManageTreasury && (
-                                    <>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        title="Edit Entry"
-                                        onClick={() => openEditTransactionForm(tx)}
-                                        className="h-6 w-6 text-primary hover:bg-primary/10"
-                                      >
-                                        <Pencil className="h-3 w-3" />
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        title="Delete Entry"
-                                        onClick={() => handleDeleteTransaction(tx, fund.title)}
-                                        className="h-6 w-6 text-destructive hover:bg-destructive/10"
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                      </Button>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
         {/* SUB-TAB 4: EXECUTIVE COMMITTEE & ADMIN PRIVILEGES */}
         {activeSubTab === 'committee' && (
           <div className="space-y-4">
@@ -2238,16 +1437,27 @@ export default function AlumniAssociationHome() {
                   Student &amp; Peer Mentorship Initiative
                 </CardTitle>
                 {mentorships.length > 0 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExportMentorshipCsv}
-                    className="h-8 text-xs gap-1"
-                  >
-                    <FileSpreadsheet className="h-3.5 w-3.5" />
-                    Export Mentorship CSV
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportMentorshipCsv}
+                      className="h-8 text-xs gap-1"
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5" />
+                      Export CSV
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePrintMentorshipRoster}
+                      className="h-8 text-xs gap-1"
+                    >
+                      Print Roster
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardHeader>
