@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.76",
-  "timestamp": "25 Nov 2026, 05:02 AM IST",
-  "formatted": "V2.76, 25 Nov 2026, 05:02 AM IST",
+  "version": "V2.77",
+  "timestamp": "25 Nov 2026, 05:07 AM IST",
+  "formatted": "V2.77, 25 Nov 2026, 05:07 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance address fields with map picker functionality)",
+  "summary": "Minor technical update (Fix import statement for Label component)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.77",
+      "timestamp": "25 Nov 2026, 05:07 AM IST",
+      "formatted": "V2.77, 25 Nov 2026, 05:07 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Fix import statement for Label component)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.76",
       "timestamp": "25 Nov 2026, 05:02 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.53, 25 Nov 2026, 12:07 AM IST",
       "type": "minor",
       "summary": "Minor general update (Remove isAdmin check from PersistentSessionRedirect)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.52",
-      "timestamp": "24 Nov 2026, 11:59 PM IST",
-      "formatted": "V2.52, 24 Nov 2026, 11:59 PM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Remove FundItem interface and funds state)",
       "requiresReinstall": false
     }
   ]
