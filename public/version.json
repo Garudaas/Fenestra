@@ -1,11 +1,19 @@
 {
-  "version": "V2.51",
-  "timestamp": "24 Nov 2026, 11:56 PM IST",
-  "formatted": "V2.51, 24 Nov 2026, 11:56 PM IST",
+  "version": "V2.52",
+  "timestamp": "24 Nov 2026, 11:59 PM IST",
+  "formatted": "V2.52, 24 Nov 2026, 11:59 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Update src/pages/AlumniAssociationHome.tsx for Tabs behaviour)",
+  "summary": "Minor technical update (Remove FundItem interface and funds state)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.52",
+      "timestamp": "24 Nov 2026, 11:59 PM IST",
+      "formatted": "V2.52, 24 Nov 2026, 11:59 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Remove FundItem interface and funds state)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.51",
       "timestamp": "24 Nov 2026, 11:56 PM IST",
@@ -196,14 +204,6 @@
       "formatted": "V2.28, 24 Nov 2026, 03:55 PM IST",
       "type": "minor",
       "summary": "Minor general update (Create Treasury Page)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.27",
-      "timestamp": "24 Nov 2026, 03:52 PM IST",
-      "formatted": "V2.27, 24 Nov 2026, 03:52 PM IST",
-      "type": "minor",
-      "summary": "Minor general update (Treasurer Account Management + Read-Only View for All Members)",
       "requiresReinstall": false
     }
   ]
