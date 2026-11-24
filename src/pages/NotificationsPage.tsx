@@ -446,7 +446,7 @@ export default function NotificationsPage() {
 
   const handleCloseNotificationsPage = () => {
     const prev = consumePreviousRoute('/dashboard')
-    navigate(prev)
+    navigate(prev === '/notifications' || prev === '/tasks' ? '/dashboard' : prev)
   }
 
   const handleStandardItemClick = async (item: UserNotificationItem) => {
@@ -534,6 +534,7 @@ export default function NotificationsPage() {
       <div className="mx-auto max-w-3xl space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             onClick={handleCloseNotificationsPage}
@@ -548,7 +549,7 @@ export default function NotificationsPage() {
             variant="outline"
             size="sm"
             onClick={() => {
-              recordPreviousRoute('/notifications')
+              recordPreviousRoute('/dashboard')
               navigate('/tasks')
             }}
             className="gap-1.5 text-xs border-primary/40 text-primary hover:bg-primary/10"
