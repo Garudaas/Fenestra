@@ -29,7 +29,7 @@ function OneSignalUserSync() {
 }
 
 function PersistentSessionRedirect() {
-  const { user, isAdmin } = useAuth()
+  const { user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -40,10 +40,10 @@ function PersistentSessionRedirect() {
         location.pathname === '/login' ||
         location.pathname === '/admin'
       ) {
-        navigate(isAdmin || user.is_admin ? '/admin-dashboard' : '/dashboard', { replace: true })
+        navigate('/dashboard', { replace: true })
       }
     }
-  }, [user, isAdmin, location.pathname, navigate])
+  }, [user, location.pathname, navigate])
 
   return null
 }
