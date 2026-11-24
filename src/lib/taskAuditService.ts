@@ -104,6 +104,18 @@ export async function checkCanManageTreasury(userId: number): Promise<{
   return { canManageTreasury: false, treasurerTitle: null }
 }
 
+/**
+ * Checks whether a member is an Executive Committee Office Bearer (any role in alumni_committee).
+ */
+export async function checkIsOfficeBearer(userId: number): Promise<boolean> {
+  const { count } = await supabase
+    .from('alumni_committee')
+    .select('id', { count: 'exact', head: true })
+    .eq('alumni_id', userId)
+
+  return (count || 0) > 0
+}
+
 export async function auditSingleTaskField(
   userId: number,
   fieldKey: string
