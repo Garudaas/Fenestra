@@ -2,17 +2,12 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { formatFamilyBirthdayLabel, getDefaultSpouseGender } from '@/lib/fenestriansCore'
-import { publishArchivedAlert } from '@/lib/notificationService'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { MONTH_NAMES } from '@/lib/constants'
 import { getOrdinalSuffix } from '@/lib/helpers'
-import { CalendarDays, Plus, Video, CheckCircle2, ClipboardList, Lock } from 'lucide-react'
+import { CalendarDays, Video, CheckCircle2 } from 'lucide-react'
 
 interface CalendarTabProps {
   onJoinCall: (roomName: string) => void
@@ -22,15 +17,6 @@ export default function CalendarTab({ onJoinCall }: CalendarTabProps) {
   const { user } = useAuth()
   const [year, setYear] = useState(2026)
   const [grouped, setGrouped] = useState<any[][]>(Array.from({ length: 12 }, () => []))
-  const [assignees, setAssignees] = useState<any[]>([])
-  const [eventTitle, setEventTitle] = useState('')
-  const [eventType, setEventType] = useState('Anniversary')
-  const [eventDate, setEventDate] = useState('')
-  const [eventDesc, setEventDesc] = useState('')
-  const [taskTitle, setTaskTitle] = useState('')
-  const [taskAssignee, setTaskAssignee] = useState('')
-  const [taskDeadline, setTaskDeadline] = useState('')
-  const [taskPrivate, setTaskPrivate] = useState(false)
 
   useEffect(() => {
     loadCalendar()
@@ -48,7 +34,6 @@ export default function CalendarTab({ onJoinCall }: CalendarTabProps) {
     const events = eventsRes.data || []
     const tasks = tasksRes.data || []
     const family = familyRes.data || []
-    setAssignees(users.filter(u => u.full_name !== 'System Administrator'))
     const structure: any[][] = Array.from({ length: 12 }, () => [])
 
     users.forEach(u => {
@@ -65,7 +50,6 @@ export default function CalendarTab({ onJoinCall }: CalendarTabProps) {
         }
       }
 
-      // Divorced members' wedding/divorce dates are NOT counted as anniversaries in Class Calendar
       const isDivorced =
         u.marital_status?.toLowerCase() === 'divorced' || Boolean(u.divorce_date)
 
@@ -82,7 +66,6 @@ export default function CalendarTab({ onJoinCall }: CalendarTabProps) {
         }
       }
 
-      // If spouse details were entered directly on ProfileTab, display gender-specific birthday too
       if (!isDivorced && u.spouse_name && u.spouse_dob) {
         const hasSpouseInFamilyTable = family.some(
           f =>
@@ -180,72 +163,6 @@ export default function CalendarTab({ onJoinCall }: CalendarTabProps) {
     setGrouped(structure)
   }
 
-  const handleCreateEvent = async () => {
-    if (!user || !eventTitle || !eventDate) {
-      alert('Please enter Title and Date.')
-      return
-    }
-    const roomTag =
-      eventType === 'Online Meeting' ? 'Meeting-' + eventTitle.replace(/[^a-zA-Z0-9]/g, '-') : null
-    await supabase.from('calendar_events').insert([
-      {
-        title: eventTitle,
-        classification: eventType,
-        start_date: eventDate,
-        description: eventDesc,
-        room_tag: roomTag,
-        created_by: user.id,
-      },
-    ])
-    await supabase.from('chat_messages').insert([
-      {
-        room_id: 'global',
-        sender_id: 0,
-        sender_name: '🛡️ System Bot',
-        message_text: `🎟️ INVITATION: New Class ${eventType} Scheduled!\n📍 Event: ${eventTitle}\n📅 Date: ${eventDate}\n📝 Description: ${eventDesc}`,
-      },
-    ])
-    await publishArchivedAlert({
-      category: 'event',
-      shortTitle: 'Event alert',
-      fullMessage: `New Class ${eventType}: ${eventTitle} on ${eventDate}${eventDesc ? ` — ${eventDesc}` : ''}`,
-    })
-    setEventTitle('')
-    setEventDesc('')
-    alert('Event successfully posted!')
-    loadCalendar()
-  }
-
-  const handleCreateTask = async () => {
-    if (!user || !taskTitle || !taskAssignee || !taskDeadline) {
-      alert('Please fill out all task fields.')
-      return
-    }
-    const assignee = assignees.find(a => String(a.id) === taskAssignee)
-    const assigneeName = assignee?.full_name || ''
-    await supabase.from('tasks').insert([
-      {
-        title: taskTitle,
-        assignee_id: taskAssignee,
-        assignee_name: assigneeName,
-        deadline: taskDeadline,
-        is_private: taskPrivate,
-        created_by: user.id,
-      },
-    ])
-
-    await publishArchivedAlert({
-      category: taskPrivate ? 'personal_task' : 'common_task',
-      shortTitle: taskPrivate ? 'Personal task alert' : 'Common task alert',
-      fullMessage: `Task assigned to ${assigneeName}: ${taskTitle} (Deadline: ${taskDeadline})`,
-      targetUserId: taskPrivate ? Number(taskAssignee) : null,
-    })
-
-    alert('Task assigned successfully.')
-    setTaskTitle('')
-    loadCalendar()
-  }
-
   const handleCompleteTask = async (taskId: string) => {
     await supabase.from('tasks').update({ is_completed: true }).eq('id', taskId)
     alert('Task marked as done!')
@@ -321,96 +238,6 @@ export default function CalendarTab({ onJoinCall }: CalendarTabProps) {
                 </div>
               )
           )}
-        </CardContent>
-      </Card>
-
-      <Card className="border-border/40 bg-card/60 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-primary">
-            <Plus className="h-5 w-5" />
-            Post Class Event
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <Label>Title</Label>
-              <Input value={eventTitle} onChange={e => setEventTitle(e.target.value)} placeholder="Event title" />
-            </div>
-            <div>
-              <Label>Type</Label>
-              <select
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                value={eventType}
-                onChange={e => setEventType(e.target.value)}
-              >
-                <option>Anniversary</option>
-                <option>Online Meeting</option>
-                <option>Reunion</option>
-                <option>Memorial</option>
-                <option>Other</option>
-              </select>
-            </div>
-            <div>
-              <Label>Date</Label>
-              <Input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} />
-            </div>
-            <div>
-              <Label>Description</Label>
-              <Textarea value={eventDesc} onChange={e => setEventDesc(e.target.value)} placeholder="Optional description" />
-            </div>
-          </div>
-          <Button onClick={handleCreateEvent} title="Post Class Event" className="gold-gradient text-gold-foreground w-full">
-            <Plus className="h-4 w-4 mr-2" />
-            Post Event
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card className="border-border/40 bg-card/60 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-primary">
-            <ClipboardList className="h-5 w-5" />
-            Assign Task
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <Label>Task Title</Label>
-              <Input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="Task name" />
-            </div>
-            <div>
-              <Label>Assign To</Label>
-              <select
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                value={taskAssignee}
-                onChange={e => setTaskAssignee(e.target.value)}
-              >
-                <option value="">Select member...</option>
-                {assignees.map(a => (
-                  <option key={a.id} value={a.id}>
-                    {a.full_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label>Deadline</Label>
-              <Input type="date" value={taskDeadline} onChange={e => setTaskDeadline(e.target.value)} />
-            </div>
-            <div className="flex items-center gap-2 pt-5">
-              <Checkbox id="task-private" checked={taskPrivate} onCheckedChange={v => setTaskPrivate(!!v)} />
-              <Label htmlFor="task-private" className="flex items-center gap-1 text-primary cursor-pointer">
-                <Lock className="h-3 w-3" />
-                Private Task
-              </Label>
-            </div>
-          </div>
-          <Button onClick={handleCreateTask} title="Assign Task" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
-            <ClipboardList className="h-4 w-4 mr-2" />
-            Assign Task
-          </Button>
         </CardContent>
       </Card>
     </div>
