@@ -154,7 +154,6 @@ export default function AlumniAssociationHome() {
   const [loading, setLoading] = useState(true)
   const [statusBanner, setStatusBanner] = useState('')
 
-  // Admin Treasury Privileges granted by President or Treasurer
   const [treasuryGrants, setTreasuryGrants] = useState<Record<string, AdminTreasuryGrant>>(() => {
     try {
       const saved = localStorage.getItem(ADMIN_TREASURY_GRANTS_KEY)
@@ -164,7 +163,6 @@ export default function AlumniAssociationHome() {
     }
   })
 
-  // Committee Form state
   const [showAddCommittee, setShowAddCommittee] = useState(false)
   const [selectedAlumniId, setSelectedAlumniId] = useState('')
   const [customCommitteeName, setCustomCommitteeName] = useState('')
@@ -173,11 +171,9 @@ export default function AlumniAssociationHome() {
   const [displayOrder, setDisplayOrder] = useState('1')
   const [savingCommittee, setSavingCommittee] = useState(false)
 
-  // Assign Admin state
   const [adminTargetId, setAdminTargetId] = useState('')
   const [savingAdminRole, setSavingAdminRole] = useState(false)
 
-  // Announcement + Minutes PDF state
   const [showAddAnnouncement, setShowAddAnnouncement] = useState(false)
   const [annTitle, setAnnTitle] = useState('')
   const [annDate, setAnnDate] = useState('')
@@ -188,14 +184,12 @@ export default function AlumniAssociationHome() {
   const [broadcastAlert, setBroadcastAlert] = useState(true)
   const [savingAnnouncement, setSavingAnnouncement] = useState(false)
 
-  // Poll Form state
   const [showAddPoll, setShowAddPoll] = useState(false)
   const [pollQuestion, setPollQuestion] = useState('')
   const [pollOptionsText, setPollOptionsText] = useState('')
   const [pollCloseDate, setPollCloseDate] = useState('')
   const [savingPoll, setSavingPoll] = useState(false)
 
-  // Mentorship state
   const [mentorRoleType, setMentorRoleType] = useState<'mentor' | 'mentee'>('mentor')
   const [domainArea, setDomainArea] = useState(MENTORSHIP_DOMAINS[0])
   const [customDomain, setCustomDomain] = useState('')
@@ -203,7 +197,6 @@ export default function AlumniAssociationHome() {
   const [savingMentorship, setSavingMentorship] = useState(false)
   const [mentorshipFilter, setMentorshipFilter] = useState<'all' | 'mentor' | 'mentee'>('all')
 
-  // Election Page state (viewable by all; editable by President, Secretary, Joint Secretary & Admins)
   const [electionNotice, setElectionNotice] = useState('Coming soon')
   const [editingElectionNotice, setEditingElectionNotice] = useState(false)
 
@@ -227,7 +220,11 @@ export default function AlumniAssociationHome() {
 
   const handleClosePage = () => {
     const prev = consumePreviousRoute('/dashboard')
-    navigate(prev)
+    const safeTarget =
+      !prev || prev === '/alumni-association' || prev.startsWith('/alumni-association')
+        ? '/dashboard'
+        : prev
+    navigate(safeTarget)
   }
 
   const showToastBanner = (msg: string) => {
@@ -371,7 +368,6 @@ export default function AlumniAssociationHome() {
       c => (c.role_title || '').trim().toLowerCase() === 'president'
     )
 
-    // Admins cannot remove a President, only change/replace the President
     if (isAssigningPresident && existingPresident) {
       const confirmChange = window.confirm(
         `Current President is ${existingPresident.member_name}. Changing the President will replace the office with ${finalName} and immediately send an alert to all members and the WhatsApp group. Proceed?`
@@ -1653,7 +1649,6 @@ export default function AlumniAssociationHome() {
             </div>
           )}
 
-          {/* ASSOCIATION EXECUTIVE COMMITTEE ELECTION PAGE (VIEWABLE BY ALL; EDITABLE BY PRESIDENT, SECRETARY, JOINT SECRETARY & ADMINS) */}
           {renderCollapsibleSectionHeader(
             'elections',
             'Association Executive Committee Election',
