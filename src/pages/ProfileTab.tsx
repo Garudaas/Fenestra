@@ -82,14 +82,18 @@ type EditSectionKey =
 
 const GOOGLE_MAPS_HELP_URL = 'https://support.google.com/maps/answer/144361'
 
-function extractMapQuery(raw: string): string {
+function extractMapQuery(raw: string, fallbackAddress = ''): string {
   const trimmed = raw.trim()
-  if (!trimmed) return 'Coimbatore, Tamil Nadu'
   const qMatch = /[?&](?:q|query|ll|center)=([^&]+)/i.exec(trimmed)
   if (qMatch?.[1]) return decodeURIComponent(qMatch[1])
   const atMatch = /@(-?\d+\.\d+,-?\d+\.\d+)/.exec(trimmed)
   if (atMatch?.[1]) return atMatch[1]
-  return trimmed
+
+  const isShortLink = /https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(trimmed)
+  if (isShortLink || /^https?:\/\//i.test(trimmed)) {
+    return fallbackAddress.trim() || 'Coimbatore, Tamil Nadu'
+  }
+  return trimmed || fallbackAddress.trim() || 'Coimbatore, Tamil Nadu'
 }
 
 async function compressImageToJpegBlob(source: File | string, maxDimension = 800, quality = 0.82): Promise<Blob> {
@@ -162,7 +166,6 @@ export default function ProfileTab() {
   const [familyMembers, setFamilyMembers] = useState<any[]>([])
   const [myTasks, setMyTasks] = useState<MyPendingTask[]>([])
 
-  // Basic Details fields
   const [nickname, setNickname] = useState('')
   const [gender, setGender] = useState('')
   const [dob, setDob] = useState('')
@@ -176,7 +179,6 @@ export default function ProfileTab() {
   const [spouseDob, setSpouseDob] = useState('')
   const [spouseDetails, setSpouseDetails] = useState('')
 
-  // Contact Info fields
   const [phoneCC, setPhoneCC] = useState('+91')
   const [phoneNum, setPhoneNum] = useState('')
   const [waCC, setWaCC] = useState('+91')
@@ -184,7 +186,6 @@ export default function ProfileTab() {
   const [waSameAsContact, setWaSameAsContact] = useState(false)
   const [email, setEmail] = useState('')
 
-  // Addresses fields + interactive map picker
   const [permAddr, setPermAddr] = useState('')
   const [permGeo, setPermGeo] = useState('')
   const [currAddr, setCurrAddr] = useState('')
@@ -193,23 +194,18 @@ export default function ProfileTab() {
   const [addrMapSatellite, setAddrMapSatellite] = useState(true)
   const [addrMapZoom, setAddrMapZoom] = useState(14)
 
-  // Education & Career Status fields
   const [educationLevel, setEducationLevel] = useState('')
   const [status, setStatus] = useState('Employed')
 
-  // About Me field
   const [diary, setDiary] = useState('')
 
-  // Profile Picture fields
   const [pic, setPic] = useState('')
   const [previousPic, setPreviousPic] = useState('')
   const [showCamera, setShowCamera] = useState(false)
 
-  // Profile Privacy Settings fields
   const [hidePeers, setHidePeers] = useState(false)
   const [hideAdmin, setHideAdmin] = useState(false)
 
-  // Credentials states
   const [currentUsername, setCurrentUsername] = useState('')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newUsername, setNewUsername] = useState('')
@@ -220,7 +216,6 @@ export default function ProfileTab() {
   const [showConfirmPass, setShowConfirmPass] = useState(false)
   const [unlockCredentialInputs, setUnlockCredentialInputs] = useState(false)
 
-  // Family Member Form states
   const [editingFamilyId, setEditingFamilyId] = useState<string | null>(null)
   const [previousFamBlood, setPreviousFamBlood] = useState('')
   const [famGenderAutoSet, setFamGenderAutoSet] = useState(false)
@@ -241,9 +236,9 @@ export default function ProfileTab() {
 
   const activeAddressQuery = useMemo(() => {
     if (addrPickerTarget === 'permanent') {
-      return extractMapQuery(permGeo || permAddr)
+      return extractMapQuery(permGeo, permAddr)
     }
-    return extractMapQuery(currGeo || currAddr)
+    return extractMapQuery(currGeo, currAddr)
   }, [addrPickerTarget, permGeo, permAddr, currGeo, currAddr])
 
   const addressMapEmbedSrc = useMemo(() => {
@@ -1501,7 +1496,6 @@ export default function ProfileTab() {
               </>
             )}
 
-            {/* TAB 4: ADDRESSES + GOOGLE MAP / SATELLITE PICKER */}
             {activeSection === 'addresses' && (
               <>
                 <div className="space-y-3">
@@ -1549,7 +1543,6 @@ export default function ProfileTab() {
                     />
                   </div>
 
-                  {/* Interactive Google Map / Satellite View */}
                   <div className="rounded-xl border border-primary/35 bg-primary/5 p-3 space-y-2.5 text-xs">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5">
@@ -1630,7 +1623,7 @@ export default function ProfileTab() {
                           className="h-7 w-7"
                           title="Zoom In"
                         >
-                          <ZoomIn className="h-3.5 w-3.5" />
+                          <ZoomOut className="h-3.5 w-3.5 rotate-180" />
                         </Button>
                       </div>
                     </div>
