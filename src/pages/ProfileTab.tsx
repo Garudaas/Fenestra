@@ -1623,7 +1623,7 @@ export default function ProfileTab() {
                           className="h-7 w-7"
                           title="Zoom In"
                         >
-                          <ZoomOut className="h-3.5 w-3.5 rotate-180" />
+                          <ZoomIn className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
