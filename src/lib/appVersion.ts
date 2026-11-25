@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.80",
-  "timestamp": "25 Nov 2026, 05:45 AM IST",
-  "formatted": "V2.80, 25 Nov 2026, 05:45 AM IST",
+  "version": "V2.81",
+  "timestamp": "25 Nov 2026, 05:55 AM IST",
+  "formatted": "V2.81, 25 Nov 2026, 05:55 AM IST",
   "type": "minor",
-  "summary": "Minor general update (App icon appearance updated)",
+  "summary": "Minor technical update (Refactor location handling and update UI elements)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.81",
+      "timestamp": "25 Nov 2026, 05:55 AM IST",
+      "formatted": "V2.81, 25 Nov 2026, 05:55 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor location handling and update UI elements)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.80",
       "timestamp": "25 Nov 2026, 05:45 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.57, 25 Nov 2026, 12:43 AM IST",
       "type": "minor",
       "summary": "Minor general update (Chat and calling screen updated)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.56",
-      "timestamp": "25 Nov 2026, 12:33 AM IST",
-      "formatted": "V2.56, 25 Nov 2026, 12:33 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Add route for tasks in App component)",
       "requiresReinstall": false
     }
   ]
