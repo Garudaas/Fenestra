@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.79",
-  "timestamp": "25 Nov 2026, 05:43 AM IST",
-  "formatted": "V2.79, 25 Nov 2026, 05:43 AM IST",
+  "version": "V2.80",
+  "timestamp": "25 Nov 2026, 05:45 AM IST",
+  "formatted": "V2.80, 25 Nov 2026, 05:45 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance extractMapQuery with fallback address handling)",
+  "summary": "Minor general update (App icon appearance updated)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.80",
+      "timestamp": "25 Nov 2026, 05:45 AM IST",
+      "formatted": "V2.80, 25 Nov 2026, 05:45 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (App icon appearance updated)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.79",
       "timestamp": "25 Nov 2026, 05:43 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.56, 25 Nov 2026, 12:33 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Add route for tasks in App component)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.55",
-      "timestamp": "25 Nov 2026, 12:25 AM IST",
-      "formatted": "V2.55, 25 Nov 2026, 12:25 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Add notifications and tasks tabs to MemberDashboard)",
       "requiresReinstall": false
     }
   ]
