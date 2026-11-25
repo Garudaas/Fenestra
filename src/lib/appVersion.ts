@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.78",
-  "timestamp": "25 Nov 2026, 05:41 AM IST",
-  "formatted": "V2.78, 25 Nov 2026, 05:41 AM IST",
+  "version": "V2.79",
+  "timestamp": "25 Nov 2026, 05:43 AM IST",
+  "formatted": "V2.79, 25 Nov 2026, 05:43 AM IST",
   "type": "minor",
-  "summary": "Minor general update (Remove commented-out state variable descriptions)",
+  "summary": "Minor general update (Enhance extractMapQuery with fallback address handling)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.79",
+      "timestamp": "25 Nov 2026, 05:43 AM IST",
+      "formatted": "V2.79, 25 Nov 2026, 05:43 AM IST",
+      "type": "minor",
+      "summary": "Minor general update (Enhance extractMapQuery with fallback address handling)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.78",
       "timestamp": "25 Nov 2026, 05:41 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.55, 25 Nov 2026, 12:25 AM IST",
       "type": "minor",
       "summary": "Minor general update (Add notifications and tasks tabs to MemberDashboard)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.54",
-      "timestamp": "25 Nov 2026, 12:08 AM IST",
-      "formatted": "V2.54, 25 Nov 2026, 12:08 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor MemberDashboard and enhance admin navigation)",
       "requiresReinstall": false
     }
   ]
