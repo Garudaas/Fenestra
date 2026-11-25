@@ -101,6 +101,10 @@ function extractMapQueryFromInput(raw: string): string {
   if (atMatch?.[1]) {
     return atMatch[1]
   }
+  const isShortLink = /https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(trimmed)
+  if (isShortLink || /^https?:\/\//i.test(trimmed)) {
+    return '11.0168,76.9558'
+  }
   return trimmed
 }
 
@@ -151,14 +155,12 @@ export default function DirectoryTab({
   const [professionFilter, setProfessionFilter] = useState('')
   const [bloodOptions, setBloodOptions] = useState<string[]>([])
 
-  // Emergency Blood Donor SOS states
   const [sosBloodGroup, setSosBloodGroup] = useState('')
   const [sosCity, setSosCity] = useState('')
   const [sosNote, setSosNote] = useState('')
   const [sendingSos, setSendingSos] = useState(false)
   const [sosSentCount, setSosSentCount] = useState<number | null>(null)
 
-  // Travel Alerts ("I'm In Town") states
   const [travelAlerts, setTravelAlerts] = useState<TravelAlertItem[]>([])
   const [travelCity, setTravelCity] = useState('')
   const [travelArrival, setTravelArrival] = useState('')
@@ -166,7 +168,6 @@ export default function DirectoryTab({
   const [travelNote, setTravelNote] = useState('')
   const [savingTravel, setSavingTravel] = useState(false)
 
-  // Location Missing & Suggestion Workflow states
   const [missingPrompt, setMissingPrompt] = useState<MissingLocationPrompt | null>(null)
   const [provideLocationOpen, setProvideLocationOpen] = useState(false)
   const [locationLinkOrPlusCode, setLocationLinkOrPlusCode] = useState('')
@@ -625,13 +626,13 @@ export default function DirectoryTab({
   }
 
   const activeMapQuery = useMemo(() => {
-    if (locationLinkOrPlusCode.trim()) {
-      return extractMapQueryFromInput(locationLinkOrPlusCode)
-    }
     if (pickedCoords) {
       return `${pickedCoords.lat.toFixed(6)},${pickedCoords.lng.toFixed(6)}`
     }
-    return 'Coimbatore, Tamil Nadu'
+    if (locationLinkOrPlusCode.trim()) {
+      return extractMapQueryFromInput(locationLinkOrPlusCode)
+    }
+    return '11.0168,76.9558'
   }, [locationLinkOrPlusCode, pickedCoords])
 
   const googleEmbedSrc = useMemo(() => {
@@ -1026,7 +1027,7 @@ export default function DirectoryTab({
                   <div className="rounded-xl border border-primary/35 bg-primary/5 p-3 space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-semibold text-primary">
-                        Browse Google Map / Satellite &amp; paste link, coordinates, or Plus Code:
+                        Tap on the map to pick coordinates or paste link / Plus Code:
                       </p>
                       <a
                         href={GOOGLE_MAPS_HELP_URL}
@@ -1086,30 +1087,54 @@ export default function DirectoryTab({
                       </div>
                     </div>
 
-                    {/* Zoomable & Scrollable Google Map / Satellite View */}
-                    <div className="relative h-56 w-full overflow-auto rounded-lg border border-primary/40 bg-background">
+                    <div
+                      onClick={e => {
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        const relX = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+                        const relY = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height))
+                        const lat = 8.0883 + (1 - relY) * (28.6139 - 8.0883)
+                        const lng = 76.9558 + relX * (88.3639 - 76.9558)
+                        setPickedCoords({ lat, lng })
+                        setLocationLinkOrPlusCode(`${lat.toFixed(6)},${lng.toFixed(6)}`)
+                        setLocationError('')
+                      }}
+                      className="relative h-36 w-full cursor-crosshair rounded-lg border border-dashed border-primary/50 bg-gradient-to-br from-emerald-950/60 via-slate-900 to-sky-950/60 overflow-hidden select-none"
+                      title="Click anywhere on this grid to pick coordinates directly"
+                    >
+                      <div className="absolute inset-0 opacity-25 bg-[linear-gradient(to_right,#94a3b8_1px,transparent_1px),linear-gradient(to_bottom,#94a3b8_1px,transparent_1px)] bg-[size:24px_24px]" />
+                      <span className="absolute left-2 top-2 rounded bg-background/85 px-2 py-0.5 text-[10px] text-primary font-semibold">
+                        Tap on map to pick coordinates
+                      </span>
+                      {pickedCoords && (
+                        <div
+                          style={{
+                            left: `${Math.min(
+                              95,
+                              Math.max(5, ((pickedCoords.lng - 76.9558) / (88.3639 - 76.9558)) * 100)
+                            )}%`,
+                            top: `${Math.min(
+                              92,
+                              Math.max(8, (1 - (pickedCoords.lat - 8.0883) / (28.6139 - 8.0883)) * 100)
+                            )}%`,
+                          }}
+                          className="absolute -translate-x-1/2 -translate-y-full flex flex-col items-center pointer-events-none"
+                        >
+                          <MapPin className="h-6 w-6 text-red-500 drop-shadow" />
+                          <span className="rounded bg-black/80 px-1.5 py-0.5 text-[9px] font-mono text-white">
+                            {pickedCoords.lat.toFixed(4)}, {pickedCoords.lng.toFixed(4)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="relative h-48 w-full overflow-auto rounded-lg border border-primary/40 bg-background">
                       <iframe
                         title="Google Map Location Preview"
                         src={googleEmbedSrc}
-                        className="h-full w-full min-h-[220px] border-0"
+                        className="h-full w-full min-h-[180px] border-0"
                         loading="lazy"
                         referrerPolicy="no-referrer-when-downgrade"
                       />
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                      <span>Preview Query: <strong className="text-foreground">{activeMapQuery}</strong></span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPickedCoords({ lat: 11.0168, lng: 76.9558 })
-                          setLocationLinkOrPlusCode('11.016800,76.955800')
-                          setLocationError('')
-                        }}
-                        className="text-primary hover:underline"
-                      >
-                        Use Coimbatore Pin (11.0168, 76.9558)
-                      </button>
                     </div>
 
                     <Input
@@ -1145,7 +1170,6 @@ export default function DirectoryTab({
     )
   }
 
-  // DEFAULT MEMBER DIRECTORY MODE
   return (
     <div className="mx-auto max-w-5xl space-y-3">
       {offlineInfo.isOffline && (
