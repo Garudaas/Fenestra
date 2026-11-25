@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.82",
-  "timestamp": "25 Nov 2026, 05:59 AM IST",
-  "formatted": "V2.82, 25 Nov 2026, 05:59 AM IST",
+  "version": "V2.83",
+  "timestamp": "25 Nov 2026, 10:44 PM IST",
+  "formatted": "V2.83, 25 Nov 2026, 10:44 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor coordinate picking logic into a function)",
+  "summary": "Minor general update (Implement preset coordinates functionality)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.83",
+      "timestamp": "25 Nov 2026, 10:44 PM IST",
+      "formatted": "V2.83, 25 Nov 2026, 10:44 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Implement preset coordinates functionality)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.82",
       "timestamp": "25 Nov 2026, 05:59 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.59, 25 Nov 2026, 12:48 AM IST",
       "type": "minor",
       "summary": "Minor general update (Enhance task management with sub-item updates)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.58",
-      "timestamp": "25 Nov 2026, 12:45 AM IST",
-      "formatted": "V2.58, 25 Nov 2026, 12:45 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Notification alerts updated)",
       "requiresReinstall": false
     }
   ]
