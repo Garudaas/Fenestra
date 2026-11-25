@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.81",
-  "timestamp": "25 Nov 2026, 05:55 AM IST",
-  "formatted": "V2.81, 25 Nov 2026, 05:55 AM IST",
+  "version": "V2.82",
+  "timestamp": "25 Nov 2026, 05:59 AM IST",
+  "formatted": "V2.82, 25 Nov 2026, 05:59 AM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor location handling and update UI elements)",
+  "summary": "Minor technical update (Refactor coordinate picking logic into a function)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.82",
+      "timestamp": "25 Nov 2026, 05:59 AM IST",
+      "formatted": "V2.82, 25 Nov 2026, 05:59 AM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor coordinate picking logic into a function)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.81",
       "timestamp": "25 Nov 2026, 05:55 AM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.58, 25 Nov 2026, 12:45 AM IST",
       "type": "minor",
       "summary": "Minor general update (Notification alerts updated)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.57",
-      "timestamp": "25 Nov 2026, 12:43 AM IST",
-      "formatted": "V2.57, 25 Nov 2026, 12:43 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Chat and calling screen updated)",
       "requiresReinstall": false
     }
   ]
