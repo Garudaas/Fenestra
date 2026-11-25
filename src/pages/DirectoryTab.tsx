@@ -625,6 +625,18 @@ export default function DirectoryTab({
     setPickedCoords(null)
   }
 
+  const applyCoordinateFromPoint = (clientX: number, clientY: number, rect: DOMRect) => {
+    if (rect.width <= 0 || rect.height <= 0) return
+    const relX = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+    const relY = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height))
+    const lat = 8.0883 + (1 - relY) * (28.6139 - 8.0883)
+    const lng = 76.9558 + relX * (88.3639 - 76.9558)
+    const formatted = `${lat.toFixed(6)},${lng.toFixed(6)}`
+    setPickedCoords({ lat, lng })
+    setLocationLinkOrPlusCode(formatted)
+    setLocationError('')
+  }
+
   const activeMapQuery = useMemo(() => {
     if (pickedCoords) {
       return `${pickedCoords.lat.toFixed(6)},${pickedCoords.lng.toFixed(6)}`
@@ -1088,21 +1100,28 @@ export default function DirectoryTab({
                     </div>
 
                     <div
-                      onClick={e => {
-                        const rect = e.currentTarget.getBoundingClientRect()
-                        const relX = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
-                        const relY = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height))
-                        const lat = 8.0883 + (1 - relY) * (28.6139 - 8.0883)
-                        const lng = 76.9558 + relX * (88.3639 - 76.9558)
-                        setPickedCoords({ lat, lng })
-                        setLocationLinkOrPlusCode(`${lat.toFixed(6)},${lng.toFixed(6)}`)
-                        setLocationError('')
+                      onClick={e =>
+                        applyCoordinateFromPoint(
+                          e.clientX,
+                          e.clientY,
+                          e.currentTarget.getBoundingClientRect()
+                        )
+                      }
+                      onTouchEnd={e => {
+                        const touch = e.changedTouches?.[0]
+                        if (touch) {
+                          applyCoordinateFromPoint(
+                            touch.clientX,
+                            touch.clientY,
+                            e.currentTarget.getBoundingClientRect()
+                          )
+                        }
                       }}
                       className="relative h-36 w-full cursor-crosshair rounded-lg border border-dashed border-primary/50 bg-gradient-to-br from-emerald-950/60 via-slate-900 to-sky-950/60 overflow-hidden select-none"
                       title="Click anywhere on this grid to pick coordinates directly"
                     >
-                      <div className="absolute inset-0 opacity-25 bg-[linear-gradient(to_right,#94a3b8_1px,transparent_1px),linear-gradient(to_bottom,#94a3b8_1px,transparent_1px)] bg-[size:24px_24px]" />
-                      <span className="absolute left-2 top-2 rounded bg-background/85 px-2 py-0.5 text-[10px] text-primary font-semibold">
+                      <div className="absolute inset-0 opacity-25 bg-[linear-gradient(to_right,#94a3b8_1px,transparent_1px),linear-gradient(to_bottom,#94a3b8_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
+                      <span className="absolute left-2 top-2 rounded bg-background/85 px-2 py-0.5 text-[10px] text-primary font-semibold pointer-events-none">
                         Tap on map to pick coordinates
                       </span>
                       {pickedCoords && (
