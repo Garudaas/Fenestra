@@ -625,16 +625,20 @@ export default function DirectoryTab({
     setPickedCoords(null)
   }
 
+  const setPresetCoordinates = (lat: number, lng: number) => {
+    const formatted = `${lat.toFixed(6)},${lng.toFixed(6)}`
+    setPickedCoords({ lat, lng })
+    setLocationLinkOrPlusCode(formatted)
+    setLocationError('')
+  }
+
   const applyCoordinateFromPoint = (clientX: number, clientY: number, rect: DOMRect) => {
     if (rect.width <= 0 || rect.height <= 0) return
     const relX = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
     const relY = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height))
     const lat = 8.0883 + (1 - relY) * (28.6139 - 8.0883)
     const lng = 76.9558 + relX * (88.3639 - 76.9558)
-    const formatted = `${lat.toFixed(6)},${lng.toFixed(6)}`
-    setPickedCoords({ lat, lng })
-    setLocationLinkOrPlusCode(formatted)
-    setLocationError('')
+    setPresetCoordinates(lat, lng)
   }
 
   const activeMapQuery = useMemo(() => {
@@ -1039,7 +1043,7 @@ export default function DirectoryTab({
                   <div className="rounded-xl border border-primary/35 bg-primary/5 p-3 space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-semibold text-primary">
-                        Tap on the map to pick coordinates or paste link / Plus Code:
+                        Tap on the coordinate grid below or paste link / Plus Code:
                       </p>
                       <a
                         href={GOOGLE_MAPS_HELP_URL}
@@ -1051,6 +1055,88 @@ export default function DirectoryTab({
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     </div>
+
+                    {/* Interactive Coordinate Picker Box (Placed Above Map Iframe at z-20) */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onPointerDown={e =>
+                        applyCoordinateFromPoint(
+                          e.clientX,
+                          e.clientY,
+                          e.currentTarget.getBoundingClientRect()
+                        )
+                      }
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setPresetCoordinates(11.0168, 76.9558)
+                        }
+                      }}
+                      className="relative z-20 h-36 w-full cursor-crosshair rounded-lg border-2 border-dashed border-primary/60 bg-gradient-to-br from-emerald-950/70 via-slate-900 to-sky-950/70 overflow-hidden select-none touch-none"
+                      title="Click or tap anywhere inside this box to pick coordinates directly"
+                    >
+                      <div className="absolute inset-0 opacity-25 bg-[linear-gradient(to_right,#94a3b8_1px,transparent_1px),linear-gradient(to_bottom,#94a3b8_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
+                      <span className="absolute left-2 top-2 rounded bg-background/90 px-2 py-0.5 text-[10px] text-primary font-semibold pointer-events-none">
+                        Tap anywhere in this box to pick coordinates
+                      </span>
+                      {pickedCoords && (
+                        <div
+                          style={{
+                            left: `${Math.min(
+                              95,
+                              Math.max(5, ((pickedCoords.lng - 76.9558) / (88.3639 - 76.9558)) * 100)
+                            )}%`,
+                            top: `${Math.min(
+                              92,
+                              Math.max(8, (1 - (pickedCoords.lat - 8.0883) / (28.6139 - 8.0883)) * 100)
+                            )}%`,
+                          }}
+                          className="absolute -translate-x-1/2 -translate-y-full flex flex-col items-center pointer-events-none"
+                        >
+                          <MapPin className="h-6 w-6 text-red-500 drop-shadow" />
+                          <span className="rounded bg-black/85 px-1.5 py-0.5 text-[9px] font-mono text-white">
+                            {pickedCoords.lat.toFixed(4)}, {pickedCoords.lng.toFixed(4)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Quick Preset Pins */}
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                      <span className="text-muted-foreground">Quick pins:</span>
+                      <button
+                        type="button"
+                        onClick={() => setPresetCoordinates(11.0168, 76.9558)}
+                        className="rounded border border-primary/40 bg-background/80 px-2 py-0.5 text-primary hover:bg-primary/15"
+                      >
+                        Coimbatore
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPresetCoordinates(13.0827, 80.2707)}
+                        className="rounded border border-primary/40 bg-background/80 px-2 py-0.5 text-primary hover:bg-primary/15"
+                      >
+                        Chennai
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPresetCoordinates(12.9716, 77.5946)}
+                        className="rounded border border-primary/40 bg-background/80 px-2 py-0.5 text-primary hover:bg-primary/15"
+                      >
+                        Bengaluru
+                      </button>
+                    </div>
+
+                    <Input
+                      value={locationLinkOrPlusCode}
+                      onChange={e => {
+                        setLocationLinkOrPlusCode(e.target.value)
+                        setLocationError('')
+                      }}
+                      placeholder="Selected coordinates or paste Google Maps link / Plus Code..."
+                      className="text-xs font-mono"
+                    />
 
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5">
@@ -1099,54 +1185,7 @@ export default function DirectoryTab({
                       </div>
                     </div>
 
-                    <div
-                      onClick={e =>
-                        applyCoordinateFromPoint(
-                          e.clientX,
-                          e.clientY,
-                          e.currentTarget.getBoundingClientRect()
-                        )
-                      }
-                      onTouchEnd={e => {
-                        const touch = e.changedTouches?.[0]
-                        if (touch) {
-                          applyCoordinateFromPoint(
-                            touch.clientX,
-                            touch.clientY,
-                            e.currentTarget.getBoundingClientRect()
-                          )
-                        }
-                      }}
-                      className="relative h-36 w-full cursor-crosshair rounded-lg border border-dashed border-primary/50 bg-gradient-to-br from-emerald-950/60 via-slate-900 to-sky-950/60 overflow-hidden select-none"
-                      title="Click anywhere on this grid to pick coordinates directly"
-                    >
-                      <div className="absolute inset-0 opacity-25 bg-[linear-gradient(to_right,#94a3b8_1px,transparent_1px),linear-gradient(to_bottom,#94a3b8_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-                      <span className="absolute left-2 top-2 rounded bg-background/85 px-2 py-0.5 text-[10px] text-primary font-semibold pointer-events-none">
-                        Tap on map to pick coordinates
-                      </span>
-                      {pickedCoords && (
-                        <div
-                          style={{
-                            left: `${Math.min(
-                              95,
-                              Math.max(5, ((pickedCoords.lng - 76.9558) / (88.3639 - 76.9558)) * 100)
-                            )}%`,
-                            top: `${Math.min(
-                              92,
-                              Math.max(8, (1 - (pickedCoords.lat - 8.0883) / (28.6139 - 8.0883)) * 100)
-                            )}%`,
-                          }}
-                          className="absolute -translate-x-1/2 -translate-y-full flex flex-col items-center pointer-events-none"
-                        >
-                          <MapPin className="h-6 w-6 text-red-500 drop-shadow" />
-                          <span className="rounded bg-black/80 px-1.5 py-0.5 text-[9px] font-mono text-white">
-                            {pickedCoords.lat.toFixed(4)}, {pickedCoords.lng.toFixed(4)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="relative h-48 w-full overflow-auto rounded-lg border border-primary/40 bg-background">
+                    <div className="relative z-10 h-48 w-full overflow-auto rounded-lg border border-primary/40 bg-background">
                       <iframe
                         title="Google Map Location Preview"
                         src={googleEmbedSrc}
@@ -1155,16 +1194,6 @@ export default function DirectoryTab({
                         referrerPolicy="no-referrer-when-downgrade"
                       />
                     </div>
-
-                    <Input
-                      value={locationLinkOrPlusCode}
-                      onChange={e => {
-                        setLocationLinkOrPlusCode(e.target.value)
-                        setLocationError('')
-                      }}
-                      placeholder="Paste Google Maps link, LAT/LONG, or complete Plus Code (e.g., 7J4VXF22+22)..."
-                      className="text-xs"
-                    />
 
                     {locationError && (
                       <p className="text-[11px] font-semibold text-red-400">{locationError}</p>
