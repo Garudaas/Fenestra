@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.91",
-  "timestamp": "26 Nov 2026, 11:15 PM IST",
-  "formatted": "V2.91, 26 Nov 2026, 11:15 PM IST",
+  "version": "V2.92",
+  "timestamp": "26 Nov 2026, 11:17 PM IST",
+  "formatted": "V2.92, 26 Nov 2026, 11:17 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Change navigation from dashboard to activities)",
+  "summary": "Minor technical update (Refactor navigation and tab handling in MemberDashboard)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.92",
+      "timestamp": "26 Nov 2026, 11:17 PM IST",
+      "formatted": "V2.92, 26 Nov 2026, 11:17 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor navigation and tab handling in MemberDashboard)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.91",
       "timestamp": "26 Nov 2026, 11:15 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.68, 25 Nov 2026, 04:36 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Update src/pages/MemberDashboard.tsx (WhatsApp Group Call, Google Meet & Zoom Schedule in Communication + Post an Event Sub-Tab))",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.67",
-      "timestamp": "25 Nov 2026, 04:33 AM IST",
-      "formatted": "V2.67, 25 Nov 2026, 04:33 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (WhatsApp Group Setup & Instructions, Bulk WhatsApp, and Bulk Email)",
       "requiresReinstall": false
     }
   ]
