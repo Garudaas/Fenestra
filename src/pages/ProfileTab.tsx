@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
 import {
@@ -57,9 +57,13 @@ import {
   ChevronRight,
   Award,
   ExternalLink,
-  ZoomIn,
-  ZoomOut,
 } from 'lucide-react'
+
+declare global {
+  interface Window {
+    L?: any
+  }
+}
 
 interface MyPendingTask {
   id: number
@@ -82,18 +86,49 @@ type EditSectionKey =
 
 const GOOGLE_MAPS_HELP_URL = 'https://support.google.com/maps/answer/144361'
 
-function extractMapQuery(raw: string, fallbackAddress = ''): string {
-  const trimmed = raw.trim()
-  const qMatch = /[?&](?:q|query|ll|center)=([^&]+)/i.exec(trimmed)
-  if (qMatch?.[1]) return decodeURIComponent(qMatch[1])
-  const atMatch = /@(-?\d+\.\d+,-?\d+\.\d+)/.exec(trimmed)
-  if (atMatch?.[1]) return atMatch[1]
-
-  const isShortLink = /https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(trimmed)
-  if (isShortLink || /^https?:\/\//i.test(trimmed)) {
-    return fallbackAddress.trim() || 'Coimbatore, Tamil Nadu'
+function parseLatLng(raw: string): { lat: number; lng: number } | null {
+  const atMatch = /@(-?\d+\.\d+),\s*(-?\d+\.\d+)/.exec(raw)
+  if (atMatch) {
+    return { lat: Number(atMatch[1]), lng: Number(atMatch[2]) }
   }
-  return trimmed || fallbackAddress.trim() || 'Coimbatore, Tamil Nadu'
+  const qMatch = /[?&](?:q|query|ll|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/i.exec(raw)
+  if (qMatch) {
+    return { lat: Number(qMatch[1]), lng: Number(qMatch[2]) }
+  }
+  const plainMatch = /^(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)$/.exec(raw.trim())
+  if (plainMatch) {
+    return { lat: Number(plainMatch[1]), lng: Number(plainMatch[2]) }
+  }
+  return null
+}
+
+function ensureLeafletLoaded(): Promise<any> {
+  return new Promise((resolve, reject) => {
+    if (window.L) {
+      resolve(window.L)
+      return
+    }
+    if (!document.getElementById('leaflet-css-cdn')) {
+      const link = document.createElement('link')
+      link.id = 'leaflet-css-cdn'
+      link.rel = 'stylesheet'
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+      document.head.appendChild(link)
+    }
+    const existingScript = document.getElementById('leaflet-js-cdn') as HTMLScriptElement | null
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(window.L))
+      existingScript.addEventListener('error', () => reject(new Error('Failed to load map library.')))
+      return
+    }
+    const script = document.createElement('script')
+    script.id = 'leaflet-js-cdn'
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+    script.async = true
+    script.onload = () => resolve(window.L)
+    script.onerror = () => reject(new Error('Failed to load map library.'))
+    document.body.appendChild(script)
+  })
 }
 
 async function compressImageToJpegBlob(source: File | string, maxDimension = 800, quality = 0.82): Promise<Blob> {
@@ -192,7 +227,13 @@ export default function ProfileTab() {
   const [currGeo, setCurrGeo] = useState('')
   const [addrPickerTarget, setAddrPickerTarget] = useState<'permanent' | 'current'>('permanent')
   const [addrMapSatellite, setAddrMapSatellite] = useState(true)
-  const [addrMapZoom, setAddrMapZoom] = useState(14)
+  const [pickedAddrCoords, setPickedAddrCoords] = useState<{ lat: number; lng: number } | null>(null)
+
+  const addrMapContainerRef = useRef<HTMLDivElement | null>(null)
+  const addrLeafletMapRef = useRef<any>(null)
+  const addrLeafletMarkerRef = useRef<any>(null)
+  const addrTileLayerRef = useRef<any>(null)
+  const addrTargetRef = useRef<'permanent' | 'current'>('permanent')
 
   const [educationLevel, setEducationLevel] = useState('')
   const [status, setStatus] = useState('Employed')
@@ -234,17 +275,104 @@ export default function ProfileTab() {
   const [famSupportDetails, setFamSupportDetails] = useState('')
   const [famIsPrivate, setFamIsPrivate] = useState(false)
 
-  const activeAddressQuery = useMemo(() => {
-    if (addrPickerTarget === 'permanent') {
-      return extractMapQuery(permGeo, permAddr)
-    }
-    return extractMapQuery(currGeo, currAddr)
-  }, [addrPickerTarget, permGeo, permAddr, currGeo, currAddr])
+  useEffect(() => {
+    addrTargetRef.current = addrPickerTarget
+  }, [addrPickerTarget])
 
-  const addressMapEmbedSrc = useMemo(() => {
-    const typeFlag = addrMapSatellite ? '&t=k' : '&t=m'
-    return `https://maps.google.com/maps?q=${encodeURIComponent(activeAddressQuery)}&z=${addrMapZoom}${typeFlag}&output=embed`
-  }, [activeAddressQuery, addrMapZoom, addrMapSatellite])
+  useEffect(() => {
+    if (activeSection !== 'addresses' || !addrMapContainerRef.current) return
+    let cancelled = false
+
+    ensureLeafletLoaded()
+      .then(L => {
+        if (cancelled || !addrMapContainerRef.current) return
+        if (addrLeafletMapRef.current) {
+          addrLeafletMapRef.current.remove()
+          addrLeafletMapRef.current = null
+        }
+
+        const initial =
+          parseLatLng(addrPickerTarget === 'permanent' ? permGeo : currGeo) ||
+          parseLatLng(permGeo) ||
+          parseLatLng(currGeo) || { lat: 11.0168, lng: 76.9558 }
+
+        setPickedAddrCoords(initial)
+
+        const map = L.map(addrMapContainerRef.current).setView([initial.lat, initial.lng], 15)
+        const layerUrl = addrMapSatellite
+          ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+          : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+
+        const tileLayer = L.tileLayer(layerUrl, {
+          maxZoom: 19,
+          attribution: addrMapSatellite ? 'Esri World Imagery' : 'OpenStreetMap',
+        }).addTo(map)
+
+        const marker = L.marker([initial.lat, initial.lng], { draggable: true }).addTo(map)
+
+        const applyPickedLatLng = (lat: number, lng: number) => {
+          const formatted = `${lat.toFixed(6)},${lng.toFixed(6)}`
+          setPickedAddrCoords({ lat, lng })
+          if (addrTargetRef.current === 'permanent') {
+            setPermGeo(formatted)
+          } else {
+            setCurrGeo(formatted)
+          }
+        }
+
+        map.on('click', (ev: any) => {
+          const { lat, lng } = ev.latlng
+          marker.setLatLng([lat, lng])
+          applyPickedLatLng(lat, lng)
+        })
+
+        marker.on('dragend', () => {
+          const pos = marker.getLatLng()
+          applyPickedLatLng(pos.lat, pos.lng)
+        })
+
+        addrLeafletMapRef.current = map
+        addrLeafletMarkerRef.current = marker
+        addrTileLayerRef.current = tileLayer
+      })
+      .catch(() => {
+        // Ignore if CDN blocked
+      })
+
+    return () => {
+      cancelled = true
+      if (addrLeafletMapRef.current) {
+        addrLeafletMapRef.current.remove()
+        addrLeafletMapRef.current = null
+      }
+    }
+  }, [activeSection])
+
+  useEffect(() => {
+    if (!addrLeafletMapRef.current || !window.L) return
+    if (addrTileLayerRef.current) {
+      addrLeafletMapRef.current.removeLayer(addrTileLayerRef.current)
+    }
+    const layerUrl = addrMapSatellite
+      ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+      : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+    addrTileLayerRef.current = window.L
+      .tileLayer(layerUrl, {
+        maxZoom: 19,
+        attribution: addrMapSatellite ? 'Esri World Imagery' : 'OpenStreetMap',
+      })
+      .addTo(addrLeafletMapRef.current)
+  }, [addrMapSatellite])
+
+  useEffect(() => {
+    const raw = addrPickerTarget === 'permanent' ? permGeo : currGeo
+    const parsed = parseLatLng(raw)
+    if (parsed && addrLeafletMapRef.current && addrLeafletMarkerRef.current) {
+      addrLeafletMarkerRef.current.setLatLng([parsed.lat, parsed.lng])
+      addrLeafletMapRef.current.setView([parsed.lat, parsed.lng], addrLeafletMapRef.current.getZoom() || 15)
+      setPickedAddrCoords(parsed)
+    }
+  }, [addrPickerTarget, permGeo, currGeo])
 
   const showToast = (msg: string) => {
     setSaveBanner(msg)
@@ -1515,8 +1643,8 @@ export default function ProfileTab() {
                         setAddrPickerTarget('permanent')
                       }}
                       onFocus={() => setAddrPickerTarget('permanent')}
-                      className="mt-1"
-                      placeholder="https://maps.google.com/... or Plus Code (e.g., 7J4VXF22+22)"
+                      className="mt-1 font-mono text-xs"
+                      placeholder="Click on map below or paste Google Maps link / Plus Code..."
                     />
                   </div>
 
@@ -1538,11 +1666,12 @@ export default function ProfileTab() {
                         setAddrPickerTarget('current')
                       }}
                       onFocus={() => setAddrPickerTarget('current')}
-                      className="mt-1"
-                      placeholder="https://maps.google.com/... or Plus Code (e.g., 7J4VXF22+22)"
+                      className="mt-1 font-mono text-xs"
+                      placeholder="Click on map below or paste Google Maps link / Plus Code..."
                     />
                   </div>
 
+                  {/* Direct Interactive Clickable Map */}
                   <div className="rounded-xl border border-primary/35 bg-primary/5 p-3 space-y-2.5 text-xs">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5">
@@ -1555,7 +1684,7 @@ export default function ProfileTab() {
                               : 'bg-background/70 text-foreground'
                           }`}
                         >
-                          Preview Permanent
+                          Target: Permanent
                         </button>
                         <button
                           type="button"
@@ -1566,7 +1695,7 @@ export default function ProfileTab() {
                               : 'bg-background/70 text-foreground'
                           }`}
                         >
-                          Preview Current
+                          Target: Current
                         </button>
                       </div>
 
@@ -1603,40 +1732,17 @@ export default function ProfileTab() {
                         </Button>
                       </div>
 
-                      <div className="flex items-center gap-1">
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="outline"
-                          onClick={() => setAddrMapZoom(z => Math.max(4, z - 2))}
-                          className="h-7 w-7"
-                          title="Zoom Out"
-                        >
-                          <ZoomOut className="h-3.5 w-3.5" />
-                        </Button>
-                        <span className="px-1.5 text-[11px] font-mono">z:{addrMapZoom}</span>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="outline"
-                          onClick={() => setAddrMapZoom(z => Math.min(20, z + 2))}
-                          className="h-7 w-7"
-                          title="Zoom In"
-                        >
-                          <ZoomIn className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                      {pickedAddrCoords && (
+                        <span className="text-[11px] font-mono text-emerald-300">
+                          {pickedAddrCoords.lat.toFixed(6)}, {pickedAddrCoords.lng.toFixed(6)}
+                        </span>
+                      )}
                     </div>
 
-                    <div className="h-52 w-full overflow-auto rounded-lg border border-primary/40 bg-background">
-                      <iframe
-                        title="Profile Address Google Map"
-                        src={addressMapEmbedSrc}
-                        className="h-full w-full min-h-[200px] border-0"
-                        loading="lazy"
-                        referrerPolicy="no-referrer-when-downgrade"
-                      />
-                    </div>
+                    <div
+                      ref={addrMapContainerRef}
+                      className="h-60 w-full rounded-lg border border-primary/40 bg-background overflow-hidden"
+                    />
                   </div>
                 </div>
 
