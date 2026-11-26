@@ -1,11 +1,19 @@
 {
-  "version": "V2.90",
-  "timestamp": "26 Nov 2026, 03:37 PM IST",
-  "formatted": "V2.90, 26 Nov 2026, 03:37 PM IST",
+  "version": "V2.91",
+  "timestamp": "26 Nov 2026, 11:15 PM IST",
+  "formatted": "V2.91, 26 Nov 2026, 11:15 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Fix missing newline at end of index.html)",
+  "summary": "Minor general update (Change navigation from dashboard to activities)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.91",
+      "timestamp": "26 Nov 2026, 11:15 PM IST",
+      "formatted": "V2.91, 26 Nov 2026, 11:15 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Change navigation from dashboard to activities)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.90",
       "timestamp": "26 Nov 2026, 03:37 PM IST",
@@ -196,14 +204,6 @@
       "formatted": "V2.67, 25 Nov 2026, 04:33 AM IST",
       "type": "minor",
       "summary": "Minor general update (WhatsApp Group Setup & Instructions, Bulk WhatsApp, and Bulk Email)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.66",
-      "timestamp": "25 Nov 2026, 02:07 AM IST",
-      "formatted": "V2.66, 25 Nov 2026, 02:07 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Implement class event posting feature)",
       "requiresReinstall": false
     }
   ]
