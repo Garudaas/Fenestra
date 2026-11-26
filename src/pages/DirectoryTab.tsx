@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -40,9 +40,13 @@ import {
   X,
   CheckCircle2,
   ExternalLink,
-  ZoomIn,
-  ZoomOut,
 } from 'lucide-react'
+
+declare global {
+  interface Window {
+    L?: any
+  }
+}
 
 interface DirectoryTabProps {
   mode?: 'directory' | 'sos' | 'city_travel'
@@ -90,22 +94,20 @@ function resolveMapTarget(
   return null
 }
 
-function extractMapQueryFromInput(raw: string): string {
-  const trimmed = raw.trim()
-  if (!trimmed) return '11.0168,76.9558'
-  const qMatch = /[?&](?:q|query|ll|center)=([^&]+)/i.exec(trimmed)
-  if (qMatch?.[1]) {
-    return decodeURIComponent(qMatch[1])
+function parseCoordsFromString(raw: string): { lat: number; lng: number } | null {
+  const atMatch = /@(-?\d+\.\d+),\s*(-?\d+\.\d+)/.exec(raw)
+  if (atMatch) {
+    return { lat: Number(atMatch[1]), lng: Number(atMatch[2]) }
   }
-  const atMatch = /@(-?\d+\.\d+,-?\d+\.\d+)/.exec(trimmed)
-  if (atMatch?.[1]) {
-    return atMatch[1]
+  const qMatch = /[?&](?:q|query|ll|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/i.exec(raw)
+  if (qMatch) {
+    return { lat: Number(qMatch[1]), lng: Number(qMatch[2]) }
   }
-  const isShortLink = /https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps)/i.test(trimmed)
-  if (isShortLink || /^https?:\/\//i.test(trimmed)) {
-    return '11.0168,76.9558'
+  const plainMatch = /^(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)$/.exec(raw.trim())
+  if (plainMatch) {
+    return { lat: Number(plainMatch[1]), lng: Number(plainMatch[2]) }
   }
-  return trimmed
+  return null
 }
 
 function isReadableLocationInput(raw: string): { ok: boolean; normalizedQuery: string; error?: string } {
@@ -114,7 +116,7 @@ function isReadableLocationInput(raw: string): { ok: boolean; normalizedQuery: s
     return {
       ok: false,
       normalizedQuery: '',
-      error: 'Please choose a spot on the map or enter a Google Maps link, coordinates, or Plus Code.',
+      error: 'Please click a spot on the map or enter a Google Maps link, coordinates, or Plus Code.',
     }
   }
   const isHttp = trimmed.startsWith('http://') || trimmed.startsWith('https://')
@@ -130,8 +132,37 @@ function isReadableLocationInput(raw: string): { ok: boolean; normalizedQuery: s
     ok: false,
     normalizedQuery: '',
     error:
-      'Could not read the link, coordinates, or Plus Code. Paste a Google Maps link, LAT/LONG, full Plus Code, or pick a location on the map.',
+      'Could not read the link, coordinates, or Plus Code. Paste a Google Maps link, LAT/LONG, full Plus Code, or click directly on the map.',
   }
+}
+
+function ensureLeafletLoaded(): Promise<any> {
+  return new Promise((resolve, reject) => {
+    if (window.L) {
+      resolve(window.L)
+      return
+    }
+    if (!document.getElementById('leaflet-css-cdn')) {
+      const link = document.createElement('link')
+      link.id = 'leaflet-css-cdn'
+      link.rel = 'stylesheet'
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+      document.head.appendChild(link)
+    }
+    const existingScript = document.getElementById('leaflet-js-cdn') as HTMLScriptElement | null
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(window.L))
+      existingScript.addEventListener('error', () => reject(new Error('Failed to load map library.')))
+      return
+    }
+    const script = document.createElement('script')
+    script.id = 'leaflet-js-cdn'
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+    script.async = true
+    script.onload = () => resolve(window.L)
+    script.onerror = () => reject(new Error('Failed to load map library.'))
+    document.body.appendChild(script)
+  })
 }
 
 export default function DirectoryTab({
@@ -172,11 +203,15 @@ export default function DirectoryTab({
   const [provideLocationOpen, setProvideLocationOpen] = useState(false)
   const [locationLinkOrPlusCode, setLocationLinkOrPlusCode] = useState('')
   const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null)
-  const [mapZoom, setMapZoom] = useState<number>(14)
   const [mapSatellite, setMapSatellite] = useState<boolean>(true)
   const [locationError, setLocationError] = useState('')
   const [submittingLocation, setSubmittingLocation] = useState(false)
   const [locationFeedback, setLocationFeedback] = useState('')
+
+  const mapContainerRef = useRef<HTMLDivElement | null>(null)
+  const leafletMapRef = useRef<any>(null)
+  const leafletMarkerRef = useRef<any>(null)
+  const tileLayerRef = useRef<any>(null)
 
   const userIsAdmin = Boolean(isAdmin || user?.is_admin)
 
@@ -186,6 +221,92 @@ export default function DirectoryTab({
       loadTravelAlerts()
     }
   }, [mode])
+
+  useEffect(() => {
+    if (!provideLocationOpen || !mapContainerRef.current) return
+    let cancelled = false
+
+    ensureLeafletLoaded()
+      .then(L => {
+        if (cancelled || !mapContainerRef.current) return
+        if (leafletMapRef.current) {
+          leafletMapRef.current.remove()
+          leafletMapRef.current = null
+        }
+
+        const initial = pickedCoords ||
+          parseCoordsFromString(locationLinkOrPlusCode) || { lat: 11.0168, lng: 76.9558 }
+
+        const map = L.map(mapContainerRef.current).setView([initial.lat, initial.lng], 15)
+        const layerUrl = mapSatellite
+          ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+          : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+
+        const tileLayer = L.tileLayer(layerUrl, {
+          maxZoom: 19,
+          attribution: mapSatellite ? 'Esri World Imagery' : 'OpenStreetMap',
+        }).addTo(map)
+
+        const marker = L.marker([initial.lat, initial.lng], { draggable: true }).addTo(map)
+
+        const updateFromLatLng = (lat: number, lng: number) => {
+          const formatted = `${lat.toFixed(6)},${lng.toFixed(6)}`
+          setPickedCoords({ lat, lng })
+          setLocationLinkOrPlusCode(formatted)
+          setLocationError('')
+        }
+
+        map.on('click', (ev: any) => {
+          const { lat, lng } = ev.latlng
+          marker.setLatLng([lat, lng])
+          updateFromLatLng(lat, lng)
+        })
+
+        marker.on('dragend', () => {
+          const pos = marker.getLatLng()
+          updateFromLatLng(pos.lat, pos.lng)
+        })
+
+        leafletMapRef.current = map
+        leafletMarkerRef.current = marker
+        tileLayerRef.current = tileLayer
+      })
+      .catch(() => {
+        // Ignore if CDN blocked
+      })
+
+    return () => {
+      cancelled = true
+      if (leafletMapRef.current) {
+        leafletMapRef.current.remove()
+        leafletMapRef.current = null
+      }
+    }
+  }, [provideLocationOpen])
+
+  useEffect(() => {
+    if (!leafletMapRef.current || !window.L) return
+    if (tileLayerRef.current) {
+      leafletMapRef.current.removeLayer(tileLayerRef.current)
+    }
+    const layerUrl = mapSatellite
+      ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+      : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+    tileLayerRef.current = window.L
+      .tileLayer(layerUrl, {
+        maxZoom: 19,
+        attribution: mapSatellite ? 'Esri World Imagery' : 'OpenStreetMap',
+      })
+      .addTo(leafletMapRef.current)
+  }, [mapSatellite])
+
+  useEffect(() => {
+    const parsed = parseCoordsFromString(locationLinkOrPlusCode)
+    if (parsed && leafletMapRef.current && leafletMarkerRef.current) {
+      leafletMarkerRef.current.setLatLng([parsed.lat, parsed.lng])
+      leafletMapRef.current.setView([parsed.lat, parsed.lng], leafletMapRef.current.getZoom() || 15)
+    }
+  }, [locationLinkOrPlusCode])
 
   const loadDirectory = async () => {
     try {
@@ -467,7 +588,6 @@ export default function DirectoryTab({
     setProvideLocationOpen(false)
     setLocationLinkOrPlusCode('')
     setPickedCoords(null)
-    setMapZoom(14)
     setMapSatellite(true)
     setLocationError('')
   }
@@ -488,7 +608,7 @@ export default function DirectoryTab({
       'How to submit in the app:',
       '1. Open the link above (opens directly in the Fenestrians app if installed, or in your browser).',
       '2. Go to My Profile -> Edit Profile -> Addresses.',
-      `3. Paste your ${locLabel} link/Plus Code or pick on the map and tap Submit Addresses.`,
+      `3. Paste your ${locLabel} link/Plus Code or click on the map and tap Submit Addresses.`,
       !isInstalledPwa
         ? `App not installed yet? Open ${APP_INSTALL_URL} in your browser and tap "Install App / Add to Home Screen" to install the webapp.`
         : '',
@@ -624,37 +744,6 @@ export default function DirectoryTab({
     setLocationLinkOrPlusCode('')
     setPickedCoords(null)
   }
-
-  const setPresetCoordinates = (lat: number, lng: number) => {
-    const formatted = `${lat.toFixed(6)},${lng.toFixed(6)}`
-    setPickedCoords({ lat, lng })
-    setLocationLinkOrPlusCode(formatted)
-    setLocationError('')
-  }
-
-  const applyCoordinateFromPoint = (clientX: number, clientY: number, rect: DOMRect) => {
-    if (rect.width <= 0 || rect.height <= 0) return
-    const relX = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
-    const relY = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height))
-    const lat = 8.0883 + (1 - relY) * (28.6139 - 8.0883)
-    const lng = 76.9558 + relX * (88.3639 - 76.9558)
-    setPresetCoordinates(lat, lng)
-  }
-
-  const activeMapQuery = useMemo(() => {
-    if (pickedCoords) {
-      return `${pickedCoords.lat.toFixed(6)},${pickedCoords.lng.toFixed(6)}`
-    }
-    if (locationLinkOrPlusCode.trim()) {
-      return extractMapQueryFromInput(locationLinkOrPlusCode)
-    }
-    return '11.0168,76.9558'
-  }, [locationLinkOrPlusCode, pickedCoords])
-
-  const googleEmbedSrc = useMemo(() => {
-    const mapTypeParam = mapSatellite ? '&t=k' : '&t=m'
-    return `https://maps.google.com/maps?q=${encodeURIComponent(activeMapQuery)}&z=${mapZoom}${mapTypeParam}&output=embed`
-  }, [activeMapQuery, mapZoom, mapSatellite])
 
   const hasActiveFilters = Boolean(searchQuery || bloodFilter || cityFilter || professionFilter)
 
@@ -1043,7 +1132,7 @@ export default function DirectoryTab({
                   <div className="rounded-xl border border-primary/35 bg-primary/5 p-3 space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-semibold text-primary">
-                        Tap on the coordinate grid below or paste link / Plus Code:
+                        Click or drag the pin directly on the map, or paste a link / Plus Code:
                       </p>
                       <a
                         href={GOOGLE_MAPS_HELP_URL}
@@ -1055,88 +1144,6 @@ export default function DirectoryTab({
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     </div>
-
-                    {/* Interactive Coordinate Picker Box (Placed Above Map Iframe at z-20) */}
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onPointerDown={e =>
-                        applyCoordinateFromPoint(
-                          e.clientX,
-                          e.clientY,
-                          e.currentTarget.getBoundingClientRect()
-                        )
-                      }
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          setPresetCoordinates(11.0168, 76.9558)
-                        }
-                      }}
-                      className="relative z-20 h-36 w-full cursor-crosshair rounded-lg border-2 border-dashed border-primary/60 bg-gradient-to-br from-emerald-950/70 via-slate-900 to-sky-950/70 overflow-hidden select-none touch-none"
-                      title="Click or tap anywhere inside this box to pick coordinates directly"
-                    >
-                      <div className="absolute inset-0 opacity-25 bg-[linear-gradient(to_right,#94a3b8_1px,transparent_1px),linear-gradient(to_bottom,#94a3b8_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-                      <span className="absolute left-2 top-2 rounded bg-background/90 px-2 py-0.5 text-[10px] text-primary font-semibold pointer-events-none">
-                        Tap anywhere in this box to pick coordinates
-                      </span>
-                      {pickedCoords && (
-                        <div
-                          style={{
-                            left: `${Math.min(
-                              95,
-                              Math.max(5, ((pickedCoords.lng - 76.9558) / (88.3639 - 76.9558)) * 100)
-                            )}%`,
-                            top: `${Math.min(
-                              92,
-                              Math.max(8, (1 - (pickedCoords.lat - 8.0883) / (28.6139 - 8.0883)) * 100)
-                            )}%`,
-                          }}
-                          className="absolute -translate-x-1/2 -translate-y-full flex flex-col items-center pointer-events-none"
-                        >
-                          <MapPin className="h-6 w-6 text-red-500 drop-shadow" />
-                          <span className="rounded bg-black/85 px-1.5 py-0.5 text-[9px] font-mono text-white">
-                            {pickedCoords.lat.toFixed(4)}, {pickedCoords.lng.toFixed(4)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Quick Preset Pins */}
-                    <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                      <span className="text-muted-foreground">Quick pins:</span>
-                      <button
-                        type="button"
-                        onClick={() => setPresetCoordinates(11.0168, 76.9558)}
-                        className="rounded border border-primary/40 bg-background/80 px-2 py-0.5 text-primary hover:bg-primary/15"
-                      >
-                        Coimbatore
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPresetCoordinates(13.0827, 80.2707)}
-                        className="rounded border border-primary/40 bg-background/80 px-2 py-0.5 text-primary hover:bg-primary/15"
-                      >
-                        Chennai
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPresetCoordinates(12.9716, 77.5946)}
-                        className="rounded border border-primary/40 bg-background/80 px-2 py-0.5 text-primary hover:bg-primary/15"
-                      >
-                        Bengaluru
-                      </button>
-                    </div>
-
-                    <Input
-                      value={locationLinkOrPlusCode}
-                      onChange={e => {
-                        setLocationLinkOrPlusCode(e.target.value)
-                        setLocationError('')
-                      }}
-                      placeholder="Selected coordinates or paste Google Maps link / Plus Code..."
-                      className="text-xs font-mono"
-                    />
 
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5">
@@ -1160,40 +1167,27 @@ export default function DirectoryTab({
                         </Button>
                       </div>
 
-                      <div className="flex items-center gap-1">
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="outline"
-                          onClick={() => setMapZoom(z => Math.max(4, z - 2))}
-                          className="h-7 w-7"
-                          title="Zoom Out"
-                        >
-                          <ZoomOut className="h-3.5 w-3.5" />
-                        </Button>
-                        <span className="px-1.5 text-[11px] font-mono">z:{mapZoom}</span>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="outline"
-                          onClick={() => setMapZoom(z => Math.min(20, z + 2))}
-                          className="h-7 w-7"
-                          title="Zoom In"
-                        >
-                          <ZoomIn className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                      {pickedCoords && (
+                        <span className="text-[11px] font-mono text-emerald-300">
+                          {pickedCoords.lat.toFixed(6)}, {pickedCoords.lng.toFixed(6)}
+                        </span>
+                      )}
                     </div>
 
-                    <div className="relative z-10 h-48 w-full overflow-auto rounded-lg border border-primary/40 bg-background">
-                      <iframe
-                        title="Google Map Location Preview"
-                        src={googleEmbedSrc}
-                        className="h-full w-full min-h-[180px] border-0"
-                        loading="lazy"
-                        referrerPolicy="no-referrer-when-downgrade"
-                      />
-                    </div>
+                    <div
+                      ref={mapContainerRef}
+                      className="h-60 w-full rounded-lg border border-primary/40 bg-background overflow-hidden"
+                    />
+
+                    <Input
+                      value={locationLinkOrPlusCode}
+                      onChange={e => {
+                        setLocationLinkOrPlusCode(e.target.value)
+                        setLocationError('')
+                      }}
+                      placeholder="Picked coordinates or paste Google Maps link / Plus Code..."
+                      className="text-xs font-mono"
+                    />
 
                     {locationError && (
                       <p className="text-[11px] font-semibold text-red-400">{locationError}</p>
