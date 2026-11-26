@@ -1,11 +1,19 @@
 {
-  "version": "V2.87",
-  "timestamp": "26 Nov 2026, 03:34 PM IST",
-  "formatted": "V2.87, 26 Nov 2026, 03:34 PM IST",
+  "version": "V2.88",
+  "timestamp": "26 Nov 2026, 03:36 PM IST",
+  "formatted": "V2.88, 26 Nov 2026, 03:36 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor map handling and update input placeholders)",
+  "summary": "Minor technical update (Refactor MemberDashboard layout and accessibility)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.88",
+      "timestamp": "26 Nov 2026, 03:36 PM IST",
+      "formatted": "V2.88, 26 Nov 2026, 03:36 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor MemberDashboard layout and accessibility)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.87",
       "timestamp": "26 Nov 2026, 03:34 PM IST",
@@ -196,14 +204,6 @@
       "formatted": "V2.64, 25 Nov 2026, 02:03 AM IST",
       "type": "minor",
       "summary": "Minor general update (Chat and calling screen updated)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.63",
-      "timestamp": "25 Nov 2026, 02:01 AM IST",
-      "formatted": "V2.63, 25 Nov 2026, 02:01 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Add mode prop to SupportTab for dynamic section handling)",
       "requiresReinstall": false
     }
   ]
