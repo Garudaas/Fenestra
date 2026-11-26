@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.86",
-  "timestamp": "26 Nov 2026, 03:33 PM IST",
-  "formatted": "V2.86, 26 Nov 2026, 03:33 PM IST",
+  "version": "V2.87",
+  "timestamp": "26 Nov 2026, 03:34 PM IST",
+  "formatted": "V2.87, 26 Nov 2026, 03:34 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance location input and map functionality)",
+  "summary": "Minor technical update (Refactor map handling and update input placeholders)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.87",
+      "timestamp": "26 Nov 2026, 03:34 PM IST",
+      "formatted": "V2.87, 26 Nov 2026, 03:34 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Refactor map handling and update input placeholders)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.86",
       "timestamp": "26 Nov 2026, 03:33 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.63, 25 Nov 2026, 02:01 AM IST",
       "type": "minor",
       "summary": "Minor general update (Add mode prop to SupportTab for dynamic section handling)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.62",
-      "timestamp": "25 Nov 2026, 01:59 AM IST",
-      "formatted": "V2.62, 25 Nov 2026, 01:59 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Update src/pages/CalendarTab.tsx (Remove \"Post Class Event\" and \"Assign Task\" from Calendar))",
       "requiresReinstall": false
     }
   ]
