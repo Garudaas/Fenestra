@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.88",
-  "timestamp": "26 Nov 2026, 03:36 PM IST",
-  "formatted": "V2.88, 26 Nov 2026, 03:36 PM IST",
+  "version": "V2.89",
+  "timestamp": "26 Nov 2026, 03:37 PM IST",
+  "formatted": "V2.89, 26 Nov 2026, 03:37 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor MemberDashboard layout and accessibility)",
+  "summary": "Minor general update (Fix missing newline at end of manifest.json)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.89",
+      "timestamp": "26 Nov 2026, 03:37 PM IST",
+      "formatted": "V2.89, 26 Nov 2026, 03:37 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Fix missing newline at end of manifest.json)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.88",
       "timestamp": "26 Nov 2026, 03:36 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.65, 25 Nov 2026, 02:05 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Refactor DirectoryTab component and update props)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.64",
-      "timestamp": "25 Nov 2026, 02:03 AM IST",
-      "formatted": "V2.64, 25 Nov 2026, 02:03 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Chat and calling screen updated)",
       "requiresReinstall": false
     }
   ]
