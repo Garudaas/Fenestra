@@ -162,7 +162,6 @@ export default function MemberDashboard() {
   const [callsBadge, setCallsBadge] = useState(0)
   const [tasksBadge, setTasksBadge] = useState(0)
 
-  // Post an Event state (sub-tab inside Activities)
   const [eventTitle, setEventTitle] = useState('')
   const [eventType, setEventType] = useState('Birthday Party')
   const [isFullDayEvent, setIsFullDayEvent] = useState(false)
@@ -185,7 +184,6 @@ export default function MemberDashboard() {
   const [alertDraftEdited, setAlertDraftEdited] = useState(false)
   const [postingEvent, setPostingEvent] = useState(false)
 
-  // External Calls (WhatsApp Group Call, Google Meet & Zoom)
   const [waGroupLink, setWaGroupLink] = useState<string>(() => {
     try {
       const saved = localStorage.getItem(WA_GROUPS_STORAGE_KEY)
@@ -872,20 +870,20 @@ export default function MemberDashboard() {
           : 'border-border/40 bg-card/75 hover:border-primary/40 hover:bg-primary/5'
       }`}
     >
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/35 bg-primary/10 text-primary">
+      <div className="flex items-start gap-3 min-w-0 flex-1">
+        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/35 bg-primary/10 text-primary">
           {icon}
         </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-foreground truncate">{title}</span>
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-bold text-foreground leading-snug break-words">{title}</span>
             {badgeCount && badgeCount > 0 ? (
               <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">
                 {badgeCount}
               </span>
             ) : null}
           </div>
-          <p className="text-[11px] text-muted-foreground truncate">{subtitle}</p>
+          <p className="text-[11px] text-muted-foreground leading-snug break-words">{subtitle}</p>
         </div>
       </div>
 
@@ -1025,7 +1023,7 @@ export default function MemberDashboard() {
                           : 'border-border/50 bg-card/75 hover:border-primary/60 hover:bg-primary/10'
                       }`}
                     >
-                      <div className="flex items-start gap-3 min-w-0">
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
                         <div
                           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border group-hover:scale-105 transition-transform ${
                             tab.adminOnly
@@ -1035,10 +1033,10 @@ export default function MemberDashboard() {
                         >
                           <Icon className="h-5 w-5" />
                         </div>
-                        <div className="min-w-0 space-y-1">
-                          <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span
-                              className={`text-sm font-bold transition-colors ${
+                              className={`text-sm font-bold leading-snug break-words transition-colors ${
                                 tab.adminOnly
                                   ? 'text-amber-300 group-hover:text-amber-200'
                                   : 'text-foreground group-hover:text-primary'
@@ -1052,7 +1050,7 @@ export default function MemberDashboard() {
                               </span>
                             ) : null}
                           </div>
-                          <p className="text-[11px] text-muted-foreground leading-snug">
+                          <p className="text-[11px] text-muted-foreground leading-snug break-words">
                             {tab.description}
                           </p>
                         </div>
