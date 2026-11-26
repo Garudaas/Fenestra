@@ -349,7 +349,7 @@ export default function MemberDashboard() {
     const rawTab = searchParams.get('tab')
     const viewParam = searchParams.get('view')
 
-    if (location.pathname === '/dashboard' && rawTab) {
+    if (rawTab) {
       if (rawTab === 'profile') {
         setHubSection('roster')
         setExpandedRosterTab('my_profile')
@@ -382,14 +382,14 @@ export default function MemberDashboard() {
         setHubSection('roster')
         setExpandedRosterTab('directory')
       }
+    } else {
+      setExpandedRosterTab(getPersistedExpandedTab(SCOPE_ROSTER))
+      setExpandedEmergencyTab(getPersistedExpandedTab(SCOPE_EMERGENCY))
+      setExpandedActivityTab(getPersistedExpandedTab(SCOPE_ACTIVITIES) as ActivitySubTab | null)
+      setExpandedCommTab(getPersistedExpandedTab(SCOPE_COMM) as CommSubTab | null)
+      setExpandedDriveTab(getPersistedExpandedTab(SCOPE_DRIVE) as DriveSubTab | null)
+      setExpandedSettingsMaintTab(getPersistedExpandedTab(SCOPE_SETTINGS_MAINT))
     }
-
-    setExpandedRosterTab(getPersistedExpandedTab(SCOPE_ROSTER))
-    setExpandedEmergencyTab(getPersistedExpandedTab(SCOPE_EMERGENCY))
-    setExpandedActivityTab(getPersistedExpandedTab(SCOPE_ACTIVITIES) as ActivitySubTab | null)
-    setExpandedCommTab(getPersistedExpandedTab(SCOPE_COMM) as CommSubTab | null)
-    setExpandedDriveTab(getPersistedExpandedTab(SCOPE_DRIVE) as DriveSubTab | null)
-    setExpandedSettingsMaintTab(getPersistedExpandedTab(SCOPE_SETTINGS_MAINT))
 
     const dmId = searchParams.get('dmId')
     const dmName = searchParams.get('dmName')
@@ -1123,11 +1123,11 @@ export default function MemberDashboard() {
                     mode="directory"
                     onStartDM={(id, name) => {
                       recordPreviousRoute('/roster')
-                      navigate(`/dashboard?tab=chat&dmId=${id}&dmName=${encodeURIComponent(name)}`)
+                      navigate(`/activities?tab=chat&dmId=${id}&dmName=${encodeURIComponent(name)}`)
                     }}
                     onStartVideoCall={roomName => {
                       recordPreviousRoute('/roster')
-                      navigate(`/dashboard?tab=calls&roomName=${encodeURIComponent(roomName)}`)
+                      navigate(`/activities?tab=calls&roomName=${encodeURIComponent(roomName)}`)
                     }}
                   />
                 </div>
@@ -1186,11 +1186,11 @@ export default function MemberDashboard() {
                     mode="sos"
                     onStartDM={(id, name) => {
                       recordPreviousRoute('/emergency')
-                      navigate(`/dashboard?tab=chat&dmId=${id}&dmName=${encodeURIComponent(name)}`)
+                      navigate(`/activities?tab=chat&dmId=${id}&dmName=${encodeURIComponent(name)}`)
                     }}
                     onStartVideoCall={roomName => {
                       recordPreviousRoute('/emergency')
-                      navigate(`/dashboard?tab=calls&roomName=${encodeURIComponent(roomName)}`)
+                      navigate(`/activities?tab=calls&roomName=${encodeURIComponent(roomName)}`)
                     }}
                   />
                 </div>
@@ -1275,7 +1275,7 @@ export default function MemberDashboard() {
                   <CalendarTab
                     onJoinCall={roomName => {
                       recordPreviousRoute('/activities')
-                      navigate(`/dashboard?tab=calls&roomName=${encodeURIComponent(roomName)}`)
+                      navigate(`/activities?tab=calls&roomName=${encodeURIComponent(roomName)}`)
                     }}
                   />
                 </div>
@@ -1560,11 +1560,11 @@ export default function MemberDashboard() {
                     mode="city_travel"
                     onStartDM={(id, name) => {
                       recordPreviousRoute('/activities')
-                      navigate(`/dashboard?tab=chat&dmId=${id}&dmName=${encodeURIComponent(name)}`)
+                      navigate(`/activities?tab=chat&dmId=${id}&dmName=${encodeURIComponent(name)}`)
                     }}
                     onStartVideoCall={roomName => {
                       recordPreviousRoute('/activities')
-                      navigate(`/dashboard?tab=calls&roomName=${encodeURIComponent(roomName)}`)
+                      navigate(`/activities?tab=calls&roomName=${encodeURIComponent(roomName)}`)
                     }}
                   />
                 </div>
