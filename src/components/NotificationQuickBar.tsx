@@ -290,7 +290,7 @@ export default function NotificationQuickBar() {
           await clearChatNotifications(user.id)
           setUnreadChatCount(0)
           recordPreviousRoute(`${location.pathname}${location.search}`)
-          navigate('/dashboard?tab=chat')
+          navigate('/activities?tab=chat')
         }}
         title="Chat"
         className="relative flex items-center gap-1 rounded-full bg-muted/40 px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-all"
@@ -307,7 +307,7 @@ export default function NotificationQuickBar() {
         type="button"
         onClick={() => {
           recordPreviousRoute(`${location.pathname}${location.search}`)
-          navigate('/dashboard?tab=calls')
+          navigate('/activities?tab=calls')
         }}
         title="Voice & Video Calls"
         className="relative flex items-center gap-1 rounded-full bg-muted/40 px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-all"
