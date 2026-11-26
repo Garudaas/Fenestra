@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.89",
+  "version": "V2.90",
   "timestamp": "26 Nov 2026, 03:37 PM IST",
-  "formatted": "V2.89, 26 Nov 2026, 03:37 PM IST",
+  "formatted": "V2.90, 26 Nov 2026, 03:37 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Fix missing newline at end of manifest.json)",
+  "summary": "Minor technical update (Fix missing newline at end of index.html)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.90",
+      "timestamp": "26 Nov 2026, 03:37 PM IST",
+      "formatted": "V2.90, 26 Nov 2026, 03:37 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Fix missing newline at end of index.html)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.89",
       "timestamp": "26 Nov 2026, 03:37 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.66, 25 Nov 2026, 02:07 AM IST",
       "type": "minor",
       "summary": "Minor general update (Implement class event posting feature)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.65",
-      "timestamp": "25 Nov 2026, 02:05 AM IST",
-      "formatted": "V2.65, 25 Nov 2026, 02:05 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Refactor DirectoryTab component and update props)",
       "requiresReinstall": false
     }
   ]
