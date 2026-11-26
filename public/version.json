@@ -1,11 +1,19 @@
 {
-  "version": "V2.85",
-  "timestamp": "26 Nov 2026, 02:08 PM IST",
-  "formatted": "V2.85, 26 Nov 2026, 02:08 PM IST",
+  "version": "V2.86",
+  "timestamp": "26 Nov 2026, 03:33 PM IST",
+  "formatted": "V2.86, 26 Nov 2026, 03:33 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Modify theme color and app title in index.html)",
+  "summary": "Minor general update (Enhance location input and map functionality)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.86",
+      "timestamp": "26 Nov 2026, 03:33 PM IST",
+      "formatted": "V2.86, 26 Nov 2026, 03:33 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Enhance location input and map functionality)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.85",
       "timestamp": "26 Nov 2026, 02:08 PM IST",
@@ -196,14 +204,6 @@
       "formatted": "V2.62, 25 Nov 2026, 01:59 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Update src/pages/CalendarTab.tsx (Remove \"Post Class Event\" and \"Assign Task\" from Calendar))",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.61",
-      "timestamp": "25 Nov 2026, 12:56 AM IST",
-      "formatted": "V2.61, 25 Nov 2026, 12:56 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Track previous routes on navigation actions)",
       "requiresReinstall": false
     }
   ]
