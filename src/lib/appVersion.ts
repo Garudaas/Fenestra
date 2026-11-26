@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.84",
-  "timestamp": "26 Nov 2026, 02:07 PM IST",
-  "formatted": "V2.84, 26 Nov 2026, 02:07 PM IST",
+  "version": "V2.85",
+  "timestamp": "26 Nov 2026, 02:08 PM IST",
+  "formatted": "V2.85, 26 Nov 2026, 02:08 PM IST",
   "type": "minor",
-  "summary": "Minor general update (App icon display changed)",
+  "summary": "Minor technical update (Modify theme color and app title in index.html)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.85",
+      "timestamp": "26 Nov 2026, 02:08 PM IST",
+      "formatted": "V2.85, 26 Nov 2026, 02:08 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Modify theme color and app title in index.html)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.84",
       "timestamp": "26 Nov 2026, 02:07 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.61, 25 Nov 2026, 12:56 AM IST",
       "type": "minor",
       "summary": "Minor general update (Track previous routes on navigation actions)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.60",
-      "timestamp": "25 Nov 2026, 12:50 AM IST",
-      "formatted": "V2.60, 25 Nov 2026, 12:50 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Implement previous route tracking on NotificationsPage)",
       "requiresReinstall": false
     }
   ]
