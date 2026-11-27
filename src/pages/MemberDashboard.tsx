@@ -14,6 +14,7 @@ import {
   isChatNotification,
   archiveDailyCelebrationAlert,
   publishArchivedAlert,
+  sendDevicePushNotification,
 } from '@/lib/notificationService'
 import { formatFullDate, cleanPhoneNumber } from '@/lib/formatters'
 import { getDefaultSpouseGender } from '@/lib/fenestriansCore'
@@ -93,12 +94,43 @@ const SCOPE_DRIVE = 'sub_drive'
 const SCOPE_SETTINGS_MAINT = 'sub_settings_maintenance'
 const WA_GROUPS_STORAGE_KEY = 'fenestrians_whatsapp_groups_v1'
 
+const BATCH_DAY_ORIGIN_DATE = '1997-09-22'
+const BATCH_DAY_ORIGIN_YEAR = 1997
+
 interface FamilyMemberOption {
   id: number
   name: string
   relationship: string | null
   gender: string | null
   dob: string | null
+}
+
+function formatOrdinal(n: number): string {
+  const mod100 = n % 100
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`
+  switch (n % 10) {
+    case 1:
+      return `${n}st`
+    case 2:
+      return `${n}nd`
+    case 3:
+      return `${n}rd`
+    default:
+      return `${n}th`
+  }
+}
+
+function getInclusiveEditionCount(originYear: number, targetYear: number): number {
+  return Math.max(1, targetYear - originYear + 1)
+}
+
+function parseOriginYearFromDescription(desc?: string | null, fallbackStartDate?: string | null): number | null {
+  const match = /\[COMMON_EVENT_ORIGIN_YEAR:(\d{4})\]/.exec(String(desc || ''))
+  if (match?.[1]) return Number(match[1])
+  if (fallbackStartDate && /^\d{4}-\d{2}-\d{2}/.test(fallbackStartDate)) {
+    return Number(fallbackStartDate.slice(0, 4))
+  }
+  return null
 }
 
 function resolveHubFromPathname(pathname: string): HubSectionKey {
@@ -129,6 +161,10 @@ function getTargetSubjectChoices(
   maritalStatus?: string | null,
   divorceDate?: string | null
 ): string[] {
+  if (eventType === 'Common Batch Event') {
+    return ['All Fenestrians']
+  }
+
   const isSingleOrDivorced =
     !maritalStatus ||
     ['single', 'unmarried', 'divorced'].includes(maritalStatus.trim().toLowerCase()) ||
@@ -159,6 +195,7 @@ export default function MemberDashboard() {
   const [hubSection, setHubSection] = useState<HubSectionKey>(() =>
     resolveHubFromPathname(location.pathname)
   )
+  const [isOfficerRole, setIsOfficerRole] = useState(false)
   const [alerts, setAlerts] = useState<string[]>([])
   const [notifBadge, setNotifBadge] = useState(0)
   const [chatBadge, setChatBadge] = useState(0)
@@ -167,6 +204,7 @@ export default function MemberDashboard() {
 
   const [eventTitle, setEventTitle] = useState('')
   const [eventType, setEventType] = useState('Birthday Party')
+  const [commonOriginYear, setCommonOriginYear] = useState('')
   const [isFullDayEvent, setIsFullDayEvent] = useState(false)
   const [eventStartDate, setEventStartDate] = useState('')
   const [eventStartTime, setEventStartTime] = useState('10:00')
@@ -224,6 +262,9 @@ export default function MemberDashboard() {
     getPersistedExpandedTab(SCOPE_SETTINGS_MAINT)
   )
 
+  const userIsAdmin = Boolean(isAdmin || user?.is_admin)
+  const canManageCommonEvents = userIsAdmin || isOfficerRole
+
   const subjectChoices = useMemo(
     () => getTargetSubjectChoices(eventType, user?.marital_status, user?.divorce_date),
     [eventType, user?.marital_status, user?.divorce_date]
@@ -239,6 +280,7 @@ export default function MemberDashboard() {
     if (!user) return
     setSpouseNameInput(user.spouse_name || '')
     setWeddingDateInput(user.wedding_date ? String(user.wedding_date).slice(0, 10) : '')
+
     supabase
       .from('family_members')
       .select('id, name, relationship, gender, dob')
@@ -246,11 +288,38 @@ export default function MemberDashboard() {
       .then(({ data }) => {
         if (data) setFamilyList(data as FamilyMemberOption[])
       })
+
+    fetchCommitteeRolesMap()
+      .then(rolesMap => {
+        const badge = resolveMemberAssociationRole({
+          userId: user.id,
+          isAdmin: user.is_admin,
+          committeeRolesMap: rolesMap,
+        })
+        setIsOfficerRole(badge.kind === 'office' || badge.kind === 'admin')
+      })
+      .catch(() => {})
   }, [user])
 
   const buildSampleEventAlert = useCallback(() => {
     if (!user) return ''
     const titlePart = eventTitle.trim() || `${eventType} (${eventSubject})`
+
+    if (eventType === 'Common Batch Event') {
+      const originYr = /^\d{4}$/.test(commonOriginYear.trim())
+        ? Number(commonOriginYear.trim())
+        : /^\d{4}-\d{2}-\d{2}$/.test(eventStartDate)
+        ? Number(eventStartDate.slice(0, 4))
+        : null
+      const currentYear = new Date().getFullYear()
+      const editionLabel = originYr
+        ? `${formatOrdinal(getInclusiveEditionCount(originYr, currentYear))} ${titlePart}`
+        : titlePart
+      const dateDisplay = eventStartDate ? formatFullDate(eventStartDate) : 'TBD'
+      const descPart = eventDesc.trim() ? `\n${eventDesc.trim()}` : ''
+      return `Happy ${editionLabel} to all Fenestrians! (${dateDisplay})\nAdded by: ${user.full_name}${descPart}`
+    }
+
     const timingPart = isFullDayEvent
       ? `Date: ${eventStartDate || 'TBD'}${eventEndDate ? ` to ${eventEndDate}` : ''} (Full Day)`
       : `Start: ${eventStartDate || 'TBD'} ${eventStartTime || ''}${
@@ -292,6 +361,7 @@ export default function MemberDashboard() {
     eventTitle,
     eventType,
     eventSubject,
+    commonOriginYear,
     isFullDayEvent,
     eventStartDate,
     eventStartTime,
@@ -462,21 +532,80 @@ export default function MemberDashboard() {
 
   const triggerAlerts = async () => {
     if (!user) return
-    const { data: users } = await supabase.from('alumni').select('*').eq('is_placeholder', false)
+    const [{ data: users }, { data: calEvents }] = await Promise.all([
+      supabase.from('alumni').select('*').eq('is_placeholder', false),
+      supabase.from('calendar_events').select('*'),
+    ])
     if (!users) return
 
+    const existingEvents = calEvents ?? []
+    const hasBatchDay = existingEvents.some(
+      (ev: any) =>
+        String(ev.title || '').trim().toLowerCase() === 'batch day' &&
+        String(ev.classification || '').trim() === 'Common Batch Event'
+    )
+
+    if (!hasBatchDay) {
+      await supabase.from('calendar_events').insert([
+        {
+          title: 'Batch Day',
+          classification: 'Common Batch Event',
+          start_date: BATCH_DAY_ORIGIN_DATE,
+          description:
+            'Our first day in class (22nd September 1997). Counted inclusively each year (22nd Sept 1998 = 2nd Batch Day, 22nd Sept 2026 = 30th Batch Day).\n[COMMON_EVENT_ORIGIN_YEAR:1997]',
+          room_tag: null,
+          created_by: user.id,
+        },
+      ])
+    }
+
     const today = new Date()
+    const currentYear = today.getFullYear()
     const currentDay = today.getDate()
     const currentMonth = today.getMonth()
-    const datestampTodayStr = `${today.getFullYear()}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`
+    const datestampTodayStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`
     const fullTodayDisplay = formatFullDate(datestampTodayStr)
 
     const celebrations: Array<{
       text: string
-      category: 'birthday' | 'anniversary'
+      category: 'birthday' | 'anniversary' | 'event'
       shortTitle: string
     }> = []
 
+    // 1. Built-in Batch Day check (22nd September 1997 -> 1998 = 2nd, 2026 = 30th)
+    if (currentMonth === 8 && currentDay === 22) {
+      const edition = getInclusiveEditionCount(BATCH_DAY_ORIGIN_YEAR, currentYear)
+      const ordinalStr = formatOrdinal(edition)
+      celebrations.push({
+        text: `Happy ${ordinalStr} Batch Day to all Fenestrians! (${fullTodayDisplay} — Celebrating our first day in class on 22nd September 1997)`,
+        category: 'anniversary',
+        shortTitle: `${ordinalStr} Batch Day Wishes`,
+      })
+    }
+
+    // 2. Other Common Batch Events (e.g. Graduation Day) added by Admins / Officers
+    for (const ev of existingEvents) {
+      if (String(ev.classification || '').trim() !== 'Common Batch Event') continue
+      const titleLower = String(ev.title || '').trim().toLowerCase()
+      if (titleLower === 'batch day') continue
+      if (!ev.start_date) continue
+
+      const evDate = new Date(ev.start_date)
+      if (Number.isNaN(evDate.getTime())) continue
+      if (evDate.getDate() === currentDay && evDate.getMonth() === currentMonth) {
+        const originYr = parseOriginYearFromDescription(ev.description, ev.start_date)
+        const titleLabel = originYr
+          ? `${formatOrdinal(getInclusiveEditionCount(originYr, currentYear))} ${ev.title}`
+          : ev.title
+        celebrations.push({
+          text: `Happy ${titleLabel} to all Fenestrians! (${fullTodayDisplay})`,
+          category: 'event',
+          shortTitle: `${titleLabel} Wishes`,
+        })
+      }
+    }
+
+    // 3. Individual Member Birthdays & Wedding Anniversaries
     users.forEach(u => {
       if (u.dob && new Date(u.dob).getDate() === currentDay && new Date(u.dob).getMonth() === currentMonth) {
         celebrations.push({
@@ -502,6 +631,8 @@ export default function MemberDashboard() {
 
     setAlerts(celebrations.map(c => c.text))
 
+    const allActiveMemberIds = users.map((u: any) => u.id).filter((id: any) => Number.isFinite(Number(id)))
+
     for (const celeb of celebrations) {
       const uniqueTrace = `[AUTO-ALERT:${datestampTodayStr}]: ${celeb.text}`
       const { data: m } = await supabase
@@ -514,6 +645,15 @@ export default function MemberDashboard() {
         await supabase
           .from('chat_messages')
           .insert([{ room_id: 'global', sender_id: 0, sender_name: '🛡️ System Bot', message_text: uniqueTrace }])
+
+        if (celeb.shortTitle.includes('Wishes') && allActiveMemberIds.length > 0) {
+          sendDevicePushNotification({
+            shortTitle: celeb.shortTitle,
+            fullMessage: celeb.text,
+            targetUserIds: allActiveMemberIds,
+            launchUrl: 'https://fenestrians.salmaali.in/calendar',
+          })
+        }
       }
 
       await archiveDailyCelebrationAlert({
@@ -608,6 +748,10 @@ export default function MemberDashboard() {
       alert('Please enter Event Title and Start Date.')
       return
     }
+    if (eventType === 'Common Batch Event' && !canManageCommonEvents) {
+      alert('Only Admins and Association Officers can add Common Batch Events.')
+      return
+    }
     setPostingEvent(true)
 
     const roomTag =
@@ -615,12 +759,30 @@ export default function MemberDashboard() {
         ? 'Meeting-' + eventTitle.trim().replace(/[^a-zA-Z0-9]/g, '-')
         : null
 
+    const parsedOriginYear =
+      eventType === 'Common Batch Event'
+        ? /^\d{4}$/.test(commonOriginYear.trim())
+          ? Number(commonOriginYear.trim())
+          : /^\d{4}-\d{2}-\d{2}$/.test(eventStartDate)
+          ? Number(eventStartDate.slice(0, 4))
+          : null
+        : null
+
     const finalAlertText = (customAlertDraft || buildSampleEventAlert()).trim()
     const fullDescWithTiming = [
       finalAlertText,
-      !isFullDayEvent && eventStartTime ? `Start Time: ${eventStartTime}` : '',
-      eventEndDate ? `End Date: ${eventEndDate}${!isFullDayEvent && eventEndTime ? ` ${eventEndTime}` : ''}` : '',
-      isOneTimeEvent ? 'One-Time Event (This Year)' : 'Annual / Recurring Profile Event',
+      parsedOriginYear ? `[COMMON_EVENT_ORIGIN_YEAR:${parsedOriginYear}]` : '',
+      !isFullDayEvent && eventStartTime && eventType !== 'Common Batch Event'
+        ? `Start Time: ${eventStartTime}`
+        : '',
+      eventEndDate
+        ? `End Date: ${eventEndDate}${!isFullDayEvent && eventEndTime ? ` ${eventEndTime}` : ''}`
+        : '',
+      eventType === 'Common Batch Event'
+        ? 'Annual Common Batch Event'
+        : isOneTimeEvent
+        ? 'One-Time Event (This Year)'
+        : 'Annual / Recurring Profile Event',
     ]
       .filter(Boolean)
       .join('\n')
@@ -636,7 +798,7 @@ export default function MemberDashboard() {
       },
     ])
 
-    if (updateProfilePermission) {
+    if (updateProfilePermission && eventType !== 'Common Batch Event') {
       if (eventType === 'Birthday Party' && eventSubject === 'Self' && /^\d{4}-\d{2}-\d{2}$/.test(eventStartDate)) {
         await supabase.from('alumni').update({ dob: eventStartDate }).eq('id', user.id)
       }
@@ -682,12 +844,16 @@ export default function MemberDashboard() {
 
     await publishArchivedAlert({
       category: 'event',
-      shortTitle: `Event: ${eventType}`,
+      shortTitle:
+        eventType === 'Common Batch Event'
+          ? `Common Event: ${eventTitle.trim()}`
+          : `Event: ${eventType}`,
       fullMessage: finalAlertText,
     })
 
     setPostingEvent(false)
     setEventTitle('')
+    setCommonOriginYear('')
     setEventStartDate('')
     setEventEndDate('')
     setEventDesc('')
@@ -777,8 +943,11 @@ export default function MemberDashboard() {
 
   if (!user) return null
 
-  const userIsAdmin = Boolean(isAdmin || user.is_admin)
   const totalCommBadge = chatBadge + callsBadge
+  const currentBatchDayEdition = getInclusiveEditionCount(
+    BATCH_DAY_ORIGIN_YEAR,
+    new Date().getFullYear()
+  )
 
   const mainHubTabs: Array<{
     id: string
@@ -803,7 +972,7 @@ export default function MemberDashboard() {
     {
       id: 'calendar',
       label: 'Calendar',
-      description: 'Birthdays, anniversaries, meetings & class schedules',
+      description: `Batch Day (${formatOrdinal(currentBatchDayEdition)}), birthdays, anniversaries & schedules`,
       icon: CalendarDays,
     },
     {
@@ -983,14 +1152,14 @@ export default function MemberDashboard() {
               className="flex items-center justify-between rounded-lg gold-border bg-primary/5 px-4 py-2.5 text-xs shadow-sm"
             >
               <span className="flex items-center gap-2 text-primary font-medium">
-                <Crown className="h-3.5 w-3.5" />
-                {a}
+                <Crown className="h-3.5 w-3.5 shrink-0" />
+                <span>{a}</span>
               </span>
               <Button
                 variant="ghost"
                 size="sm"
                 title="Dismiss Alert"
-                className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground shrink-0"
                 onClick={() => setAlerts(prev => prev.filter((_, idx) => idx !== i))}
               >
                 <X className="h-3 w-3" />
@@ -1302,7 +1471,7 @@ export default function MemberDashboard() {
 
               {renderAccordionToggle(
                 'Post an Event',
-                'Post party, birthday, anniversary, wedding, house warming, child birth or meeting',
+                'Post party, birthday, anniversary, wedding, house warming, child birth, meeting or common batch event',
                 expandedActivityTab === 'post_event',
                 () =>
                   setExpandedActivityTab(
@@ -1326,7 +1495,11 @@ export default function MemberDashboard() {
                           <Input
                             value={eventTitle}
                             onChange={e => setEventTitle(e.target.value)}
-                            placeholder="Event title"
+                            placeholder={
+                              eventType === 'Common Batch Event'
+                                ? 'e.g., Graduation Day, Alumni Foundation Day'
+                                : 'Event title'
+                            }
                             className="mt-1 text-xs"
                           />
                         </div>
@@ -1337,6 +1510,11 @@ export default function MemberDashboard() {
                             value={eventType}
                             onChange={e => setEventType(e.target.value)}
                           >
+                            {canManageCommonEvents && (
+                              <option value="Common Batch Event">
+                                Common Batch Event (Admins &amp; Officers)
+                              </option>
+                            )}
                             <option value="Family Party/Event">Family Party/Event</option>
                             <option value="Anniversary party">Anniversary party</option>
                             <option value="Birthday Party">Birthday Party</option>
@@ -1365,16 +1543,29 @@ export default function MemberDashboard() {
                           </select>
                         </div>
 
-                        <div className="flex items-center gap-2 pt-5">
-                          <Checkbox
-                            id="full-day-event"
-                            checked={isFullDayEvent}
-                            onCheckedChange={v => setIsFullDayEvent(Boolean(v))}
-                          />
-                          <Label htmlFor="full-day-event" className="text-xs cursor-pointer">
-                            Full Day Event
-                          </Label>
-                        </div>
+                        {eventType === 'Common Batch Event' ? (
+                          <div>
+                            <Label className="text-xs">Origin / First Year (for inclusive count)</Label>
+                            <Input
+                              type="number"
+                              value={commonOriginYear}
+                              onChange={e => setCommonOriginYear(e.target.value)}
+                              placeholder="e.g., 1997 or 2001 (Optional)"
+                              className="mt-1 text-xs"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 pt-5">
+                            <Checkbox
+                              id="full-day-event"
+                              checked={isFullDayEvent}
+                              onCheckedChange={v => setIsFullDayEvent(Boolean(v))}
+                            />
+                            <Label htmlFor="full-day-event" className="text-xs cursor-pointer">
+                              Full Day Event
+                            </Label>
+                          </div>
+                        )}
 
                         <div>
                           <Label className="text-xs">Start Date *</Label>
@@ -1385,7 +1576,7 @@ export default function MemberDashboard() {
                           />
                         </div>
 
-                        {!isFullDayEvent && (
+                        {!isFullDayEvent && eventType !== 'Common Batch Event' && (
                           <div>
                             <Label className="text-xs">Start Time</Label>
                             <Input
@@ -1397,16 +1588,18 @@ export default function MemberDashboard() {
                           </div>
                         )}
 
-                        <div>
-                          <Label className="text-xs">End Date (Optional)</Label>
-                          <SmartDateInput
-                            value={eventEndDate}
-                            onChange={setEventEndDate}
-                            className="mt-1"
-                          />
-                        </div>
+                        {eventType !== 'Common Batch Event' && (
+                          <div>
+                            <Label className="text-xs">End Date (Optional)</Label>
+                            <SmartDateInput
+                              value={eventEndDate}
+                              onChange={setEventEndDate}
+                              className="mt-1"
+                            />
+                          </div>
+                        )}
 
-                        {!isFullDayEvent && (
+                        {!isFullDayEvent && eventType !== 'Common Batch Event' && (
                           <div>
                             <Label className="text-xs">End Time</Label>
                             <Input
@@ -1419,81 +1612,83 @@ export default function MemberDashboard() {
                         )}
                       </div>
 
-                      {(eventSubject === 'spouse' ||
-                        eventType === 'Anniversary party' ||
-                        eventType === 'Wedding') && (
-                        <div className="rounded-xl border border-border/40 bg-background/60 p-3 space-y-2">
-                          <p className="font-semibold text-primary">
-                            Optional Spouse / Wedding Details (for Profile &amp; Alert)
-                          </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <Input
-                              value={spouseNameInput}
-                              onChange={e => setSpouseNameInput(e.target.value)}
-                              placeholder={
-                                getDefaultSpouseGender(user.gender) === 'Female'
-                                  ? 'Wife Name (Optional)'
-                                  : getDefaultSpouseGender(user.gender) === 'Male'
-                                  ? 'Husband Name (Optional)'
-                                  : 'Spouse Name (Optional)'
-                              }
-                              className="text-xs"
-                            />
-                            <SmartDateInput
-                              value={weddingDateInput}
-                              onChange={setWeddingDateInput}
-                              placeholder="Actual Wedding Date (YYYY-MM-DD)"
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {(eventSubject === 'child' || eventType === 'child birth') && (
-                        <div className="rounded-xl border border-border/40 bg-background/60 p-3 space-y-2">
-                          <p className="font-semibold text-primary">
-                            Optional Child Details (Select existing or add new)
-                          </p>
-                          <select
-                            value={selectedFamilyId}
-                            onChange={e => setSelectedFamilyId(e.target.value)}
-                            className="w-full h-9 rounded-md border border-border/50 bg-background px-3 text-xs"
-                          >
-                            <option value="">-- Select from existing family (Optional) --</option>
-                            {familyList.map(fm => (
-                              <option key={fm.id} value={String(fm.id)}>
-                                {fm.name} ({fm.relationship || 'child'})
-                                {fm.dob ? ` • ${String(fm.dob).slice(0, 4)}` : ''}
-                              </option>
-                            ))}
-                            <option value="other">Other (Add new child)</option>
-                          </select>
-
-                          {(selectedFamilyId === 'other' || !selectedFamilyId) && (
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {eventType !== 'Common Batch Event' &&
+                        (eventSubject === 'spouse' ||
+                          eventType === 'Anniversary party' ||
+                          eventType === 'Wedding') && (
+                          <div className="rounded-xl border border-border/40 bg-background/60 p-3 space-y-2">
+                            <p className="font-semibold text-primary">
+                              Optional Spouse / Wedding Details (for Profile &amp; Alert)
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               <Input
-                                value={newFamilyName}
-                                onChange={e => setNewFamilyName(e.target.value)}
-                                placeholder="Child Name (Optional)"
+                                value={spouseNameInput}
+                                onChange={e => setSpouseNameInput(e.target.value)}
+                                placeholder={
+                                  getDefaultSpouseGender(user.gender) === 'Female'
+                                    ? 'Wife Name (Optional)'
+                                    : getDefaultSpouseGender(user.gender) === 'Male'
+                                    ? 'Husband Name (Optional)'
+                                    : 'Spouse Name (Optional)'
+                                }
                                 className="text-xs"
                               />
-                              <select
-                                value={newFamilyGender}
-                                onChange={e => setNewFamilyGender(e.target.value)}
-                                className="h-9 rounded-md border border-border/50 bg-background px-2 text-xs"
-                              >
-                                <option value="">Gender (Optional)</option>
-                                <option value="Male">Son / Male</option>
-                                <option value="Female">Daughter / Female</option>
-                              </select>
                               <SmartDateInput
-                                value={newFamilyDob}
-                                onChange={setNewFamilyDob}
-                                placeholder="Birth Date (YYYY-MM-DD)"
+                                value={weddingDateInput}
+                                onChange={setWeddingDateInput}
+                                placeholder="Actual Wedding Date (YYYY-MM-DD)"
                               />
                             </div>
-                          )}
-                        </div>
-                      )}
+                          </div>
+                        )}
+
+                      {eventType !== 'Common Batch Event' &&
+                        (eventSubject === 'child' || eventType === 'child birth') && (
+                          <div className="rounded-xl border border-border/40 bg-background/60 p-3 space-y-2">
+                            <p className="font-semibold text-primary">
+                              Optional Child Details (Select existing or add new)
+                            </p>
+                            <select
+                              value={selectedFamilyId}
+                              onChange={e => setSelectedFamilyId(e.target.value)}
+                              className="w-full h-9 rounded-md border border-border/50 bg-background px-3 text-xs"
+                            >
+                              <option value="">-- Select from existing family (Optional) --</option>
+                              {familyList.map(fm => (
+                                <option key={fm.id} value={String(fm.id)}>
+                                  {fm.name} ({fm.relationship || 'child'})
+                                  {fm.dob ? ` • ${String(fm.dob).slice(0, 4)}` : ''}
+                                </option>
+                              ))}
+                              <option value="other">Other (Add new child)</option>
+                            </select>
+
+                            {(selectedFamilyId === 'other' || !selectedFamilyId) && (
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <Input
+                                  value={newFamilyName}
+                                  onChange={e => setNewFamilyName(e.target.value)}
+                                  placeholder="Child Name (Optional)"
+                                  className="text-xs"
+                                />
+                                <select
+                                  value={newFamilyGender}
+                                  onChange={e => setNewFamilyGender(e.target.value)}
+                                  className="h-9 rounded-md border border-border/50 bg-background px-2 text-xs"
+                                >
+                                  <option value="">Gender (Optional)</option>
+                                  <option value="Male">Son / Male</option>
+                                  <option value="Female">Daughter / Female</option>
+                                </select>
+                                <SmartDateInput
+                                  value={newFamilyDob}
+                                  onChange={setNewFamilyDob}
+                                  placeholder="Birth Date (YYYY-MM-DD)"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                       <div>
                         <Label className="text-xs">Description</Label>
@@ -1505,23 +1700,25 @@ export default function MemberDashboard() {
                         />
                       </div>
 
-                      <div className="flex flex-wrap gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <Checkbox
-                            checked={updateProfilePermission}
-                            onCheckedChange={v => setUpdateProfilePermission(Boolean(v))}
-                          />
-                          <span>Update my profile details with permission</span>
-                        </label>
+                      {eventType !== 'Common Batch Event' && (
+                        <div className="flex flex-wrap gap-4">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <Checkbox
+                              checked={updateProfilePermission}
+                              onCheckedChange={v => setUpdateProfilePermission(Boolean(v))}
+                            />
+                            <span>Update my profile details with permission</span>
+                          </label>
 
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <Checkbox
-                            checked={isOneTimeEvent}
-                            onCheckedChange={v => setIsOneTimeEvent(Boolean(v))}
-                          />
-                          <span>One-time event this year (otherwise annual)</span>
-                        </label>
-                      </div>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <Checkbox
+                              checked={isOneTimeEvent}
+                              onCheckedChange={v => setIsOneTimeEvent(Boolean(v))}
+                            />
+                            <span>One-time event this year (otherwise annual)</span>
+                          </label>
+                        </div>
+                      )}
 
                       <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-1.5">
                         <div className="flex items-center justify-between">
