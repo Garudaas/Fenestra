@@ -14,6 +14,16 @@ import { Bell, MessageSquare, Phone, GripVertical } from 'lucide-react'
 
 const POS_STORAGE_KEY = 'fenestrians_quickbar_pos'
 
+function getClampedCoords(x: number, y: number, width = 230, height = 48) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+  const maxX = Math.max(8, window.innerWidth - width - 8)
+  const maxY = Math.max(68, window.innerHeight - height - 8)
+  return {
+    x: Math.min(maxX, Math.max(8, x)),
+    y: Math.min(maxY, Math.max(68, y)),
+  }
+}
+
 export default function NotificationQuickBar() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -26,11 +36,17 @@ export default function NotificationQuickBar() {
   const [customPos, setCustomPos] = useState<{ x: number; y: number } | null>(() => {
     try {
       const saved = localStorage.getItem(POS_STORAGE_KEY)
-      return saved ? JSON.parse(saved) : null
+      if (!saved) return null
+      const parsed = JSON.parse(saved)
+      if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
+        return getClampedCoords(parsed.x, parsed.y)
+      }
+      return null
     } catch {
       return null
     }
   })
+
   const dragStateRef = useRef<{
     dragging: boolean
     startX: number
@@ -167,17 +183,31 @@ export default function NotificationQuickBar() {
     }
   }, [user, location.search])
 
-  const clampPosition = (x: number, y: number) => {
+  const clampPosition = useCallback((x: number, y: number) => {
     const el = barRef.current
     const width = el?.offsetWidth || 230
     const height = el?.offsetHeight || 48
-    const maxX = Math.max(8, window.innerWidth - width - 8)
-    const maxY = Math.max(60, window.innerHeight - height - 8)
-    return {
-      x: Math.min(maxX, Math.max(8, x)),
-      y: Math.min(maxY, Math.max(60, y)),
+    return getClampedCoords(x, y, width, height)
+  }, [])
+
+  useEffect(() => {
+    const handleResize = () => {
+      setCustomPos(curr => {
+        if (!curr) return null
+        const clamped = clampPosition(curr.x, curr.y)
+        if (clamped) {
+          try {
+            localStorage.setItem(POS_STORAGE_KEY, JSON.stringify(clamped))
+          } catch {
+            // Ignore
+          }
+        }
+        return clamped
+      })
     }
-  }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [clampPosition])
 
   const startDrag = (clientX: number, clientY: number) => {
     const rect = barRef.current?.getBoundingClientRect()
@@ -201,7 +231,7 @@ export default function NotificationQuickBar() {
         dragStateRef.current.origX + dx,
         dragStateRef.current.origY + dy
       )
-      setCustomPos(next)
+      if (next) setCustomPos(next)
     }
 
     const handleMouseMove = (e: MouseEvent) => onMove(e.clientX, e.clientY)
@@ -237,7 +267,7 @@ export default function NotificationQuickBar() {
       window.removeEventListener('mouseup', handleEnd)
       window.removeEventListener('touchend', handleEnd)
     }
-  }, [])
+  }, [clampPosition])
 
   if (!user || user.is_placeholder) return null
 
@@ -249,7 +279,7 @@ export default function NotificationQuickBar() {
     <div
       ref={barRef}
       style={positionStyle}
-      className="fixed z-40 flex items-center gap-1.5 rounded-full border border-primary/40 bg-card/90 px-2.5 py-2 shadow-2xl backdrop-blur-md"
+      className="fixed z-50 flex items-center gap-1.5 rounded-full border border-primary/40 bg-card/90 px-2.5 py-2 shadow-2xl backdrop-blur-md"
     >
       <button
         type="button"
