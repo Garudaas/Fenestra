@@ -73,6 +73,7 @@ type HubSectionKey =
   | 'landing'
   | 'roster'
   | 'emergency'
+  | 'calendar'
   | 'alumni'
   | 'activities'
   | 'tasks'
@@ -80,7 +81,7 @@ type HubSectionKey =
   | 'drive'
   | 'settings_maintenance'
 
-type ActivitySubTab = 'calendar' | 'post_event' | 'city_town' | 'opportunities' | 'communication'
+type ActivitySubTab = 'post_event' | 'city_town' | 'opportunities' | 'communication'
 type CommSubTab = 'chat' | 'video' | 'voice' | 'scheduled_calls' | 'external_calls'
 type DriveSubTab = 'gallery' | 'folders'
 
@@ -106,6 +107,8 @@ function resolveHubFromPathname(pathname: string): HubSectionKey {
       return 'roster'
     case '/emergency':
       return 'emergency'
+    case '/calendar':
+      return 'calendar'
     case '/activities':
       return 'activities'
     case '/tasks':
@@ -357,8 +360,7 @@ export default function MemberDashboard() {
         setHubSection('emergency')
         setExpandedEmergencyTab(viewParam === 'opportunities' ? 'opportunities' : 'family_support')
       } else if (rawTab === 'calendar') {
-        setHubSection('activities')
-        setExpandedActivityTab('calendar')
+        setHubSection('calendar')
       } else if (rawTab === 'tasks') {
         setHubSection('tasks')
       } else if (rawTab === 'chat') {
@@ -717,6 +719,11 @@ export default function MemberDashboard() {
       navigate('/emergency')
       return
     }
+    if (tabId === 'calendar') {
+      recordPreviousRoute(currentFull)
+      navigate('/calendar')
+      return
+    }
     if (tabId === 'alumni') {
       recordPreviousRoute(currentFull)
       navigate('/alumni-association')
@@ -794,16 +801,16 @@ export default function MemberDashboard() {
       icon: Siren,
     },
     {
-      id: 'alumni',
-      label: 'Alumni Association',
-      description: 'Committee, Meetings, Polls, Mentorship & Treasury',
-      icon: Building2,
+      id: 'calendar',
+      label: 'Calendar',
+      description: 'Birthdays, anniversaries, meetings & class schedules',
+      icon: CalendarDays,
     },
     {
       id: 'activities',
       label: 'Activities',
-      description: 'Calendar, Post an Event, City Map / In Town, Jobs & Comms',
-      icon: CalendarDays,
+      description: 'Post an Event, City Map / In Town, Jobs & Comms',
+      icon: CalendarClock,
       badge: totalCommBadge,
     },
     {
@@ -825,6 +832,12 @@ export default function MemberDashboard() {
       label: 'Drive',
       description: 'Photo Gallery & Member Folders',
       icon: FolderOpen,
+    },
+    {
+      id: 'alumni',
+      label: 'Alumni Association',
+      description: 'Committee, Meetings, Polls, Mentorship & Treasury',
+      icon: Building2,
     },
     {
       id: 'settings_maintenance',
@@ -1214,6 +1227,33 @@ export default function MemberDashboard() {
             </div>
           )}
 
+          {hubSection === 'calendar' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-primary flex items-center gap-2">
+                  <CalendarDays className="h-5 w-5" />
+                  Calendar
+                </h2>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCloseCurrentSubPage}
+                  className="text-xs gap-1"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Close Page
+                </Button>
+              </div>
+              <CalendarTab
+                onJoinCall={roomName => {
+                  recordPreviousRoute('/calendar')
+                  navigate(`/activities?tab=calls&roomName=${encodeURIComponent(roomName)}`)
+                }}
+              />
+            </div>
+          )}
+
           {hubSection === 'tasks' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -1245,7 +1285,7 @@ export default function MemberDashboard() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-primary flex items-center gap-2">
-                  <CalendarDays className="h-5 w-5" />
+                  <CalendarClock className="h-5 w-5" />
                   Activities
                 </h2>
                 <Button
@@ -1259,27 +1299,6 @@ export default function MemberDashboard() {
                   Close Page
                 </Button>
               </div>
-
-              {renderAccordionToggle(
-                'Alumni / Class Calendar',
-                'Birthdays, anniversaries, meetings & class schedules',
-                expandedActivityTab === 'calendar',
-                () =>
-                  setExpandedActivityTab(
-                    toggleExclusiveTab(SCOPE_ACTIVITIES, expandedActivityTab, 'calendar') as ActivitySubTab | null
-                  ),
-                <CalendarDays className="h-4 w-4" />
-              )}
-              {expandedActivityTab === 'calendar' && (
-                <div className="pt-1">
-                  <CalendarTab
-                    onJoinCall={roomName => {
-                      recordPreviousRoute('/activities')
-                      navigate(`/activities?tab=calls&roomName=${encodeURIComponent(roomName)}`)
-                    }}
-                  />
-                </div>
-              )}
 
               {renderAccordionToggle(
                 'Post an Event',
