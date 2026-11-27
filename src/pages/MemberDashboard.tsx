@@ -568,7 +568,7 @@ export default function MemberDashboard() {
 
     const celebrations: Array<{
       text: string
-      category: 'birthday' | 'anniversary' | 'event'
+      category: 'birthday' | 'anniversary'
       shortTitle: string
     }> = []
 
@@ -599,7 +599,7 @@ export default function MemberDashboard() {
           : ev.title
         celebrations.push({
           text: `Happy ${titleLabel} to all Fenestrians! (${fullTodayDisplay})`,
-          category: 'event',
+          category: 'anniversary',
           shortTitle: `${titleLabel} Wishes`,
         })
       }
