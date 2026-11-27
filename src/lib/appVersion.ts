@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.96",
-  "timestamp": "27 Nov 2026, 06:21 PM IST",
-  "formatted": "V2.96, 27 Nov 2026, 06:21 PM IST",
+  "version": "V2.97",
+  "timestamp": "27 Nov 2026, 06:54 PM IST",
+  "formatted": "V2.97, 27 Nov 2026, 06:54 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Add calendar section to MemberDashboard)",
+  "summary": "Minor general update (Enhance MemberDashboard with event handling features)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.97",
+      "timestamp": "27 Nov 2026, 06:54 PM IST",
+      "formatted": "V2.97, 27 Nov 2026, 06:54 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Enhance MemberDashboard with event handling features)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.96",
       "timestamp": "27 Nov 2026, 06:21 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.73, 25 Nov 2026, 04:56 AM IST",
       "type": "minor",
       "summary": "Minor general update (Enhance DirectoryTab with location handling and guidance)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.72",
-      "timestamp": "25 Nov 2026, 04:53 AM IST",
-      "formatted": "V2.72, 25 Nov 2026, 04:53 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Enhance support request functionality and descriptions)",
       "requiresReinstall": false
     }
   ]
