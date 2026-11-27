@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.98",
-  "timestamp": "27 Nov 2026, 09:42 PM IST",
-  "formatted": "V2.98, 27 Nov 2026, 09:42 PM IST",
+  "version": "V2.99",
+  "timestamp": "27 Nov 2026, 09:49 PM IST",
+  "formatted": "V2.99, 27 Nov 2026, 09:49 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Remove 'event' category from celebrations)",
+  "summary": "Minor general update (Enhance CalendarTab with common event management)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.99",
+      "timestamp": "27 Nov 2026, 09:49 PM IST",
+      "formatted": "V2.99, 27 Nov 2026, 09:49 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Enhance CalendarTab with common event management)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.98",
       "timestamp": "27 Nov 2026, 09:42 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.75, 25 Nov 2026, 04:58 AM IST",
       "type": "minor",
       "summary": "Minor general update (Update navigation logic in NotificationsPage)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.74",
-      "timestamp": "25 Nov 2026, 04:58 AM IST",
-      "formatted": "V2.74, 25 Nov 2026, 04:58 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Implement task editing and withdrawal features)",
       "requiresReinstall": false
     }
   ]
