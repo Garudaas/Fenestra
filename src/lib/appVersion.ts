@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.95",
-  "timestamp": "27 Nov 2026, 06:17 PM IST",
-  "formatted": "V2.95, 27 Nov 2026, 06:17 PM IST",
+  "version": "V2.96",
+  "timestamp": "27 Nov 2026, 06:21 PM IST",
+  "formatted": "V2.96, 27 Nov 2026, 06:21 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Add calendar route to App component)",
+  "summary": "Minor general update (Add calendar section to MemberDashboard)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.96",
+      "timestamp": "27 Nov 2026, 06:21 PM IST",
+      "formatted": "V2.96, 27 Nov 2026, 06:21 PM IST",
+      "type": "minor",
+      "summary": "Minor general update (Add calendar section to MemberDashboard)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.95",
       "timestamp": "27 Nov 2026, 06:17 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.72, 25 Nov 2026, 04:53 AM IST",
       "type": "minor",
       "summary": "Minor general update (Enhance support request functionality and descriptions)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.71",
-      "timestamp": "25 Nov 2026, 04:52 AM IST",
-      "formatted": "V2.71, 25 Nov 2026, 04:52 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Update src/pages/MemberDashboard.tsx)",
       "requiresReinstall": false
     }
   ]
