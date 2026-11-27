@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.93",
-  "timestamp": "27 Nov 2026, 05:57 PM IST",
-  "formatted": "V2.93, 27 Nov 2026, 05:57 PM IST",
+  "version": "V2.94",
+  "timestamp": "27 Nov 2026, 06:17 PM IST",
+  "formatted": "V2.94, 27 Nov 2026, 06:17 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Refactor position clamping and storage logic)",
+  "summary": "Minor technical update (Add calendar route to App component)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V2.94",
+      "timestamp": "27 Nov 2026, 06:17 PM IST",
+      "formatted": "V2.94, 27 Nov 2026, 06:17 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Add calendar route to App component)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.93",
       "timestamp": "27 Nov 2026, 05:57 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.70, 25 Nov 2026, 04:43 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Executive Committee Election & President Guardrails (AlumniAssociationHome.tsx))",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.69",
-      "timestamp": "25 Nov 2026, 04:41 AM IST",
-      "formatted": "V2.69, 25 Nov 2026, 04:41 AM IST",
-      "type": "minor",
-      "summary": "Minor technical update (Treasury Governance & QR Upload (TreasuryPage.tsx))",
       "requiresReinstall": false
     }
   ]
