@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V2.99",
-  "timestamp": "27 Nov 2026, 09:49 PM IST",
-  "formatted": "V2.99, 27 Nov 2026, 09:49 PM IST",
+  "version": "V3.00",
+  "timestamp": "28 Nov 2026, 07:26 PM IST",
+  "formatted": "V3.00, 28 Nov 2026, 07:26 PM IST",
   "type": "minor",
-  "summary": "Minor general update (Enhance CalendarTab with common event management)",
+  "summary": "Minor technical update (Fix formatting issue in MemberDashboard component)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V3.00",
+      "timestamp": "28 Nov 2026, 07:26 PM IST",
+      "formatted": "V3.00, 28 Nov 2026, 07:26 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Fix formatting issue in MemberDashboard component)",
+      "requiresReinstall": false
+    },
     {
       "version": "V2.99",
       "timestamp": "27 Nov 2026, 09:49 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.76, 25 Nov 2026, 05:02 AM IST",
       "type": "minor",
       "summary": "Minor general update (Enhance address fields with map picker functionality)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.75",
-      "timestamp": "25 Nov 2026, 04:58 AM IST",
-      "formatted": "V2.75, 25 Nov 2026, 04:58 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Update navigation logic in NotificationsPage)",
       "requiresReinstall": false
     }
   ]
