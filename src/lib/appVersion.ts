@@ -12,13 +12,21 @@ export interface AppVersionData extends VersionEntry {
 }
 
 export const APP_VERSION_INFO: AppVersionData = {
-  "version": "V3.00",
-  "timestamp": "28 Nov 2026, 07:26 PM IST",
-  "formatted": "V3.00, 28 Nov 2026, 07:26 PM IST",
+  "version": "V3.01",
+  "timestamp": "28 Nov 2026, 07:27 PM IST",
+  "formatted": "V3.01, 28 Nov 2026, 07:27 PM IST",
   "type": "minor",
-  "summary": "Minor technical update (Fix formatting issue in MemberDashboard component)",
+  "summary": "Minor technical update (Fix missing newline at end of CalendarTab.tsx)",
   "requiresReinstall": false,
   "history": [
+    {
+      "version": "V3.01",
+      "timestamp": "28 Nov 2026, 07:27 PM IST",
+      "formatted": "V3.01, 28 Nov 2026, 07:27 PM IST",
+      "type": "minor",
+      "summary": "Minor technical update (Fix missing newline at end of CalendarTab.tsx)",
+      "requiresReinstall": false
+    },
     {
       "version": "V3.00",
       "timestamp": "28 Nov 2026, 07:26 PM IST",
@@ -209,14 +217,6 @@ export const APP_VERSION_INFO: AppVersionData = {
       "formatted": "V2.77, 25 Nov 2026, 05:07 AM IST",
       "type": "minor",
       "summary": "Minor technical update (Fix import statement for Label component)",
-      "requiresReinstall": false
-    },
-    {
-      "version": "V2.76",
-      "timestamp": "25 Nov 2026, 05:02 AM IST",
-      "formatted": "V2.76, 25 Nov 2026, 05:02 AM IST",
-      "type": "minor",
-      "summary": "Minor general update (Enhance address fields with map picker functionality)",
       "requiresReinstall": false
     }
   ]
